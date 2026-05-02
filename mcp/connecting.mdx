@@ -1,7 +1,101 @@
 ---
 title: "Connecting MCP Servers"
-description: "Add and configure MCP servers in Pioneer."
+description: "Add stdio and HTTP MCP servers to a Pioneer gateway."
 icon: "link"
 ---
 
-<Note>Coming soon. This page will cover adding servers via the Desktop App, stdio vs HTTP configuration, environment variables, and health diagnostics.</Note>
+Add MCP servers from the desktop app while connected to the gateway that should own the integration.
+
+Pioneer connects to servers that implement [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro). Those servers can expose tools, resources, prompts, and workflows to the gateway.
+
+Before you add one, decide where it belongs. A work MCP server should usually live on the work gateway. A personal helper should live on the home or local gateway. An unfamiliar server should be tested in a sandbox first.
+
+## Install From The Desktop App
+
+In the desktop app, connect to the gateway where the MCP server should run. Click the MCP icon in the bottom bar, click **Install**, paste the MCP JSON config into the config field, and submit it.
+
+Pioneer reads the JSON, validates each server under `mcpServers`, stores secrets through the gateway secret store, creates the server entries, and starts or connects to enabled servers.
+
+## Stdio Servers
+
+Use stdio when Pioneer should launch the MCP server as a local child process.
+
+For stdio, the command in the JSON must already be available on the gateway host. For a remote gateway, install that command on the remote machine, not on your laptop.
+
+Paste a config with a top-level `mcpServers` object:
+
+```json
+{
+  "mcpServers": {
+    "resend": {
+      "command": "npx",
+      "args": ["-y", "resend-mcp"],
+      "env": {
+        "RESEND_API_KEY": "re_xxxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+The server name, such as `resend`, must use letters, numbers, `_`, or `-`. Use `command` for the executable, `args` for command arguments, and `env` for environment variables passed to that server. You can also set `cwd` when the command must start from a specific directory.
+
+## HTTP Servers
+
+Use HTTP when the MCP server is already running as a service.
+
+Start the service outside Pioneer, confirm the gateway can reach its URL, then install it from the MCP screen with a JSON config like this:
+
+```json
+{
+  "mcpServers": {
+    "resend": {
+      "url": "https://example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer re_xxxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+Use `url` for the MCP HTTP endpoint and `headers` for authentication or routing headers. The URL must use `http` or `https`. If the gateway is remote, test connectivity from the remote host.
+
+## Common Config Fields
+
+Every server config lives under `mcpServers` and uses the object key as the server name.
+
+| Field | Use |
+| --- | --- |
+| `command` | Stdio server executable. Mutually exclusive with `url`. |
+| `args` | Optional stdio command arguments. |
+| `cwd` | Optional working directory for a stdio server. |
+| `env` | Optional environment variables for a stdio server. |
+| `url` | HTTP MCP endpoint. Mutually exclusive with `command`. |
+| `headers` | Optional HTTP headers for an HTTP server. |
+| `enabled` | Enables the server when `true`. |
+| `disabled` | Disables the server when `true`. Do not set both `enabled` and `disabled`. |
+| `allow_implicit_invocation` | Allows agents to consider the server automatically when `true`; keep it `false` for explicit-only use. |
+| `required` | Marks the server as required for the configured scope. |
+| `startup_timeout_sec` | Optional startup timeout. |
+| `tool_timeout_sec` | Optional timeout for MCP tool calls. |
+
+## Secrets
+
+Do not paste MCP secrets into chat prompts. Put API keys, tokens, and other credentials in the MCP JSON `env` or `headers` fields, or in the gateway environment when your server reads credentials from there.
+
+Pioneer stores secret values from `env`, `headers`, tokens, and authorization fields through the gateway secret store and redacts them from diagnostics and source references.
+
+## Health And First Test
+
+After saving a server, Pioneer should discover its tools, resources, templates, and prompts. If it fails, the most common causes are a missing command, invalid environment variable, auth failure, unreachable HTTP endpoint, or a server that starts but advertises no tools.
+
+Review the discovered tools before enabling them. Keep new MCP tools not implicit until you understand what they can read, write, or call.
+
+Use a read-only first prompt:
+
+```text
+List the MCP tools available in this workspace and explain what each one can do. Do not call them yet.
+```
+
+Then call one low-risk tool and inspect the timeline.

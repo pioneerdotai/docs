@@ -1,30 +1,54 @@
 ---
 title: "MCP Servers Overview"
-description: "Connect Pioneer to external APIs and services via the Model Context Protocol."
+description: "Connect tools and resources to Pioneer through Model Context Protocol."
 icon: "plug"
 ---
 
-**MCP (Model Context Protocol)** is an open standard for exposing tools and resources to AI agents. Pioneer can connect to any MCP-compatible server, giving the agent access to external services — databases, APIs, file systems, and more.
+MCP servers let Pioneer reach tools and resources that live outside Pioneer.
 
-## How MCP works in Pioneer
+Pioneer supports servers built for [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro), the open standard for connecting AI applications to external systems such as tools, data sources, and workflows.
 
-When you connect an MCP server to Pioneer:
+If a model needs to query a database, call an internal service, read from a documentation system, or use a company-specific integration, MCP is one way to make that available. The gateway connects to the MCP server, discovers what it exposes, and lets agents use the allowed pieces.
 
-1. The gateway starts the MCP server process (or connects to an existing HTTP endpoint)
-2. The server advertises its available **tools**, **resources**, and **prompts**
-3. Those tools become available to the agent during conversations
+Agents do not connect to MCP servers directly. The gateway is the runtime in the middle. That is useful because the gateway can track health, catalog tools, apply policy, and keep the behavior tied to the environment you chose.
 
-## Transport types
+## What MCP Is For
 
-Pioneer supports two MCP transport modes:
+Use MCP when there is an existing system you want Pioneer to work with instead of reimplementing it as prompts or shell commands.
 
-- **stdio** — Pioneer spawns the server as a child process and communicates over stdin/stdout. Good for local tools.
-- **HTTP** — Pioneer connects to a running HTTP MCP server. Good for shared or remote services.
+A local MCP server might expose developer tools on your machine. A remote MCP service might expose internal APIs. A database MCP server might give agents controlled ways to inspect data. A documentation MCP server might let agents search private docs.
 
-## Connecting a server
+The practical question is simple: should this capability belong to the gateway and be available across threads or tasks? If yes, MCP is probably a better fit than pasting instructions into one thread.
 
-See [Connecting MCP Servers](/mcp/connecting) for step-by-step instructions.
+## Gateway And Workspace Scope
 
-## Browsing the catalog
+MCP connections belong to a gateway and become available through the current workspace.
 
-See [MCP Catalog](/mcp/catalog) to learn about discovering and managing connected servers.
+This keeps environments clean. A work gateway can connect to work systems. A home gateway can connect to personal tools. A sandbox gateway can test new MCP servers before they touch anything important.
+
+## Enabled And Implicit MCP
+
+MCP servers and their exposed tools can be enabled or disabled. A disabled server can stay configured on the gateway, but agents should not use its tools.
+
+Enabled MCP tools can be **implicit** or **not implicit**. An implicit MCP tool can be considered automatically when Pioneer decides it is relevant. A not implicit MCP tool stays available, but agents should use it only when you explicitly ask for that MCP capability.
+
+Use implicit mode for trusted tools that are safe and useful across many threads. Keep sensitive, destructive, noisy, or rarely needed MCP tools not implicit.
+
+<Warning>
+  MCP tools can affect whatever the MCP server can reach. Combined with the current lack of tool sandboxing, you should test new MCP servers carefully.
+</Warning>
+
+## How It Feels In Use
+
+After you add a server, Pioneer starts or connects to it, reads its catalog, and shows the available tools, resources, templates, and prompts. You decide what should be enabled in the current workspace and whether tools should be implicit. After that, agents can call allowed tools from threads and tasks.
+
+For local processes, Pioneer uses stdio. For network services, it uses HTTP.
+
+<Columns cols={2}>
+  <Card title="Connecting MCP Servers" icon="link" href="/mcp/connecting">
+    Add stdio or HTTP MCP servers to a gateway.
+  </Card>
+  <Card title="MCP Catalog" icon="list" href="/mcp/catalog">
+    Inspect exposed tools, resources, and health.
+  </Card>
+</Columns>

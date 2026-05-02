@@ -1,7 +1,87 @@
 ---
 title: "MCP Catalog"
-description: "Browse and manage connected MCP servers and their available tools."
+description: "Review MCP server health, tools, resources, prompts, and audit history."
 icon: "list"
 ---
 
-<Note>Coming soon. This page will cover browsing the tool catalog, enabling/disabling specific tools, viewing resource listings, and managing server lifecycle (start, stop, restart).</Note>
+The MCP catalog shows what a connected MCP server exposes to Pioneer.
+
+Use the catalog before allowing agents to use a server.
+
+## Catalog items
+
+An MCP server can expose:
+
+| Item | Meaning |
+| --- | --- |
+| Tools | Actions an agent can call |
+| Resources | Readable external data |
+| Resource templates | Parameterized resources |
+| Prompts | Reusable prompt templates |
+
+## What to inspect
+
+For each server, review:
+
+- display name
+- transport type
+- runtime status
+- health diagnostics
+- enabled/disabled state
+- implicit/not implicit state
+- tool count
+- resource count
+- prompts
+- policy state
+- recent audit activity
+
+## Enable, Disable, Or Change Implicit Mode
+
+Disable MCP servers or tools until you understand what they expose. After they are trusted, decide whether they should be implicit.
+
+An **implicit** MCP tool can be picked up automatically when Pioneer decides it is relevant. A **not implicit** MCP tool stays available, but agents should use it only when you explicitly ask for that MCP capability.
+
+Use implicit mode for trusted read-heavy tools that are useful across many threads. Keep write-capable, sensitive, expensive, noisy, or production-facing MCP tools not implicit.
+
+## Tool review checklist
+
+Before enabling an MCP server in real workflows, ask:
+
+- What can each tool read?
+- What can each tool write?
+- Does it call external services?
+- Does it need secrets?
+- Does it modify production systems?
+- Does it have rate limits?
+- Does it return sensitive data?
+- Should it be implicit, or only used when explicitly requested?
+
+## Server lifecycle
+
+From the desktop app you can manage server lifecycle actions such as:
+
+- start
+- stop
+- restart
+- update policy
+- uninstall
+- inspect details
+
+Available actions may depend on transport and server state.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server is auth required">
+    Add or refresh the required secret or token, then restart the server.
+  </Accordion>
+  <Accordion title="Server is degraded">
+    Some catalog items may have failed. Review diagnostics and restart after fixing dependencies.
+  </Accordion>
+  <Accordion title="Tools do not appear in a thread">
+    Confirm the MCP server is installed for the same gateway and that policy allows it in the current workspace.
+  </Accordion>
+  <Accordion title="A tool call fails">
+    Check server logs, gateway connectivity, credentials, input schema, and external service status.
+  </Accordion>
+</AccordionGroup>
