@@ -1,81 +1,175 @@
 ---
 title: "Installation"
-description: "Install the Pioneer gateway and desktop app on your machine."
+description: "Install Pioneer as a desktop app, local gateway, or remote gateway."
 icon: "download"
 ---
 
-<Note>
-  Pioneer runs on macOS, Linux, and Windows. The gateway is a Rust binary; the desktop app is a native GPUI application.
-</Note>
+There are two normal ways to run Pioneer.
 
-## Prerequisites
+For personal use on one computer, install the desktop app. It can bring up a local gateway for you, so you do not need to think about services, ports, or tokens on the first run.
 
-- **macOS** 13+, **Linux** (x86\_64 or arm64), or **Windows** 10+
-- At least one LLM provider API key (or a local Ollama instance)
+For a shared machine, a server, or a machine that should keep working while your laptop is closed, install the gateway directly. Then connect to it from the desktop app.
 
-## Quick install (macOS / Linux)
+<Warning>
+  Pioneer is early-stage software. Start in a test environment and only move important work into Pioneer after you understand how tools behave on your machine.
+</Warning>
 
-```bash
-curl -fsSL https://install.pioneer.sh | sh
-```
+<Warning>
+  Tools are not sandboxed yet. A tool run executes as the same OS user that runs the gateway.
+</Warning>
 
-This downloads the latest release, installs the `pioneer` CLI, and registers the gateway as a system service (launchd on macOS, systemd on Linux).
+## Local Desktop Install
 
-## Manual install
+Choose this if you want the fastest path: download the app, open it, start working.
 
 <Tabs>
   <Tab title="macOS">
-    Download the `.dmg` from the [releases page](https://github.com/pioneer/pioneer/releases), open it, and drag **Pioneer.app** to `/Applications`.
-
-    The app manages the gateway service automatically on first launch.
-  </Tab>
-  <Tab title="Linux">
-    ```bash
-    # Download the AppImage
-    curl -LO https://github.com/pioneer/pioneer/releases/latest/download/pioneer.AppImage
-    chmod +x pioneer.AppImage
-    ./pioneer.AppImage
-    ```
-
-    Or install the CLI separately and run the gateway as a systemd service:
-
-    ```bash
-    pioneer install --service
-    ```
+    Download the Pioneer `.dmg`, open it, and move **Pioneer.app** into **Applications**. When the app opens for the first time, it can start a local gateway for you.
   </Tab>
   <Tab title="Windows">
-    Download the `.msi` installer from the [releases page](https://github.com/pioneer/pioneer/releases) and run it.
+    Download the Pioneer `.msi` or `.exe`, run the installer, and open Pioneer from the Start menu. If the local gateway is not running yet, the app will offer to start it.
+  </Tab>
+  <Tab title="Linux">
+    Download the Pioneer `.AppImage`, make it executable, and run it:
 
-    The installer registers the gateway as a Windows service.
+    ```bash
+    chmod +x Pioneer*.AppImage
+    ./Pioneer*.AppImage
+    ```
+
+    Start the local gateway from inside the app when prompted.
   </Tab>
 </Tabs>
 
-## Verify the installation
+The desktop app is the right starting point if your goal is simply “use Pioneer on this computer.” It keeps the first setup small: you install the UI, the UI manages the local gateway, and then you add a model provider.
+
+<Note>
+  The desktop app uses bundled gateway assets and the native install flow for local setup. The shell bootstrap scripts below are mainly for direct gateway installs.
+</Note>
+
+## Remote Gateway Install
+
+Install the gateway directly when you want Pioneer to live on another machine: a workstation, a server, a home box, a lab machine, or a remote environment with access to specific files and tools.
+
+On macOS or Linux:
+
+```bash
+curl -fsSL https://pioneer.ai/install.sh | bash
+```
+
+On Windows PowerShell:
+
+```powershell
+iwr -useb https://pioneer.ai/install.ps1 | iex
+```
+
+On Windows CMD:
+
+```cmd
+curl -fsSL https://pioneer.ai/install.cmd -o install.cmd && install.cmd && del install.cmd
+```
+
+The installer downloads the gateway release, verifies checksums, installs the `pioneer` CLI, and registers a user-level gateway service.
+
+You can choose a channel or exact version when release assets exist for your platform:
+
+```bash
+--channel stable|beta|canary
+--version x.y.z
+--no-start
+--force-start
+```
+
+## Check That It Runs
+
+After a gateway install, open a new terminal and run:
 
 ```bash
 pioneer status
 ```
 
-You should see the gateway process running and listening on port `17878`.
+The status output should tell you whether the service is active, which address it listens on, whether the gateway is reachable, and where its runtime home lives.
 
-## Updating
+If your shell cannot find `pioneer`, open a new terminal. On Unix systems, make sure `~/.local/bin` is in your `PATH`:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Connect The Desktop App
+
+A local gateway usually appears in the desktop app automatically.
+
+For a remote gateway, first issue a token on the machine that runs the gateway:
+
+```bash
+pioneer issue-superuser-token
+```
+
+Then add a gateway connection in the desktop app using the gateway host, port, and token. Give it a plain name you will recognize later, such as `Work Gateway`, `Home Server`, or `Sandbox`.
+
+Remember that the desktop app is only the client. If you connect to a gateway on a server, tools run on that server and see that server's files, environment variables, network, and permissions.
+
+## Bind Address And Port
+
+The production gateway listens on:
+
+```toml
+[gateway]
+listen_addr = "0.0.0.0:17878"
+```
+
+For local-only use, bind it to localhost:
+
+```toml
+[gateway]
+listen_addr = "127.0.0.1:17878"
+```
+
+Config files live here:
+
+| Platform | Config path |
+| --- | --- |
+| macOS | `~/Library/Application Support/pioneer/config.toml` |
+| Linux | `~/.config/pioneer/config.toml` |
+| Windows | `%APPDATA%\pioneer\config.toml` |
+
+Restart the gateway after changing the address:
+
+```bash
+pioneer stop
+pioneer start
+```
+
+<Warning>
+  Do not expose a gateway broadly on the public internet. Use firewall rules, trusted networks, and tokens carefully.
+</Warning>
+
+## Update Or Stop
+
+Update the gateway with:
 
 ```bash
 pioneer update
 ```
 
-The CLI pulls the latest release from the configured update channel and restarts the service.
-
-## Uninstalling
+You can also update from a specific release channel:
 
 ```bash
-pioneer uninstall
+pioneer update --source release --channel stable
 ```
 
-This stops the service, removes the binary, and (optionally) deletes the local database.
+Stop and unregister the user-level service with:
 
-## Next steps
+```bash
+pioneer stop
+```
 
-<Card title="Quick Start" icon="bolt" href="/getting-started/quickstart">
-  Configure your first provider and send your first message.
-</Card>
+<Note>
+  The current CLI exposes `stop`, not a separate uninstall command. Back up runtime data before manually deleting Pioneer directories.
+</Note>
+
+## Next
+
+Once the gateway is running, go to [Quick Start](/getting-started/quickstart) and configure your first model provider.
+
