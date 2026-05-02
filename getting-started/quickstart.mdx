@@ -1,67 +1,90 @@
 ---
 title: "Quick Start"
-description: "Set up your first provider and have a conversation in under five minutes."
+description: "Connect a gateway, add a model provider, and start your first Pioneer thread."
 icon: "bolt"
 ---
 
-## 1. Start the gateway
+This page assumes Pioneer is installed and you can open the desktop app. The goal is to get one real thread working without configuring every advanced feature up front.
 
-If you installed via the desktop app, the gateway starts automatically. Otherwise:
+<Warning>
+  Tools are not sandboxed yet. Start with read-only prompts and test in a safe folder before letting an agent modify important files.
+</Warning>
+
+## Connect To A Gateway
+
+When Pioneer opens, it needs a gateway.
+
+If you installed the desktop app for local use, start the local gateway from the app when it asks. This is the simplest setup: the UI and the gateway both live on your computer.
+
+If you installed the gateway separately, confirm it is running:
 
 ```bash
-pioneer start
-pioneer status   # confirm it's running on port 17878
+pioneer status
 ```
 
-## 2. Add a provider
+For a remote gateway, add a new connection in the desktop app. Use the host and port of the gateway machine, plus a token created on that machine:
 
-Open the Desktop App → **Settings** → **Providers**, click **Add provider**, and select your LLM backend.
+```bash
+pioneer issue-superuser-token
+```
 
-<Tabs>
-  <Tab title="Anthropic (Claude)">
-    - Provider: **Anthropic**
-    - API Key: paste your key from [console.anthropic.com](https://console.anthropic.com)
-    - Default model: `claude-sonnet-4-6` (recommended)
-  </Tab>
-  <Tab title="OpenAI">
-    - Provider: **OpenAI**
-    - API Key: paste your key from [platform.openai.com](https://platform.openai.com)
-    - Default model: `gpt-4o`
-  </Tab>
-  <Tab title="Ollama (local)">
-    - Provider: **Ollama**
-    - Base URL: `http://localhost:11434` (default)
-    - No API key required
+Give the connection a name that describes the environment, not the hardware. `Work`, `Study`, `Home`, and `Sandbox` are usually more useful than `ubuntu-4vcpu-nyc`.
 
-    Make sure Ollama is running: `ollama serve`
-  </Tab>
-</Tabs>
+<Tip>
+  One desktop app can connect to many gateways. This is one of the main reasons to use Pioneer: you can keep environments separate without installing a different client for each one.
+</Tip>
 
-## 3. Create a workspace and thread
+## Add A Model Provider
 
-1. In the sidebar, click **New workspace** and give it a name.
-2. Click **New thread** inside the workspace.
-3. Select your provider and model in the thread toolbar.
+Pioneer cannot answer until the gateway has access to at least one model provider.
 
-## 4. Send your first message
+Use the providers icon in the bottom bar to open **Providers**, then add whichever provider you already use. The connection flow is the same across providers: choose the provider type, enter the required credential or endpoint details, save it on the gateway, then select one of its models in a thread.
 
-Type a message in the composer and press **Enter** (or **Cmd+Enter** for multiline).
+Provider settings belong to the gateway, not to the desktop app. If you connect to another gateway later, configure providers there too.
 
-The agent will respond in real time. If the model calls any tools, you'll see each tool invocation rendered in the conversation timeline.
+See [Providers](/providers/overview) for the full supported provider list.
 
-## What's next?
+## Use The Default Workspace
 
-<Columns cols={2}>
-  <Card title="Core Concepts" icon="book" href="/getting-started/concepts">
-    Understand workspaces, threads, turns, tasks, and how they relate.
-  </Card>
-  <Card title="Install Skills" icon="puzzle-piece" href="/skills/overview">
-    Add skills to give the agent new capabilities.
-  </Card>
-  <Card title="Connect MCP Servers" icon="plug" href="/mcp/overview">
-    Hook the agent up to external APIs via Model Context Protocol.
-  </Card>
-  <Card title="Schedule Tasks" icon="clock" href="/tasks/overview">
-    Automate recurring workflows with the task scheduler.
-  </Card>
-</Columns>
+Pioneer currently creates one workspace automatically on first launch. You do not need to create or select a workspace before starting your first thread.
+
+If you need separation today, use separate gateways. For example, keep one gateway for work, one for home, and one sandbox gateway for testing tools.
+
+## Start Your First Thread
+
+Create a new thread, choose the provider and model you configured, and send something deliberately simple:
+
+```text
+Explain what you can do in this Pioneer workspace.
+```
+
+You should see the answer appear in the thread timeline. If the model uses tools, those tool calls appear as separate events. Open them. The timeline is where you learn what the agent actually did, what it tried, and why something failed.
+
+Once basic chat works, test a read-only tool request:
+
+```text
+List the files in this workspace root and summarize what kind of project it looks like. Do not modify any files.
+```
+
+If that behaves as expected, move slowly toward write operations. Use a temporary folder or throwaway repository first.
+
+## What To Add Next
+
+Do not enable everything on day one. Add capabilities when you have a reason.
+
+Use [Skills](/skills/overview) when you want reusable instructions or specialized behavior. Use [MCP servers](/mcp/overview) when Pioneer needs to talk to external tools and systems. Use [Tasks](/tasks/overview) when work should run again later or be broken into subagent-backed steps.
+
+<AccordionGroup>
+  <Accordion title="The app cannot connect to the gateway">
+    Run `pioneer status` on the gateway host. Check that the service is active, the port is reachable, and you are using the token from the same gateway.
+  </Accordion>
+  <Accordion title="The provider does not work">
+    Recheck the API key, model ID, provider endpoint, region, and network access from the gateway host.
+  </Accordion>
+  <Accordion title="A tool failed">
+    Open the tool event in the timeline. Look at the command, working directory, permissions, timeout, and stderr output.
+  </Accordion>
+  <Accordion title="A remote gateway sees the wrong files">
+    Tools run where the gateway runs. If your desktop app connects to a server, the agent sees the server filesystem, not your laptop filesystem.
+  </Accordion>
+</AccordionGroup>
