@@ -1,67 +1,79 @@
 ---
 title: "Core Concepts"
-description: "The key abstractions in Pioneer: workspaces, threads, turns, tasks, providers, skills, and MCP servers."
+description: "The Pioneer terms that matter when you are using the app."
 icon: "book"
 ---
 
-## Workspace
-
-A **workspace** is the top-level container for your work. It groups threads and can have its own set of tools, MCP servers, and skills. Think of it as a project folder for your AI conversations.
-
-## Thread
-
-A **thread** is a conversation — a chronological sequence of turns. Threads live inside a workspace and can be organized into folders. The gateway maintains the full history of every thread in the local database.
-
-## Turn
-
-A **turn** is one round of the conversation: your message (the input) and the model's response (the output). A single turn can involve multiple tool calls. The agent loop keeps calling the model and executing tools until there's nothing left to do, then the turn is finalized.
-
-<Note>
-  Pioneer stores every turn attempt, including failed ones, so you can see exactly what the model tried to do even if a tool call errored out.
-</Note>
-
-## Provider
-
-A **provider** is an LLM backend — Anthropic, OpenAI, Ollama, etc. Pioneer abstracts over 12 providers with a single unified interface. Each provider has its own API key, base URL, and set of available models.
-
-See [Providers](/providers/overview) for a full list.
-
-## Tool
-
-A **tool** is a function the agent can call during a turn. Pioneer includes built-in tools (shell, file system, web search, computer use) and supports adding more via Skills and MCP servers.
-
-## Skill
-
-A **skill** is an installable package that adds new tools, system prompts, or behaviors to the agent. Skills are zip archives that follow the AgentSkills format. They can be installed from a registry or uploaded manually.
-
-See [Skills](/skills/overview) for details.
-
-## MCP Server
-
-An **MCP server** (Model Context Protocol) is an external process that exposes tools and resources to the agent over a standard protocol. Pioneer can connect to any MCP-compatible server via stdio or HTTP transport.
-
-See [MCP Servers](/mcp/overview) for details.
-
-## Task
-
-A **task** is an automated unit of work that can run on a schedule or be triggered manually. Tasks use the same agent loop as conversations but are designed for recurring, unattended execution. They support dependency graphs, delivery policies, and automatic retry.
-
-See [Tasks & Automation](/tasks/overview) for details.
+Pioneer has a few terms that are worth understanding before you go deep. This page explains them from the user's point of view. It does not try to describe the internal architecture.
 
 ## Gateway
 
-The **gateway** is the long-running Rust service that owns all of the above. It persists state in a local SQLite database and exposes a WebSocket JSON-RPC API that the desktop app (and any other clients) connect to.
+The gateway is the center of Pioneer. When something important happens, it usually happens in the gateway.
 
-## How they fit together
+It talks to model providers, stores Pioneer data, runs tools, manages skills and MCP servers, owns tasks, and streams results back to connected clients. You can run a gateway on the same computer as the desktop app, or on another machine.
 
-```
-Workspace
-└── Thread
-    └── Turn (your message + agent response)
-        ├── Tool calls (shell, files, web, MCP tools, skill tools)
-        └── Events (streamed to the desktop in real time)
+A good rule: the gateway is where work happens. The desktop app is how you control it.
 
-Task
-└── Task Run (agent execution with input/output)
-    └── Delivery (result sent somewhere after completion)
-```
+That rule matters because tools run on the gateway host. If the gateway is on your laptop, tools touch your laptop environment. If the gateway is on a server, tools touch the server environment.
+
+## Desktop App And Other Clients
+
+The desktop app is the main Pioneer client today. It gives you the UI for gateway connections, the default workspace, threads, providers, skills, MCP servers, tasks, and settings. It can also start and manage a local gateway when you use Pioneer on one computer.
+
+Pioneer is not limited to the desktop app. The gateway exposes a protocol that other clients can use too. That means custom clients can be built on top of Pioneer, and mobile clients can connect to gateways in the same product model.
+
+## Gateways And Workspaces
+
+A gateway is the larger environment. A workspace is the container where your threads, skills, MCP servers, tasks, and settings come together.
+
+Use separate gateways when the execution environment should be different: different machine, different filesystem, different network, different accounts, or different security boundary.
+
+In the current desktop app, one workspace is created automatically when the app first starts. Creating and switching between multiple workspaces is not exposed yet. If you need practical separation today, create or connect separate gateways.
+
+## Threads
+
+A thread is a conversation inside a workspace.
+
+Use a new thread when you want fresh context. Keep one thread for a coding task, another for research, another for planning, and another for testing tools. Long threads can be useful, but they also accumulate assumptions. Starting a new one is often cleaner.
+
+Each thread has a timeline. The timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When something surprises you, read the timeline before changing settings.
+
+## Providers And Models
+
+A provider is where models come from. Anthropic, OpenAI, Google, OpenRouter, Azure OpenAI, Bedrock, Ollama, and local OpenAI-compatible servers are all provider choices.
+
+A model is the specific model you choose for a thread or task. Models differ in speed, cost, context size, reasoning ability, and tool behavior. You can use one model for quick chats and another for more careful work.
+
+Provider credentials are configured on the gateway. If you connect to a second gateway, it needs its own provider setup.
+
+## Tools
+
+Tools let agents do work outside plain text. Depending on what you enable, tools can read files, search directories, run shell commands, apply patches, fetch web pages, download URLs, call MCP tools, or use dynamic tools from skills.
+
+<Warning>
+  Tools are currently not sandboxed. Treat tool access as real access to the gateway machine.
+</Warning>
+
+Start with read-only requests. After you trust the behavior, test write operations in a disposable folder before using them in important projects.
+
+## Skills
+
+Skills are installable capability packages. A skill can add instructions, workflows, checks, or dynamic tools that Pioneer can use later.
+
+Use skills when you want behavior that should be reusable instead of pasted into every prompt. A writing skill, a repository-review skill, or an internal workflow skill can make Pioneer behave more consistently across threads and tasks.
+
+Skills are controlled by the gateway and the current workspace, so the same desktop app can connect to different gateways with different skill sets.
+
+## MCP Servers
+
+MCP servers connect Pioneer to external tools and resources through Model Context Protocol.
+
+Think of MCP as a way to bring an existing system into the gateway: a database, a company API, a project management tool, a filesystem helper, or a SaaS integration. Once connected, the gateway can expose those MCP tools to agents according to the current gateway and workspace configuration.
+
+## Tasks And Subagents
+
+A task is repeatable work managed by the gateway. It can run manually, on a schedule, or as part of a larger workflow.
+
+Subagents are agents created by the task system. In many workflows you do not manually delegate to them. Pioneer can create subagents, give them instructions and model settings, let them work in child threads, and bring their results back into the parent task.
+
+Tasks are useful when the work has shape: check this repo every morning, summarize a feed, run a repeated research pass, prepare a report, or coordinate several smaller agent steps.
