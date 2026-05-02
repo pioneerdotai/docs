@@ -1,63 +1,73 @@
 ---
 title: "Pioneer"
-description: "Local-first AI workspace. Run a powerful AI assistant on your own machine — private, extensible, fully under your control."
+description: "A local-first AI workspace built around a persistent gateway, native clients, durable threads, task automation, MCP, skills, and real local tools."
 icon: "rocket"
 ---
 
-## What is Pioneer?
+Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. It combines a persistent gateway, a native desktop app, a JSON-RPC protocol, provider adapters, durable threads, task automation, MCP servers, skills, and real local tools.
 
-Pioneer is a **local-first AI platform** that runs entirely on your machine. It brings together a persistent gateway service, a native desktop app, and a rich set of tools so you can build a personal AI workspace without sending your data to a third-party cloud.
+The gateway is the core of Pioneer. It owns state, configuration, storage, model access, task execution, tool execution, MCP runtime, skills, and thread history. The desktop app is the primary client for connecting to one or more gateways, whether the gateway is running on the same computer or on a remote server.
+
+<Warning>
+  Pioneer is in an extremely early stage of development. Expect rough edges, breaking changes, and incomplete flows. Use it carefully, and test it in a safe environment before trusting it with important work or exposing a gateway outside your machine.
+</Warning>
+
+<Warning>
+  Tool runs are not sandboxed yet. Tools currently execute as the OS user running the gateway.
+</Warning>
+
+## Rust Native
+
+Pioneer is built in Rust all the way through the product: gateway, CLI, desktop app, protocol, tools, tasks, MCP, skills, and provider integrations.
+
+That keeps the core memory-safe, fast, and small. The desktop app is native GPUI, not Electron or a web app wrapped in a window.
+
+## Gateway And Desktop
+
+Pioneer is split into three user-facing pieces.
+
+**Gateway** is the main runtime and control plane. It runs as a service, stores the data, talks to model providers, executes tools, manages MCP servers and skills, schedules tasks, and exposes the JSON-RPC WebSocket API.
+
+**Desktop app** is the primary native client. It connects to gateways, starts and manages a local gateway when needed, and gives you the UI for conversations, provider setup, MCP, skills, settings, and thread history.
+
+**Protocol clients** are any clients built on top of the Pioneer JSON-RPC protocol. The desktop app is the main client today, and native mobile apps for iOS and Android are planned next.
+
+For a single-machine setup, install the desktop app and let it start the local gateway for you. On macOS, that means downloading the `.dmg`, moving Pioneer to **Applications**, launching it, and pressing **Start local gateway** when prompted.
+
+For a multi-environment setup, install gateways wherever the work should live: a laptop, a workstation, a home server, or a remote machine. Then connect to each gateway from the same desktop app. You can keep separate gateways for work, study, home, experiments, or clients without mixing their state, settings, tools, and histories.
 
 <Columns cols={2}>
   <Card title="Install Pioneer" icon="download" href="/getting-started/installation">
-    Get the gateway and desktop app running in minutes.
+    Set up the desktop app, a local gateway, or a remote gateway.
   </Card>
   <Card title="Quick Start" icon="bolt" href="/getting-started/quickstart">
-    Set up your first provider and start your first conversation.
+    Connect a provider and start your first thread.
   </Card>
   <Card title="Core Concepts" icon="book" href="/getting-started/concepts">
-    Learn about workspaces, threads, turns, and tasks.
+    Understand gateways, the default workspace, threads, tools, skills, MCP, and tasks.
   </Card>
-  <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
-    Understand how the gateway, agent loop, and protocol fit together.
-  </Card>
-</Columns>
-
-## Key capabilities
-
-<Columns cols={3}>
-  <Card title="12+ LLM Providers" icon="brain" href="/providers/overview">
-    Connect to Anthropic, OpenAI, Ollama, Google, Azure, Bedrock, OpenRouter, and more.
-  </Card>
-  <Card title="Real Local Tools" icon="terminal" href="/architecture/tools">
-    Execute shell commands, read and write files, browse the web, and control your desktop.
-  </Card>
-  <Card title="Skills" icon="puzzle-piece" href="/skills/overview">
-    Extend the agent with installable skill packages that add new tools and behaviors.
-  </Card>
-  <Card title="MCP Servers" icon="plug" href="/mcp/overview">
-    Connect any Model Context Protocol server to give the agent access to external APIs.
-  </Card>
-  <Card title="Task Scheduler" icon="clock" href="/tasks/overview">
-    Schedule recurring tasks and automate workflows with dependency-aware execution.
-  </Card>
-  <Card title="Privacy first" icon="lock" href="/configuration/overview">
-    All state lives in a local SQLite database. Nothing leaves your machine unless you say so.
+  <Card title="Providers" icon="brain" href="/providers/overview">
+    Connect Anthropic, OpenAI, OpenRouter, Ollama, Google, Azure, Bedrock, and more.
   </Card>
 </Columns>
 
-## How it works
+## Multi-Agent Workflows
 
-Pioneer has three main components that work together:
+Pioneer is designed for more than one long-running chat thread. The gateway can coordinate subagents automatically as part of the task system: a parent task can create an agent spec, start a child thread, run that subagent with its own model and instructions, and link the result back to the parent task.
 
-<Steps>
-  <Step title="Gateway">
-    A long-running Rust service that owns all state — conversations, tasks, skills, MCP servers, provider configuration. Clients connect to it over a local WebSocket JSON-RPC channel.
-  </Step>
-  <Step title="Desktop App">
-    A native app (built with GPUI) that gives you a full UI for managing threads, configuring providers, installing skills, and browsing task history.
-  </Step>
-  <Step title="Agent Loop">
-    When you send a message, the gateway runs an agent loop that talks to your chosen LLM, orchestrates tool calls, and streams results back to the desktop in real time.
-  </Step>
-</Steps>
+Each subagent can be scoped independently:
+
+| Scope | What it controls |
+| --- | --- |
+| Role and identity | Give the agent a role and nickname so its work is understandable in task history. |
+| Model choice | Choose the model and provider per agent instead of forcing every subtask through the same model. |
+| Context policy | Inherit parent context, pass only recent turns, use a summary, start empty, or provide custom context. |
+| Tool policy | Allow or deny tools, choose read-only or write-capable modes, restrict paths, and control network access. |
+| Result contract | Ask for text, Markdown, JSON, or artifacts with required outputs. |
+| Depth and lineage | Track nested agent work through child threads and task lineage so delegated work can be audited and recovered. |
+
+This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in isolated threads, and the desktop app can still show the full task tree from one place. Users shape this with goals and policies, while Pioneer handles the orchestration.
+
+## Where To Start
+
+Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Providers](/providers/overview) when you want to connect models, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.

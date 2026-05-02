@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Pioneer",
   "colors": {
-    "primary": "#6366F1",
-    "light": "#818CF8",
-    "dark": "#4F46E5"
+    "primary": "#1071FF",
+    "light": "#1071FF",
+    "dark": "#1071FF"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -17,6 +17,7 @@
             "group": "Getting Started",
             "pages": [
               "index",
+              "getting-started/highlights",
               "getting-started/installation",
               "getting-started/quickstart",
               "getting-started/concepts"
@@ -24,17 +25,7 @@
           },
           {
             "group": "Providers",
-            "pages": [
-              "providers/overview",
-              "providers/anthropic",
-              "providers/openai",
-              "providers/ollama",
-              "providers/google",
-              "providers/openrouter",
-              "providers/azure",
-              "providers/bedrock",
-              "providers/others"
-            ]
+            "pages": ["providers/overview", "providers/others"]
           },
           {
             "group": "Skills",
@@ -47,19 +38,11 @@
           },
           {
             "group": "MCP Servers",
-            "pages": [
-              "mcp/overview",
-              "mcp/connecting",
-              "mcp/catalog"
-            ]
+            "pages": ["mcp/overview", "mcp/connecting", "mcp/catalog"]
           },
           {
             "group": "Tasks & Automation",
-            "pages": [
-              "tasks/overview",
-              "tasks/scheduling",
-              "tasks/automation"
-            ]
+            "pages": ["tasks/overview", "tasks/scheduling", "tasks/automation"]
           },
           {
             "group": "Desktop App",
@@ -71,17 +54,11 @@
           },
           {
             "group": "Configuration",
-            "pages": [
-              "configuration/overview",
-              "configuration/reference"
-            ]
+            "pages": ["configuration/overview", "configuration/reference"]
           },
           {
             "group": "CLI",
-            "pages": [
-              "cli/overview",
-              "cli/commands"
-            ]
+            "pages": ["cli/overview", "cli/commands"]
           }
         ]
       },
@@ -90,10 +67,7 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "architecture/overview",
-              "architecture/crates"
-            ]
+            "pages": ["architecture/overview", "architecture/crates"]
           },
           {
             "group": "Core Systems",
@@ -117,9 +91,7 @@
           },
           {
             "group": "Contributing",
-            "pages": [
-              "contributing"
-            ]
+            "pages": ["contributing"]
           }
         ]
       },
@@ -128,9 +100,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": [
-              "protocol/introduction"
-            ]
+            "pages": ["protocol/introduction"]
           },
           {
             "group": "Workspace & Threads",
@@ -151,16 +121,7 @@
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/pioneer",
-          "icon": "github"
-        }
-      ]
-    }
+    ]
   },
   "logo": {
     "light": "/logo/light.svg",
@@ -170,21 +131,16 @@
     "links": [
       {
         "label": "GitHub",
-        "href": "https://github.com/pioneer"
+        "href": "https://github.com/pioneerdotai/pioneer"
       }
     ]
   },
   "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "claude",
-      "cursor"
-    ]
+    "options": ["copy", "view", "claude", "cursor"]
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/pioneer"
+      "github": "https://github.com/pioneerdotai/pioneer"
     }
   }
 }
