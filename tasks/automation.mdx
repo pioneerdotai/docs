@@ -1,7 +1,51 @@
 ---
 title: "Automation Workflows"
-description: "Build multi-step task trees with dependencies, delivery policies, and retry logic."
+description: "Build task trees with dependencies, subagents, deliveries, retries, and write locks."
 icon: "robot"
 ---
 
-<Note>Coming soon. This page will cover task trees, dependency graphs, write locks, delivery destinations (webhooks, notifications), retry backoff policies, and cancellation.</Note>
+Automation workflows are for work that is bigger than one task.
+
+A simple task might summarize a folder. A workflow might gather research, inspect a repository, ask several subagents to check different areas, merge their findings, and deliver a final report.
+
+Use workflows when the work has real stages. Do not use them just to make a prompt look more advanced.
+
+## Common Shapes
+
+The most natural workflow is “do this, then use the result.” For example, a research task gathers material, then a summary task turns it into a report.
+
+Another common shape is “check, then act.” A task inspects a project. If it finds a problem, another task prepares a fix or opens a review thread.
+
+For larger jobs, Pioneer can fan out work to subagents. Each subagent works in a child thread with its own instructions, model, context policy, and tool policy. The parent task then collects the results.
+
+## Dependencies
+
+Dependencies tell Pioneer when a task is allowed to run.
+
+Use them to keep order clear: run the summary only after research succeeds, skip delivery when the upstream task fails, or wait for several checks before merging results.
+
+Retries are useful for temporary failures such as provider timeouts, rate limits, network errors, or MCP server restarts. They should not hide bad prompts or unsafe write behavior.
+
+## Write Locks
+
+If several tasks can modify the same files or external target, use write locks. A lock tells Pioneer that only one run should write to that target at a time.
+
+<Warning>
+  Write locks coordinate Pioneer task runs. They are not an OS permission system and they do not sandbox tools.
+</Warning>
+
+## Delivery
+
+Start with in-app results. Once the workflow is reliable, send results elsewhere only when you need to: another task, a webhook, an artifact store, or an external system.
+
+The more places a workflow can deliver data, the more carefully you should test it. Make sure the result does not contain secrets or accidental private context.
+
+## A Safe Way To Build One
+
+Build the workflow manually first. Run each task by itself. Read the timelines. Confirm the provider and model behavior. Check MCP server health. Confirm skills are expected. Then connect the tasks with dependencies.
+
+Only schedule the workflow after manual runs are boring.
+
+```text
+Review this repository. Split the work into focused checks if needed. Use read-only tools unless a task explicitly requires edits. Return a Markdown report with findings, changed files, and open questions.
+```

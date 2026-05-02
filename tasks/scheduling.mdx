@@ -1,7 +1,34 @@
 ---
 title: "Scheduling Tasks"
-description: "Configure cron schedules, manual triggers, and task timing."
+description: "Create manual and scheduled task runs."
 icon: "calendar"
 ---
 
-<Note>Coming soon. This page will cover cron expression syntax, timezone handling, manual triggers, and the scheduling UI in the Desktop App.</Note>
+Scheduling is for work that should happen even when you are not sitting in a thread.
+
+Do not start with a schedule. Start with a manual task, run it once, read the timeline, and make sure the result is useful.
+
+```text
+Check this workspace and summarize any changes since the last run. Do not modify files.
+```
+
+If that run is predictable, then add a schedule.
+
+## Choosing A Schedule
+
+Use schedules for quiet, repeatable work: a morning summary, a weekday project check, a weekly research digest, or a monthly maintenance report.
+
+Be careful with tasks that write files, send messages, delete data, rotate credentials, or run broad shell commands. Those should stay manual until you have tested them several times.
+
+## Time Zones
+
+Be explicit about time zones. Your desktop computer, the gateway host, and the people reading the output may not be in the same place.
+
+If the UI or gateway build lets you choose a time zone, choose the one that matches the meaning of the task. A workday check should usually follow the work team's time zone, not whatever time zone the server happens to use.
+
+## Watch The First Runs
+
+After scheduling, inspect the next few runs. Check when they started, whether they used the expected gateway, whether tools behaved correctly, and whether the output went to the right place.
+
+Pause the schedule when provider credentials change, MCP servers are unstable, task prompts are being edited, or the target system is under maintenance. Resume only after a successful manual run.
+
