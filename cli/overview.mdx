@@ -1,27 +1,81 @@
 ---
 title: "CLI Overview"
-description: "The pioneer command-line tool for managing the gateway service."
+description: "Use the pioneer CLI to install, start, stop, inspect, update, and authenticate the gateway."
 icon: "terminal"
 ---
 
-The `pioneer` CLI lets you manage the gateway service from your terminal: start, stop, check status, issue auth tokens, and update to new versions.
+The `pioneer` CLI manages the gateway service.
 
-## Installation
+Use it when:
 
-The CLI is included in all Pioneer distributions. After install:
-
-```bash
-pioneer --help
-```
+- installing the gateway on a server
+- checking gateway health
+- starting or stopping the service
+- updating gateway binaries
+- issuing a token for protocol clients
+- debugging a desktop connection problem
 
 ## Common commands
 
 ```bash
-pioneer status          # Check if the gateway is running
-pioneer start           # Start the gateway service
-pioneer stop            # Stop the gateway service
-pioneer update          # Update to the latest release
-pioneer issue-superuser-token   # Generate a JWT for API access
+pioneer status
+pioneer start
+pioneer stop
+pioneer update
+pioneer issue-superuser-token
+pioneer version
+pioneer help
 ```
 
-See [CLI Commands](/cli/commands) for the full reference.
+## JSON output
+
+Several commands support `--json`:
+
+```bash
+pioneer status --json
+pioneer start --json
+pioneer version --json
+```
+
+Use JSON output for scripts, health checks, or automation.
+
+## Production and development binaries
+
+Production binary:
+
+```bash
+pioneer
+```
+
+Development binary:
+
+```bash
+pioneer-dev
+```
+
+The development binary is built with:
+
+```bash
+cargo run -p pioneer-cli --features dev --bin pioneer-dev -- help
+```
+
+Development uses separate config, service name, runtime home, install paths, and default port.
+
+## Service behavior
+
+`pioneer start` registers and starts a persistent user-level service.
+
+`pioneer stop` stops and unregisters the service.
+
+The service runs as the current OS user.
+
+<Warning>
+  Tool runs execute as the user account running the gateway service.
+</Warning>
+
+## Related
+
+<Card title="CLI Commands" icon="code" href="/cli/commands">
+  See command syntax, flags, and examples.
+</Card>
+

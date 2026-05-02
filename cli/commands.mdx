@@ -1,7 +1,144 @@
 ---
 title: "CLI Commands"
-description: "Full reference for all pioneer CLI commands and flags."
+description: "Reference for the pioneer CLI commands and common flags."
 icon: "code"
 ---
 
-<Note>Coming soon. This page will document every CLI command with flags, examples, and exit codes: `start`, `stop`, `status`, `restart`, `update`, `install`, `uninstall`, `issue-superuser-token`, and the dev-mode variants.</Note>
+## `pioneer install`
+
+Install or replace the managed gateway binary and optionally start the service.
+
+```bash
+pioneer install [--source local|release|channel] [--asset <path> --checksums <path>] [--channel stable|beta|canary] [--version x.y.z] [--managed-by desktop|script|manual|unknown] [--no-start] [--force-start] [--json]
+```
+
+Examples:
+
+```bash
+pioneer install --source release --channel stable
+pioneer install --source local --asset ./pioneer-gateway-linux-x86_64.gz --checksums ./SHA256SUMS
+pioneer install --source local --asset ./asset.gz --checksums ./SHA256SUMS --no-start
+```
+
+<Note>
+  Release install requires published gateway assets and a matching `SHA256SUMS` file for your OS and architecture.
+</Note>
+
+## `pioneer update`
+
+Alias: `pioneer self-update`
+
+Update the managed gateway binary using the same installer flow.
+
+```bash
+pioneer update [--source local|release|channel] [--asset <path> --checksums <path>] [--channel stable|beta|canary] [--version x.y.z] [--managed-by desktop|script|manual|unknown] [--no-start] [--force-start] [--json]
+```
+
+Examples:
+
+```bash
+pioneer update
+pioneer update --source release --channel stable
+pioneer update --source local --asset ./asset.gz --checksums ./SHA256SUMS --force-start
+```
+
+## `pioneer start`
+
+Start the persistent gateway service.
+
+```bash
+pioneer start
+pioneer start --json
+```
+
+## `pioneer status`
+
+Show service and gateway reachability status.
+
+```bash
+pioneer status
+pioneer status --json
+```
+
+Human output includes:
+
+- service name
+- listen address
+- service active state
+- gateway reachable state
+- runtime home
+- install state if present
+
+## `pioneer issue-superuser-token`
+
+Generate and print a JWT for privileged clients.
+
+```bash
+pioneer issue-superuser-token
+```
+
+Use this when adding a gateway connection from a custom client or remote desktop app.
+
+<Warning>
+  Treat this token like a password. It grants privileged access to the gateway.
+</Warning>
+
+## `pioneer stop`
+
+Stop and unregister the persistent gateway service.
+
+```bash
+pioneer stop
+```
+
+<Note>
+  The current CLI uses `stop` for service removal. There is no separate `uninstall` command.
+</Note>
+
+## `pioneer version`
+
+Print CLI version information.
+
+```bash
+pioneer version
+pioneer version --json
+pioneer --version
+pioneer -V
+```
+
+## `pioneer help`
+
+Show CLI help.
+
+```bash
+pioneer help
+pioneer --help
+pioneer -h
+```
+
+## Install source options
+
+| Option | Meaning |
+| --- | --- |
+| `--source local` | Use a local gateway asset and local checksum file |
+| `--source release` | Download a release asset from GitHub Releases |
+| `--source channel` | Require an explicit `--channel` and use that release channel |
+| `--asset <path>` | Local gateway archive path |
+| `--checksums <path>` | Local `SHA256SUMS` path |
+| `--channel stable|beta|canary` | Release channel |
+| `--version x.y.z` | Pin a release version |
+
+## Install behavior
+
+The native installer flow:
+
+1. Resolves the asset and checksum file.
+2. Verifies the asset checksum.
+3. Stages the new binary.
+4. Stops the current service if needed.
+5. Atomically replaces the binary.
+6. Exposes the CLI command.
+7. Optionally starts the service.
+8. Checks gateway health.
+9. Rolls back on failure.
+
