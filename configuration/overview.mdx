@@ -1,32 +1,170 @@
 ---
 title: "Configuration Overview"
-description: "How Pioneer is configured: defaults, user config file, and environment variables."
+description: "Configure the Pioneer gateway with user config files and environment overrides."
 icon: "gear"
 ---
 
-Pioneer uses a layered configuration system. Settings are loaded in this order (later layers override earlier ones):
+Most users can start with the desktop app and provider settings. Use config files when you need to change gateway behavior, bind addresses, tool limits, database settings, or development paths.
 
-1. **Built-in defaults** (`config/default.toml` in the source tree)
-2. **User config file** — platform-specific location (see below)
-3. **Environment variables** — for CI and container deployments
+## How configuration is loaded
 
-## Config file location
+Pioneer loads configuration in layers:
+
+<Steps>
+  <Step title="Built-in defaults">
+    Defaults are compiled from the source tree's `config/default.toml`.
+  </Step>
+  <Step title="Development local config">
+    Debug builds also load `config/local.toml`.
+  </Step>
+  <Step title="User config file">
+    Release builds load the platform user config file.
+  </Step>
+  <Step title="Explicit config override">
+    `PIONEER_CONFIG` can point to a config file.
+  </Step>
+</Steps>
+
+Later layers override earlier layers.
+
+## User config location
 
 | Platform | Path |
-|---|---|
+| --- | --- |
 | macOS | `~/Library/Application Support/pioneer/config.toml` |
 | Linux | `~/.config/pioneer/config.toml` |
 | Windows | `%APPDATA%\pioneer\config.toml` |
 
-## Key settings
+Development builds use `pioneer-dev` config paths.
 
-| Setting | Default | Description |
-|---|---|---|
-| `gateway.port` | `17878` | Port the gateway listens on |
-| `gateway.host` | `0.0.0.0` | Host the gateway binds to |
-| `tools.web.timeout_secs` | `30` | Timeout for web fetch operations |
-| `tools.web.max_download_mb` | `50` | Max download size for web tool |
-| `skills.allow_untrusted` | `true` | Allow installing unsigned skills |
-| `tasks.retry.max_attempts` | `3` | Max task retry attempts |
+## Bind address
 
-See [Configuration Reference](/configuration/reference) for a complete list of all settings.
+The most common config change is the gateway bind address.
+
+Default production gateway:
+
+```toml
+[gateway]
+listen_addr = "0.0.0.0:17878"
+```
+
+Local-only gateway:
+
+```toml
+[gateway]
+listen_addr = "127.0.0.1:17878"
+```
+
+<Warning>
+  Binding to `0.0.0.0` makes the gateway reachable from other machines if the firewall allows it. Only do this intentionally.
+</Warning>
+
+## Runtime home
+
+The gateway stores runtime data under a home directory.
+
+Default release runtime home:
+
+```toml
+home_directory = ".pioneer"
+```
+
+Development runtime home:
+
+```toml
+home_directory = ".pioneer.dev"
+```
+
+The runtime home contains state such as:
+
+- gateway database
+- install state
+- gateway settings
+- skills
+- computer-use artifacts
+
+## Provider credentials
+
+Provider keys are stored in the gateway settings, not in the desktop app.
+
+This means:
+
+- each gateway has its own provider credentials
+- remote gateways need their own provider setup
+- switching gateways also switches provider settings
+
+## Database settings
+
+Gateway database settings live under `[gateway.database]`.
+
+Common defaults:
+
+```toml
+[gateway.database]
+file_name = "gateway.db"
+max_connections = 1
+run_migrations_on_startup = true
+```
+
+Most users should leave these alone.
+
+## Tool safety settings
+
+Tool limits live under `[gateway.tools]`.
+
+Examples include:
+
+- web fetch timeout
+- maximum download size
+- computer-use artifact retention
+- maximum tool calls per turn
+- retry limits
+
+<Warning>
+  Tool limits reduce risk, but they are not a sandbox. Tool processes still run as the gateway OS user.
+</Warning>
+
+## Skills settings
+
+Skills settings live under `[gateway.skills]`.
+
+They control:
+
+- whether skills are enabled
+- skill search paths
+- validation behavior
+- trust thresholds
+- dependency checks
+- dynamic tool registration
+
+## Environment variables
+
+Useful environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `PIONEER_CONFIG` | Load an explicit config file |
+| `PIONEER_RELEASE_REPO` | Override release repo used by installer |
+| `PIONEER_RELEASE_API_BASE` | Override release API base URL |
+| `PIONEER_RELEASE_DOWNLOAD_BASE` | Override release download base URL |
+| `PIONEER_LOCAL_ASSET_FILE` | Use a local gateway asset in bootstrap scripts |
+| `PIONEER_LOCAL_CHECKSUMS_FILE` | Use a local checksum file in bootstrap scripts |
+
+## Apply changes
+
+After changing gateway config:
+
+```bash
+pioneer stop
+pioneer start
+pioneer status
+```
+
+For desktop-managed local gateways, restart the gateway from the desktop app if available.
+
+## Related pages
+
+<Card title="Configuration Reference" icon="list" href="/configuration/reference">
+  View important config keys and examples.
+</Card>
+

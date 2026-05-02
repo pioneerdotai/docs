@@ -1,7 +1,125 @@
 ---
 title: "Configuration Reference"
-description: "Complete reference for all Pioneer configuration options."
+description: "Common Pioneer configuration keys for users and operators."
 icon: "list"
 ---
 
-<Note>Coming soon. This page will be an exhaustive reference for every setting in `config.toml`, including gateway, database, tools, skills, tasks, provider defaults, and computer-use settings.</Note>
+This is a user-focused reference for settings you are likely to change. It is not an exhaustive internal schema.
+
+## Top-level settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `home_directory` | `.pioneer` | Runtime home under the OS user home directory |
+| `install_state_file_name` | `install-state.toml` | Install state file stored in runtime home |
+
+## Install settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `install.command_name` | `pioneer` | User-facing CLI command |
+| `install.binary_name` | `pioneer` | Installed gateway/CLI binary name |
+| `install.managed_directory_name` | `managed` | Managed install directory name |
+
+Most users should not change install settings.
+
+## Gateway settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.service_name` | `com.pioneer.gateway` | OS service name |
+| `gateway.listen_addr` | `0.0.0.0:17878` | Gateway bind address |
+| `gateway.outbound_queue_capacity` | `128` | Outbound event queue capacity |
+
+Local-only example:
+
+```toml
+[gateway]
+listen_addr = "127.0.0.1:17878"
+```
+
+## Thread defaults
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.thread.default_model` | `google/gemini-3-flash-preview` | Default model ID |
+| `gateway.thread.default_model_provider` | `openrouter` | Default provider name |
+| `gateway.thread.max_context_tokens` | `128000` | Context budget |
+| `gateway.thread.response_reserve_tokens` | `16000` | Reserved response budget |
+
+You can override these if you want new threads to start with a different default model.
+
+## Web tool settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.tools.web.default_timeout_ms` | `20000` | Default web operation timeout |
+| `gateway.tools.web.default_fetch_max_bytes` | `2097152` | Default fetched content limit |
+| `gateway.tools.web.default_download_max_bytes` | `134217728` | Default download size limit |
+| `gateway.tools.web.default_max_results` | `8` | Default web search result count |
+
+## Tool loop limits
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.tools.budget.max_agent_rounds_per_turn` | `512` | Maximum model/tool rounds per turn |
+| `gateway.tools.budget.max_tool_calls_per_turn` | `2048` | Maximum tool calls per turn |
+| `gateway.tools.retry.max_same_tool_error_retries_per_episode` | `3` | Retry limit for repeated tool errors |
+
+These limits help stop runaway loops, but they are not a security sandbox.
+
+## Computer-use settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.tools.computer_use.artifacts_subdir` | `tools/computer_use` | Where computer-use artifacts are stored under runtime home |
+| `gateway.tools.computer_use.retention_hours` | `24` | Artifact retention |
+| `gateway.tools.computer_use.run_max_steps_default` | `300` | Default maximum steps per computer-use run |
+
+## Skills settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.skills.enabled` | `true` | Enable skills |
+| `gateway.skills.allow_implicit_invocation` | `false` | Allow implicit skill invocation |
+| `gateway.skills.validation.strict_agentskills` | `true` | Enforce AgentSkills validation |
+| `gateway.skills.dependencies.preflight_on_resolve` | `true` | Check dependencies before resolving skills |
+| `gateway.skills.runtime.enable_dynamic_tools` | `true` | Let skills register dynamic tools |
+
+## Provider attachment settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.provider.attachments.max_bytes_per_attachment` | `104857600` | Max single attachment size |
+| `gateway.provider.attachments.max_total_bytes_per_request` | `209715200` | Max total attachment size per request |
+| `gateway.provider.attachments.max_attachments_per_request` | `64` | Max attachments per request |
+| `gateway.provider.attachments.allow_url_sources` | `true` | Allow URL attachment sources |
+| `gateway.provider.attachments.allow_http` | `false` | Allow plain HTTP URL sources |
+| `gateway.provider.attachments.allow_private_network` | `false` | Allow private-network URL sources |
+
+## Database settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.database.file_name` | `gateway.db` | Database filename under runtime home |
+| `gateway.database.max_connections` | `1` | SQLite connection count |
+| `gateway.database.run_migrations_on_startup` | `true` | Apply migrations during gateway startup |
+
+## Auth settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.auth.jwt_issuer` | `pioneer` | JWT issuer |
+| `gateway.auth.jwt_audience` | `pioneer-clients` | JWT audience |
+| `gateway.auth.superuser_subject` | `superuser` | Subject for superuser tokens |
+| `gateway.auth.token_ttl_seconds` | `31536000` | Token lifetime |
+
+## Desktop gateway settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `desktop.gateway.connect_timeout_ms` | `300` | Connection timeout |
+| `desktop.gateway.startup_timeout_ms` | `10000` | Local gateway startup timeout |
+| `desktop.gateway.ws_ping_interval_ms` | `10000` | WebSocket ping interval |
+| `desktop.gateway.registry_file_name` | `gateway-registry.toml` | Desktop gateway registry file |
+
