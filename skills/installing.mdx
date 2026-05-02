@@ -1,7 +1,94 @@
 ---
 title: "Installing Skills"
-description: "How to install, upload, and activate skills in Pioneer."
+description: "Install skill packages and review validation before using them."
 icon: "download"
 ---
 
-<Note>Coming soon. This page will cover the full installation flow: registry browsing, archive upload, chunked transfer, validation steps, and activation.</Note>
+Install skills from the desktop app when you want to add reusable capabilities to a gateway.
+
+## Before installing
+
+Ask these questions:
+
+- Do you trust the source?
+- Does the skill run shell commands?
+- Does it make HTTP requests?
+- Does it need local dependencies?
+- Should it be installed on this gateway or a sandbox gateway first?
+- Is it safe to use in the current workspace?
+- Should it be implicit, or should users name it explicitly?
+
+<Warning>
+  Tool runs are not sandboxed yet. A skill tool can run with the permissions of the gateway OS user.
+</Warning>
+
+## Install from an archive
+
+<Steps>
+  <Step title="Open Skills">
+    In the desktop app, connect to the gateway and click the Skills icon in the bottom bar.
+  </Step>
+  <Step title="Choose install">
+    Click the install action for a local skill archive or folder, depending on your build.
+  </Step>
+  <Step title="Select the source">
+    Select the skill archive or source path.
+  </Step>
+  <Step title="Wait for upload">
+    Large skill archives may upload in chunks.
+  </Step>
+  <Step title="Review validation">
+    Check validation issues, dependency diagnostics, and security findings.
+  </Step>
+  <Step title="Confirm availability">
+    Confirm the skill is enabled in the current workspace before using it in real work.
+  </Step>
+  <Step title="Choose implicit mode">
+    Decide whether the skill should be implicit or only used when explicitly requested.
+  </Step>
+</Steps>
+
+## Validation results
+
+Pioneer may report:
+
+| Result | Meaning |
+| --- | --- |
+| Ready | The skill passed validation and dependency checks |
+| Warning | The skill can be installed, but you should review a finding |
+| Missing dependency | A required command or runtime dependency is not available |
+| Blocked | Policy or validation prevents use |
+| Unknown | Pioneer could not fully determine health |
+
+## Dependency checks
+
+Some skills require commands or local tools.
+
+If dependency checks fail:
+
+1. Read the missing dependency message.
+2. Install the dependency on the gateway host.
+3. Restart the gateway if the dependency changes `PATH`.
+4. Run skill health checks again.
+
+## Install location
+
+Skills are part of the gateway runtime. If you install a skill on one gateway, it is not automatically installed on another gateway.
+
+This is intentional. It lets you keep different capabilities for:
+
+- work
+- home
+- study
+- sandbox testing
+- remote automation
+
+## First test after install
+
+Use a safe prompt:
+
+```text
+Read the installed skill and explain what it can do. Do not call any tools yet.
+```
+
+Then test with a low-risk action.

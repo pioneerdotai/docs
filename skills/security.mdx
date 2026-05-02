@@ -1,7 +1,45 @@
 ---
 title: "Skill Security"
-description: "How Pioneer validates and sandboxes installed skills."
+description: "Understand trust, policy, dependencies, and safe skill testing."
 icon: "shield"
 ---
 
-<Note>Coming soon. This page will cover trust levels, provenance tracking, validation checks, security findings, and policy enforcement for skills.</Note>
+Treat a skill like software you install into the gateway.
+
+That does not mean every skill is dangerous. It means the right habit is to inspect first, test in a small environment, and only then use it for important work.
+
+<Warning>
+  Pioneer does not yet run tools in a separate sandbox. Skill tools execute with the permissions of the OS user running the gateway.
+</Warning>
+
+## What A Skill Can Change
+
+A skill can influence how agents behave. If it exposes tools, those tools may be able to read files, write files, run commands, make network requests, or access environment variables available to the gateway process.
+
+This is why gateway separation matters. Test unfamiliar skills on a sandbox gateway without important files or credentials. Do not install random archives directly into your main work gateway.
+
+## What To Trust
+
+Prefer skills from your own team, reviewed internal repositories, or sources you can inspect and reproduce. Be more careful with packages that hide their source, ask for secrets in prompts, download code at runtime, request broad shell access, or touch sensitive directories.
+
+If a skill depends on external commands, review those commands too. A clean-looking skill can still become risky if it shells out to a broad or untrusted dependency.
+
+## A Safe Review Flow
+
+Install the skill in a sandbox gateway. Read the validation output. Ask Pioneer to summarize the skill without running its tools:
+
+```text
+Inspect this skill and explain what it adds. Do not run any skill tools.
+```
+
+Then ask what tools it exposes:
+
+```text
+Show me which tools this skill exposes and what each one can access. Do not execute them.
+```
+
+Only after that should you run a harmless test prompt. If the behavior is predictable, promote the skill to a more important gateway.
+
+## Policy
+
+Keep skills on the gateway where they belong. A work-approved skill should live on the work gateway. A risky experimental skill should be tested on a sandbox gateway, not on every gateway you connect from the desktop app.

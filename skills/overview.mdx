@@ -1,47 +1,59 @@
 ---
 title: "Skills Overview"
-description: "Extend the Pioneer agent with installable skill packages."
+description: "Use skills to extend Pioneer with reusable instructions, tools, and workflows."
 icon: "puzzle-piece"
 ---
 
-**Skills** are installable packages that add new tools, prompts, and behaviors to the Pioneer agent. They follow the AgentSkills format — a zip archive containing tool definitions, prompts, and metadata.
+Skills are how you teach Pioneer reusable behavior.
 
-## What skills can do
+Without a skill, you repeat the same instructions in prompts: how your repo is organized, how a report should be formatted, which checks matter, which commands are safe, which output shape you expect. A skill packages that knowledge so it can be installed, reviewed, enabled, disabled, and reused.
 
-- Register new tools the agent can call (e.g., "search my calendar", "post to Slack")
-- Inject system prompts that shape the agent's behavior in a workspace
-- Bundle dependencies and configuration needed to run those tools
+A skill can be small, like a writing style guide. It can also be more capable, with dependency checks and dynamic tools. Either way, treat it as part of the gateway's working environment.
 
-## Installing a skill
+## When Skills Help
 
-<Steps>
-  <Step title="Open Skills in the Desktop App">
-    Navigate to **Settings → Skills**.
-  </Step>
-  <Step title="Install from registry or upload">
-    - Click **Browse registry** to install a published skill
-    - Click **Upload** to install a `.zip` archive from your file system
-  </Step>
-  <Step title="Activate the skill">
-    After installation, toggle the skill on in the workspace or thread settings.
-  </Step>
-</Steps>
+Use a skill when the same behavior should show up again and again.
 
-## Skill format
+A team might use a skill for repository conventions or support workflows. A researcher might use one for literature notes. A company might package an internal API helper. A solo user might create a skill for how they want documents summarized.
 
-Skills are zip archives. The archive must contain at minimum a `skill.json` manifest:
+If the instruction is one-off, put it in the thread. If it should become part of how Pioneer works in a workspace, make it a skill.
 
-```json
-{
-  "name": "my-skill",
-  "version": "1.0.0",
-  "tools": [...],
-  "prompts": [...]
-}
-```
+## Where Skills Live
 
-See [Installing Skills](/skills/installing) for the full manifest schema.
+Skills are installed on a gateway and made available through the current workspace.
 
-## Security
+That means your work gateway can have approved work skills, your home gateway can have personal skills, and your sandbox gateway can be where you test new or untrusted packages. One desktop app can connect to all of those gateways without sharing their skill state.
 
-Skills run with the same permissions as the gateway process. Pioneer validates skill archives before installation and tracks provenance (where a skill came from). See [Skill Security](/skills/security) for details.
+## Enabled And Implicit Skills
+
+Installed skills can be enabled or disabled. A disabled skill stays installed on the gateway, but agents should not use it.
+
+Enabled skills can be **implicit** or **not implicit**. An implicit skill is available automatically when Pioneer decides it is relevant. A not implicit skill is available only when you explicitly ask for it, for example by naming the skill in your prompt.
+
+Use implicit mode for trusted, general-purpose behavior that should naturally apply in many threads. Use not implicit mode for specialized, risky, noisy, or rarely needed skills.
+
+## Using Skills Safely
+
+Installing a skill should not be treated like pasting a harmless prompt. Skills can include dynamic tools, dependency expectations, and workflow instructions that affect what agents do.
+
+<Warning>
+  Skill tools run through the gateway, and tool runs are not sandboxed yet. Test unfamiliar skills on a sandbox gateway first.
+</Warning>
+
+Before trusting a skill, look at what it adds, what commands or services it expects, and whether it asks for broad file or network access. Then try it with a low-risk prompt before using it on important work.
+
+## Typical Flow
+
+Install the skill, review validation results, fix missing dependencies if needed, confirm it is enabled in the current workspace, choose whether it should be implicit, and try it in a thread. If it behaves well, use it in tasks too. If it is too broad or surprising, disable it or make it not implicit.
+
+<Columns cols={3}>
+  <Card title="Installing Skills" icon="download" href="/skills/installing">
+    Add a skill package and read validation results.
+  </Card>
+  <Card title="Managing Skills" icon="sliders" href="/skills/managing">
+    Enable, disable, update, or remove installed skills.
+  </Card>
+  <Card title="Skill Security" icon="shield" href="/skills/security">
+    Decide what is safe to trust on a gateway.
+  </Card>
+</Columns>

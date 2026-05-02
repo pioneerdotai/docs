@@ -1,7 +1,94 @@
 ---
 title: "Managing Skills"
-description: "Update, disable, and uninstall skills."
+description: "Enable, disable, update, inspect, and remove skills."
 icon: "sliders"
 ---
 
-<Note>Coming soon. This page will cover skill lifecycle management: updating to new versions, enabling/disabling per workspace, uninstalling, and viewing the audit timeline.</Note>
+After installing a skill, manage where and how it can be used.
+
+## View installed skills
+
+In the desktop app, connect to the gateway and click the Skills icon in the bottom bar.
+
+For each skill, review:
+
+- name
+- version
+- status
+- source
+- enabled/disabled state
+- implicit/not implicit state
+- dependency diagnostics
+- validation issues
+- security findings
+- audit timeline
+
+## Enable, Disable, Or Change Implicit Mode
+
+Disable skills by default until you know what they do. After a skill is trusted, decide whether it should be implicit.
+
+An **implicit** skill can be picked up automatically when Pioneer decides it is relevant. A **not implicit** skill stays available, but agents should use it only when you explicitly ask for that skill.
+
+Recommended flow:
+
+<Steps>
+  <Step title="Install the skill">
+    Install and wait for validation.
+  </Step>
+  <Step title="Inspect the skill">
+    Read its description, dependencies, and security findings.
+  </Step>
+  <Step title="Test on a sandbox gateway">
+    Use a sandbox gateway first.
+  </Step>
+  <Step title="Run a safe test">
+    Ask the agent to explain the skill before letting it call tools.
+  </Step>
+  <Step title="Choose implicit behavior">
+    Keep the skill not implicit unless it is trusted and broadly useful.
+  </Step>
+  <Step title="Use in real work">
+    Use the skill only on gateways where it is needed.
+  </Step>
+</Steps>
+
+## Update a skill
+
+When a new version is available:
+
+1. Review the source and changelog if available.
+2. Update in a sandbox first.
+3. Recheck dependencies and security findings.
+4. Run a safe test.
+5. Use the updated skill on production gateways only after testing.
+
+## Uninstall a skill
+
+Uninstall a skill when:
+
+- you no longer use it
+- it has risky permissions
+- dependencies are broken
+- you want to replace it with a newer package
+- it was installed on the wrong gateway
+
+Uninstalling removes that skill from the selected gateway. Other gateways are not affected.
+
+## Audit history
+
+Use the audit timeline to answer:
+
+- Who installed or updated the skill?
+- When did policy change?
+- Was the skill blocked?
+- Did dependencies change?
+- Were there validation warnings?
+
+## Good management habits
+
+- Keep a sandbox gateway for testing skills.
+- Avoid enabling skills globally unless needed.
+- Keep specialized skills not implicit.
+- Review skill tools before allowing write access.
+- Remove unused skills.
+- Recheck skill health after OS or dependency changes.
