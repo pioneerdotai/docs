@@ -1,36 +1,58 @@
 ---
 title: "Desktop App Overview"
-description: "A tour of the Pioneer desktop app and its main panels."
+description: "Use the Pioneer desktop app to connect gateways, use the default workspace, and run conversations."
 icon: "desktop"
 ---
 
-The Pioneer desktop app is a native application built with [GPUI](https://github.com/zed-industries/gpui). It connects to the local gateway over WebSocket and provides a full UI for managing conversations, providers, skills, MCP servers, and tasks.
+The desktop app is where most people will use Pioneer.
 
-## Main layout
+It is a native app, not a web shell. You use it to connect gateways, work in the default workspace, talk to models, inspect tool runs, configure providers, manage skills and MCP servers, and keep an eye on tasks.
 
-The app has three primary areas:
+The important thing to remember is that the desktop app is a client. It gives you control, but the gateway owns the work. Provider calls, tool execution, task runs, skills, MCP servers, and stored Pioneer state belong to the gateway you are connected to.
 
-**Sidebar** — lists your workspaces and threads. You can organize threads into folders and search across all conversations.
+## Local Use
 
-**Timeline** — the main conversation view. Each turn is rendered as a sequence of events: the user message, tool calls (with inputs and outputs), thinking traces, and the final response.
+For a single-machine setup, the desktop app can start and manage a local gateway. This is the easiest way to try Pioneer: install the app, start the local gateway when prompted, add a model provider, and create a thread.
 
-**Composer** — the message input at the bottom. Supports multiline input, file attachments, and mode selection (agent, chat, task).
+In this setup, tool calls happen on your computer. If an agent lists files, it lists files visible to your local gateway. If it runs a shell command, it runs on your machine as the gateway user.
 
-## Key panels
+## Multiple Gateways
 
-<Columns cols={2}>
-  <Card title="Workspace & Threads" icon="folder" href="/desktop/workspace">
-    How to organize your work into workspaces and thread folders.
-  </Card>
-  <Card title="Conversation Timeline" icon="list" href="/desktop/threads">
-    How the conversation view works: events, tool call expansion, and history.
-  </Card>
-</Columns>
+One desktop app can connect to any number of gateways.
 
-## Gateway control
+This is useful when your environments should stay separate. You might keep a local gateway for everyday experiments, a work gateway close to work repositories and accounts, a home server for long-running personal tasks, and a sandbox gateway for testing risky skills or MCP servers.
 
-The app includes a gateway lifecycle widget. If the gateway isn't running, you can start it directly from the app. The status indicator shows whether the gateway is connected and healthy.
+Switching gateways is more than changing a label in the sidebar. You are switching execution environments. A thread on `Work` uses work provider keys and work tools. A thread on `Home Server` uses the server's files, network, and services.
+
+<Warning>
+  When you connect to a remote gateway, tools run on the remote machine, not on the computer running the desktop app.
+</Warning>
+
+## What You Do In The App
+
+Most daily work happens in three places.
+
+The gateway switcher tells you which environment you are using. Check it before running tool-heavy prompts.
+
+The current workspace is created automatically on first launch. For now, use threads to keep context clean inside that workspace, and use separate gateways when environments need to be separated.
+
+Threads are where conversations happen. The thread timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When an agent changes something or a tool fails, the timeline is the first place to inspect.
+
+## Settings
+
+Settings are split between app-level preferences and gateway-owned configuration. Provider credentials, skills, MCP servers, and tasks belong to the gateway. If you connect to another gateway, configure them again there.
+
+That separation is intentional. It lets one desktop app control several independent Pioneer environments without mixing their state.
 
 ## Localization
 
-The app is available in 8 languages: English, Russian, Chinese, Hindi, Spanish, German, French, and Japanese. Change the language in **Settings → General**.
+The desktop UI includes English, German, Spanish, French, Hindi, Japanese, Russian, and Chinese locales.
+
+<Columns cols={2}>
+  <Card title="Workspace" icon="folder-open" href="/desktop/workspace">
+    Understand the default workspace and organize work with gateways and threads.
+  </Card>
+  <Card title="Threads" icon="messages" href="/desktop/threads">
+    Read timelines, tool events, and conversation history.
+  </Card>
+</Columns>

@@ -1,7 +1,62 @@
 ---
 title: "Conversation Timeline"
-description: "How Pioneer renders conversations: events, tool calls, and history."
+description: "Read Pioneer thread timelines, tool events, outputs, and errors."
 icon: "messages"
 ---
 
-<Note>Coming soon. This page will cover the timeline event model, how tool call inputs and outputs are displayed, thinking traces, error states, and navigating turn history.</Note>
+A Pioneer thread is not just a chat transcript. It is a record of what happened.
+
+That record matters because agents can call tools. A good answer is useful, but the timeline shows how the answer was produced: which model responded, which tools ran, what each tool returned, whether anything failed, and whether anything changed.
+
+## Read The Timeline
+
+When a turn is simple, the timeline may only show your message and the assistant response.
+
+When a turn uses tools, open the tool events. Check the tool name, arguments, working directory, file paths, output, error output, and whether the tool changed anything. This is especially important on remote gateways, where a path that looks local may actually belong to a server.
+
+<Warning>
+  Tool calls execute on the gateway host. In a remote gateway thread, commands and file paths belong to the remote machine.
+</Warning>
+
+## Start With Narrow Prompts
+
+When you are learning a project or testing a gateway, ask for read-only work first:
+
+```text
+Inspect the repository and summarize the major folders. Do not modify files.
+```
+
+```text
+Find where provider keys are configured. Do not print any secrets.
+```
+
+```text
+Explain what you would change first, but do not edit files yet.
+```
+
+After you trust the environment, you can allow edits. Be explicit about scope:
+
+```text
+Update only the README. Do not modify source code. Summarize the exact changes when done.
+```
+
+```text
+Fix the failing CLI test. Keep the change scoped to the CLI crate unless you find a direct dependency.
+```
+
+## Keep Threads Clean
+
+Use one thread for one goal. A thread that starts as research and turns into edits, deployment, provider debugging, and task design will become hard to reason about.
+
+Start a new thread when the goal changes. Put high-risk tool work in its own thread. Give threads names that make sense when you come back a week later.
+
+## When Something Fails
+
+Open the failed item first. Provider errors usually point to API keys, model names, quota, endpoint, or network access. Tool errors usually point to permissions, missing commands, wrong working directories, timeouts, or file paths that exist on one gateway but not another.
+
+If the error is unclear, retry with a smaller prompt. Ask the agent to inspect and explain before asking it to fix.
+
+## Attachments
+
+If your build supports attachments, use them for screenshots, logs, text files, and documents that are directly relevant to the thread. Avoid dumping unrelated context into a thread just because it might help. Smaller, cleaner context usually produces better behavior.
+

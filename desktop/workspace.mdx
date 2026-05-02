@@ -1,7 +1,30 @@
 ---
-title: "Workspaces & Organization"
-description: "Manage workspaces, folders, and thread organization in the Desktop App."
+title: "Workspace & Organization"
+description: "Understand the current default workspace and organize work with gateways and threads."
 icon: "folder-open"
 ---
 
-<Note>Coming soon. This page will cover creating workspaces, organizing threads into folders, searching conversations, and workspace-level settings (tools, skills, providers).</Note>
+Pioneer currently creates one workspace automatically on first launch.
+
+You do not need to create a workspace, choose between workspaces, or move threads between workspaces to start using the app. The default workspace is where your threads, skills, MCP servers, tasks, and settings come together for the gateway you are connected to.
+
+## Use Gateways For Separation
+
+Because multiple workspace management is not exposed yet, gateways are the main way to separate environments today.
+
+Use a separate gateway when the machine, files, accounts, provider keys, MCP servers, skills, task schedules, or security boundary should be different. A work gateway can stay close to work repositories and internal tools. A home gateway can run on a personal server. A sandbox gateway can exist only for testing tools and skills.
+
+The desktop app can connect to all of them, but they do not share state. Each gateway has its own database, provider settings, default workspace, skills, MCP servers, tasks, and execution environment.
+
+## Use Threads For Context
+
+Inside the default workspace, use threads to keep work understandable.
+
+Use one thread for one goal. Start a new thread when the topic changes, when you move from research to edits, or when you want a clean context. Name threads clearly so you can find them later.
+
+For example, `Research MCP server options` is more useful than `Notes`, and `Fix gateway status on macOS` is more useful than `Bug`.
+
+<Warning>
+  The default workspace is not a sandbox. Tool runs still execute as the gateway OS user.
+</Warning>
+
