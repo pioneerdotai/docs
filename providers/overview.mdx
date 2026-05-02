@@ -1,33 +1,73 @@
 ---
 title: "Providers Overview"
-description: "Connect Pioneer to any of the supported LLM backends."
+description: "Connect Pioneer to cloud, local, CLI, and OpenAI-compatible model providers."
 icon: "brain"
 ---
 
-Pioneer supports 12+ LLM providers through a unified interface. You can configure multiple providers simultaneously and switch between them per-thread.
+Pioneer needs a model provider before it can answer in threads or run model-backed tasks. A provider is the place the gateway sends model requests: a cloud API, a local runtime, a CLI-backed model tool, or an OpenAI-compatible endpoint.
 
-## Supported providers
+Provider setup is intentionally the same shape everywhere. Connect the desktop app to the gateway you want to configure, click the providers icon in the bottom bar to open **Providers**, choose the provider type, enter the required credential or endpoint details, save, and select a model in a thread.
 
-| Provider | Type | Notes |
-|---|---|---|
-| [Anthropic](/providers/anthropic) | Cloud | Claude models |
-| [OpenAI](/providers/openai) | Cloud | GPT-4o, o1, etc. |
-| [Google](/providers/google) | Cloud | Gemini models |
-| [OpenRouter](/providers/openrouter) | Cloud | Aggregates many providers |
-| [Azure OpenAI](/providers/azure) | Cloud | Enterprise OpenAI |
-| [AWS Bedrock](/providers/bedrock) | Cloud | Multi-model via AWS |
-| [Ollama](/providers/ollama) | Local | Run models on your machine |
-| [Others](/providers/others) | Various | Copilot, GLM, Telnyx, Kilo CLI |
+The important detail is where the provider is saved. Provider configuration belongs to the gateway, not to the desktop app. If you configure a provider on `Local` and then switch to `Work Gateway`, the work gateway needs its own provider configuration.
 
-## Adding a provider
+<Note>
+  Provider requests are made by the gateway host. A remote gateway needs network access to the provider even if your desktop computer already has access.
+</Note>
 
-1. Open the Desktop App → **Settings** → **Providers**
-2. Click **Add provider**
-3. Select the provider type, paste your API key, and choose a default model
-4. Click **Save**
+## General Connection Flow
 
-The gateway stores API keys encrypted in the local database — they never leave your machine.
+Use this flow for any supported provider:
 
-## Switching providers in a thread
+<Steps>
+  <Step title="Choose the gateway">
+    Connect the desktop app to the gateway that should own this provider configuration.
+  </Step>
+  <Step title="Open Providers">
+    Click the providers icon in the bottom bar to open **Providers**.
+  </Step>
+  <Step title="Add the provider">
+    Choose the provider type and enter the required key, endpoint, region, deployment, or local runtime address.
+  </Step>
+  <Step title="Save on the gateway">
+    Save the provider configuration and confirm it appears for the current gateway.
+  </Step>
+  <Step title="Test with a thread">
+    Create a thread, select the provider and model, and send a short test message.
+  </Step>
+</Steps>
 
-Each thread can use a different provider. Use the model picker in the thread toolbar to change the provider or model for that thread.
+Some providers can list models automatically. Others require you to enter the exact model ID. If model listing does not work, copy the model ID from the provider dashboard or runtime and test it with a small prompt.
+
+## Supported Providers
+
+Pioneer supports dedicated provider integrations, local runtimes, CLI providers, and OpenAI-compatible endpoints.
+
+| Provider type | Supported providers |
+| --- | --- |
+| Direct cloud providers | Anthropic, OpenAI, Google Gemini, OpenRouter, Azure OpenAI, AWS Bedrock |
+| Local and self-hosted runtimes | Ollama, LM Studio, llama.cpp, SGLang, vLLM, LiteLLM |
+| CLI providers | Claude Code, Gemini CLI, Kilo CLI |
+| OpenAI-compatible providers | Groq, Mistral, xAI, DeepSeek, Together, Fireworks, Perplexity, Cohere, Cerebras, Hugging Face, NVIDIA NIM, and others |
+
+Use [Other Providers](/providers/others) when you need the broader compatibility list.
+
+## Choosing A Provider
+
+Use the provider you already have access to. If your organization manages a specific cloud account, start there. If you want local model execution, use a local runtime available from the gateway host. If you want a broad model catalog behind one integration, use a router or another compatible endpoint.
+
+Do not assume every model behaves the same way. Before using a model for tool-heavy work or scheduled tasks, confirm that your account can access it, that the model supports the kind of tool use you need, and that cost, latency, and context size are acceptable.
+
+<AccordionGroup>
+  <Accordion title="The provider does not appear in a thread">
+    Make sure you configured it on the same gateway you are currently using.
+  </Accordion>
+  <Accordion title="Model listing fails">
+    Try entering a model ID manually. Some providers do not expose model listing in a way Pioneer can use.
+  </Accordion>
+  <Accordion title="Authentication fails">
+    Check the key, token scope, account status, endpoint, region, deployment name, and gateway environment.
+  </Accordion>
+  <Accordion title="A remote gateway cannot call the provider">
+    Check network access, proxy settings, firewall rules, and DNS from the gateway machine.
+  </Accordion>
+</AccordionGroup>
