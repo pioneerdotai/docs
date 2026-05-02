@@ -1,0 +1,47 @@
+---
+title: "Skills Overview"
+description: "Extend the Pioneer agent with installable skill packages."
+icon: "puzzle-piece"
+---
+
+**Skills** are installable packages that add new tools, prompts, and behaviors to the Pioneer agent. They follow the AgentSkills format — a zip archive containing tool definitions, prompts, and metadata.
+
+## What skills can do
+
+- Register new tools the agent can call (e.g., "search my calendar", "post to Slack")
+- Inject system prompts that shape the agent's behavior in a workspace
+- Bundle dependencies and configuration needed to run those tools
+
+## Installing a skill
+
+<Steps>
+  <Step title="Open Skills in the Desktop App">
+    Navigate to **Settings → Skills**.
+  </Step>
+  <Step title="Install from registry or upload">
+    - Click **Browse registry** to install a published skill
+    - Click **Upload** to install a `.zip` archive from your file system
+  </Step>
+  <Step title="Activate the skill">
+    After installation, toggle the skill on in the workspace or thread settings.
+  </Step>
+</Steps>
+
+## Skill format
+
+Skills are zip archives. The archive must contain at minimum a `skill.json` manifest:
+
+```json
+{
+  "name": "my-skill",
+  "version": "1.0.0",
+  "tools": [...],
+  "prompts": [...]
+}
+```
+
+See [Installing Skills](/skills/installing) for the full manifest schema.
+
+## Security
+
+Skills run with the same permissions as the gateway process. Pioneer validates skill archives before installation and tracks provenance (where a skill came from). See [Skill Security](/skills/security) for details.

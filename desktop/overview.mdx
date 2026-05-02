@@ -1,0 +1,36 @@
+---
+title: "Desktop App Overview"
+description: "A tour of the Pioneer desktop app and its main panels."
+icon: "desktop"
+---
+
+The Pioneer desktop app is a native application built with [GPUI](https://github.com/zed-industries/gpui). It connects to the local gateway over WebSocket and provides a full UI for managing conversations, providers, skills, MCP servers, and tasks.
+
+## Main layout
+
+The app has three primary areas:
+
+**Sidebar** — lists your workspaces and threads. You can organize threads into folders and search across all conversations.
+
+**Timeline** — the main conversation view. Each turn is rendered as a sequence of events: the user message, tool calls (with inputs and outputs), thinking traces, and the final response.
+
+**Composer** — the message input at the bottom. Supports multiline input, file attachments, and mode selection (agent, chat, task).
+
+## Key panels
+
+<Columns cols={2}>
+  <Card title="Workspace & Threads" icon="folder" href="/desktop/workspace">
+    How to organize your work into workspaces and thread folders.
+  </Card>
+  <Card title="Conversation Timeline" icon="list" href="/desktop/threads">
+    How the conversation view works: events, tool call expansion, and history.
+  </Card>
+</Columns>
+
+## Gateway control
+
+The app includes a gateway lifecycle widget. If the gateway isn't running, you can start it directly from the app. The status indicator shows whether the gateway is connected and healthy.
+
+## Localization
+
+The app is available in 8 languages: English, Russian, Chinese, Hindi, Spanish, German, French, and Japanese. Change the language in **Settings → General**.

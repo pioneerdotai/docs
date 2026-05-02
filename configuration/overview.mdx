@@ -1,0 +1,32 @@
+---
+title: "Configuration Overview"
+description: "How Pioneer is configured: defaults, user config file, and environment variables."
+icon: "gear"
+---
+
+Pioneer uses a layered configuration system. Settings are loaded in this order (later layers override earlier ones):
+
+1. **Built-in defaults** (`config/default.toml` in the source tree)
+2. **User config file** — platform-specific location (see below)
+3. **Environment variables** — for CI and container deployments
+
+## Config file location
+
+| Platform | Path |
+|---|---|
+| macOS | `~/Library/Application Support/pioneer/config.toml` |
+| Linux | `~/.config/pioneer/config.toml` |
+| Windows | `%APPDATA%\pioneer\config.toml` |
+
+## Key settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `gateway.port` | `17878` | Port the gateway listens on |
+| `gateway.host` | `0.0.0.0` | Host the gateway binds to |
+| `tools.web.timeout_secs` | `30` | Timeout for web fetch operations |
+| `tools.web.max_download_mb` | `50` | Max download size for web tool |
+| `skills.allow_untrusted` | `true` | Allow installing unsigned skills |
+| `tasks.retry.max_attempts` | `3` | Max task retry attempts |
+
+See [Configuration Reference](/configuration/reference) for a complete list of all settings.

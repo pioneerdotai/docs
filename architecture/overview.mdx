@@ -1,0 +1,76 @@
+---
+title: "Architecture Overview"
+description: "How Pioneer is structured: the gateway, desktop app, protocol, and agent loop."
+icon: "diagram-project"
+---
+
+Pioneer is a Rust workspace of 16 crates organized around a clear separation of concerns: a persistent **gateway** service owns all state and execution, while a **desktop app** is just a thin client that connects to it.
+
+## High-level diagram
+
+```
+┌─────────────────────────────────────────────┐
+│              Desktop App (GPUI)             │
+│   Sidebar │ Timeline │ Composer │ Settings  │
+└──────────────────┬──────────────────────────┘
+                   │ WebSocket JSON-RPC
+┌──────────────────▼──────────────────────────┐
+│                  Gateway                    │
+│  Transport │ Auth │ Workspaces │ Sessions   │
+│  ┌──────────────────────────────────────┐   │
+│  │           Agent Loop                │   │
+│  │  Prompt → LLM Provider → Tool Calls │   │
+│  └──────────────────────────────────────┘   │
+│  Tasks │ Skills │ MCP │ SQLite DB           │
+└─────────────────────────────────────────────┘
+```
+
+## Core components
+
+<Columns cols={2}>
+  <Card title="Gateway" icon="server" href="/architecture/gateway">
+    The persistent Rust service. Owns all state, runs the agent loop, manages the database.
+  </Card>
+  <Card title="Agent Loop" icon="arrows-spin" href="/architecture/agent-loop">
+    Orchestrates LLM calls and tool execution within a single conversation turn.
+  </Card>
+  <Card title="Protocol" icon="code" href="/architecture/protocol">
+    JSON-RPC 2.0 contract layer. Defines all types shared between gateway and clients.
+  </Card>
+  <Card title="Tools" icon="wrench" href="/architecture/tools">
+    Built-in tool implementations: shell, files, web, and computer use.
+  </Card>
+</Columns>
+
+## Subsystems
+
+<Columns cols={3}>
+  <Card title="Providers" icon="brain" href="/architecture/providers">
+    Unified LLM provider interface across 12+ backends.
+  </Card>
+  <Card title="Skills" icon="puzzle-piece" href="/architecture/skills">
+    Installable skill package lifecycle and runtime registration.
+  </Card>
+  <Card title="Tasks" icon="clock" href="/architecture/tasks">
+    Scheduler, executor, triggers, delivery, and reconciliation.
+  </Card>
+  <Card title="MCP" icon="plug" href="/architecture/mcp">
+    Model Context Protocol client runtime and server catalog.
+  </Card>
+  <Card title="Persistence" icon="database" href="/architecture/persistence">
+    SeaORM + SQLite repository layer and migration system.
+  </Card>
+  <Card title="Prompt System" icon="file-lines" href="/architecture/prompt">
+    Prompt compilation, token budgeting, and rendering.
+  </Card>
+</Columns>
+
+## Design principles
+
+**Protocol-first.** All contracts are defined as JSON-RPC types in the `protocol` crate, with JSON schemas auto-generated. Clients never depend on internal implementation details.
+
+**Event sourcing.** Agent execution emits durable events that are persisted before being acted on. This enables recovery after crashes and interruptions.
+
+**Local-first.** Everything runs on your machine. The gateway is a self-contained process with no required external dependencies beyond an LLM provider.
+
+**Repository pattern.** All database access goes through a clean CRUD layer; nothing in the business logic touches SeaORM directly.

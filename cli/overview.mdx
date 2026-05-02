@@ -1,0 +1,27 @@
+---
+title: "CLI Overview"
+description: "The pioneer command-line tool for managing the gateway service."
+icon: "terminal"
+---
+
+The `pioneer` CLI lets you manage the gateway service from your terminal: start, stop, check status, issue auth tokens, and update to new versions.
+
+## Installation
+
+The CLI is included in all Pioneer distributions. After install:
+
+```bash
+pioneer --help
+```
+
+## Common commands
+
+```bash
+pioneer status          # Check if the gateway is running
+pioneer start           # Start the gateway service
+pioneer stop            # Stop the gateway service
+pioneer update          # Update to the latest release
+pioneer issue-superuser-token   # Generate a JWT for API access
+```
+
+See [CLI Commands](/cli/commands) for the full reference.

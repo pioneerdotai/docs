@@ -1,133 +1,63 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
-icon: 'star'
+title: "Pioneer"
+description: "Local-first AI workspace. Run a powerful AI assistant on your own machine — private, extensible, fully under your control."
+icon: "rocket"
 ---
 
-## Setting up
+## What is Pioneer?
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
+Pioneer is a **local-first AI platform** that runs entirely on your machine. It brings together a persistent gateway service, a native desktop app, and a rich set of tools so you can build a personal AI workspace without sending your data to a third-party cloud.
 
 <Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+  <Card title="Install Pioneer" icon="download" href="/getting-started/installation">
+    Get the gateway and desktop app running in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Quick Start" icon="bolt" href="/getting-started/quickstart">
+    Set up your first provider and start your first conversation.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Core Concepts" icon="book" href="/getting-started/concepts">
+    Learn about workspaces, threads, turns, and tasks.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
+    Understand how the gateway, agent loop, and protocol fit together.
   </Card>
 </Columns>
 
-## Create beautiful pages
+## Key capabilities
 
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<Columns cols={3}>
+  <Card title="12+ LLM Providers" icon="brain" href="/providers/overview">
+    Connect to Anthropic, OpenAI, Ollama, Google, Azure, Bedrock, OpenRouter, and more.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Real Local Tools" icon="terminal" href="/architecture/tools">
+    Execute shell commands, read and write files, browse the web, and control your desktop.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Skills" icon="puzzle-piece" href="/skills/overview">
+    Extend the agent with installable skill packages that add new tools and behaviors.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="MCP Servers" icon="plug" href="/mcp/overview">
+    Connect any Model Context Protocol server to give the agent access to external APIs.
+  </Card>
+  <Card title="Task Scheduler" icon="clock" href="/tasks/overview">
+    Schedule recurring tasks and automate workflows with dependency-aware execution.
+  </Card>
+  <Card title="Privacy first" icon="lock" href="/configuration/overview">
+    All state lives in a local SQLite database. Nothing leaves your machine unless you say so.
   </Card>
 </Columns>
 
-## Make your content agent ready
+## How it works
 
-Make your docs work for humans and AI agents alike.
+Pioneer has three main components that work together:
 
-<Columns cols={2}>
-  <Card
-    title="Prompt component"
-    icon="robot"
-    href="/agent-ready/prompt"
-  >
-    Embed shareable AI prompts readers can copy or open in Cursor.
-  </Card>
-  <Card
-    title="Visibility"
-    icon="eye"
-    href="/agent-ready/visibility"
-  >
-    Show different content to humans and agents reading your docs.
-  </Card>
-  <Card
-    title="Contextual menu"
-    icon="bolt"
-    href="/agent-ready/contextual"
-  >
-    Give readers one-click access to Claude, ChatGPT, Cursor, and more.
-  </Card>
-  <Card
-    title="AI coding tools"
-    icon="wand-magic-sparkles"
-    href="/ai-tools/claude-code"
-  >
-    Set up Claude Code, Cursor, or Windsurf with Mintlify's skill.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Gateway">
+    A long-running Rust service that owns all state — conversations, tasks, skills, MCP servers, provider configuration. Clients connect to it over a local WebSocket JSON-RPC channel.
+  </Step>
+  <Step title="Desktop App">
+    A native app (built with GPUI) that gives you a full UI for managing threads, configuring providers, installing skills, and browsing task history.
+  </Step>
+  <Step title="Agent Loop">
+    When you send a message, the gateway runs an agent loop that talks to your chosen LLM, orchestrates tool calls, and streams results back to the desktop in real time.
+  </Step>
+</Steps>

@@ -1,0 +1,37 @@
+---
+title: "Protocol Layer"
+description: "The JSON-RPC 2.0 contract that defines all communication between gateway and clients."
+icon: "code"
+---
+
+The **protocol crate** (`crates/protocol`) is the single source of truth for all types shared between the gateway and its clients. It has no business logic — only type definitions and serialization.
+
+## Design goals
+
+- **Version-stable** — clients can depend on protocol types without importing internal crates
+- **Schema-generated** — JSON schemas are auto-generated from Rust types and committed to `schemas/`
+- **Self-documenting** — type names and field names are the API contract
+
+## What it defines
+
+- JSON-RPC request and response envelopes
+- Workspace, thread, turn, and task types
+- Provider and model listing types
+- Skill lifecycle operation types
+- MCP server and catalog types
+- Agent event stream types (progress, tool calls, thinking, errors)
+- Markdown document representation for rich text rendering
+
+## Regenerating schemas
+
+After changing types in `crates/protocol`:
+
+```bash
+./scripts/protocol/export.sh
+```
+
+This runs a schema export binary that writes updated JSON schemas to `schemas/`. Commit both the Rust changes and the updated schemas together.
+
+## Transport
+
+All communication uses **JSON-RPC 2.0** over a WebSocket connection. The gateway sends notifications (streaming events) and the client sends requests. The protocol crate defines the method names and payload types for both.

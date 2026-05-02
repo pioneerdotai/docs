@@ -1,0 +1,33 @@
+---
+title: "Providers Overview"
+description: "Connect Pioneer to any of the supported LLM backends."
+icon: "brain"
+---
+
+Pioneer supports 12+ LLM providers through a unified interface. You can configure multiple providers simultaneously and switch between them per-thread.
+
+## Supported providers
+
+| Provider | Type | Notes |
+|---|---|---|
+| [Anthropic](/providers/anthropic) | Cloud | Claude models |
+| [OpenAI](/providers/openai) | Cloud | GPT-4o, o1, etc. |
+| [Google](/providers/google) | Cloud | Gemini models |
+| [OpenRouter](/providers/openrouter) | Cloud | Aggregates many providers |
+| [Azure OpenAI](/providers/azure) | Cloud | Enterprise OpenAI |
+| [AWS Bedrock](/providers/bedrock) | Cloud | Multi-model via AWS |
+| [Ollama](/providers/ollama) | Local | Run models on your machine |
+| [Others](/providers/others) | Various | Copilot, GLM, Telnyx, Kilo CLI |
+
+## Adding a provider
+
+1. Open the Desktop App → **Settings** → **Providers**
+2. Click **Add provider**
+3. Select the provider type, paste your API key, and choose a default model
+4. Click **Save**
+
+The gateway stores API keys encrypted in the local database — they never leave your machine.
+
+## Switching providers in a thread
+
+Each thread can use a different provider. Use the model picker in the thread toolbar to change the provider or model for that thread.

@@ -1,0 +1,30 @@
+---
+title: "MCP Servers Overview"
+description: "Connect Pioneer to external APIs and services via the Model Context Protocol."
+icon: "plug"
+---
+
+**MCP (Model Context Protocol)** is an open standard for exposing tools and resources to AI agents. Pioneer can connect to any MCP-compatible server, giving the agent access to external services — databases, APIs, file systems, and more.
+
+## How MCP works in Pioneer
+
+When you connect an MCP server to Pioneer:
+
+1. The gateway starts the MCP server process (or connects to an existing HTTP endpoint)
+2. The server advertises its available **tools**, **resources**, and **prompts**
+3. Those tools become available to the agent during conversations
+
+## Transport types
+
+Pioneer supports two MCP transport modes:
+
+- **stdio** — Pioneer spawns the server as a child process and communicates over stdin/stdout. Good for local tools.
+- **HTTP** — Pioneer connects to a running HTTP MCP server. Good for shared or remote services.
+
+## Connecting a server
+
+See [Connecting MCP Servers](/mcp/connecting) for step-by-step instructions.
+
+## Browsing the catalog
+
+See [MCP Catalog](/mcp/catalog) to learn about discovering and managing connected servers.

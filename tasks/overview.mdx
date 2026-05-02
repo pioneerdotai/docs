@@ -1,0 +1,37 @@
+---
+title: "Tasks & Automation Overview"
+description: "Schedule and automate work with Pioneer's built-in task system."
+icon: "clock"
+---
+
+**Tasks** are automated units of work that use the same agent loop as your conversations. You define what the agent should do, when it should run, and where the results should go — Pioneer handles the rest.
+
+## Use cases
+
+- Daily summaries of your emails or calendar
+- Scheduled web research that posts results to Slack
+- Automated code reviews triggered by a webhook
+- Recurring data processing pipelines
+
+## Key concepts
+
+**Task** — the definition: what to do, when to run it, and how to deliver results.
+
+**Task Run** — a single execution of a task. The agent runs, produces output, and the run is recorded in the database with full event history.
+
+**Trigger** — what causes a task to run. Options: manual, cron schedule, or dependency on another task completing.
+
+**Delivery** — where results go after a run completes. Options: in-app notification, webhook, or another task's input.
+
+**Task Tree** — tasks can depend on each other. Pioneer enforces execution order and passes outputs between tasks.
+
+## Getting started
+
+<Columns cols={2}>
+  <Card title="Scheduling" icon="calendar" href="/tasks/scheduling">
+    Set up cron schedules and manual triggers.
+  </Card>
+  <Card title="Automation" icon="robot" href="/tasks/automation">
+    Build multi-step task trees with dependencies and delivery.
+  </Card>
+</Columns>

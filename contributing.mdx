@@ -1,0 +1,62 @@
+---
+title: "Contributing"
+description: "How to build Pioneer locally, run tests, and submit changes."
+icon: "code-pull-request"
+---
+
+## Prerequisites
+
+- **Rust** (2024 edition) — install via [rustup](https://rustup.rs)
+- **SQLite** development headers (Linux: `libsqlite3-dev`)
+
+## Building
+
+```bash
+git clone https://github.com/pioneer/pioneer
+cd pioneer
+cargo build --workspace
+```
+
+## Running the gateway
+
+```bash
+cargo run -p pioneer-gateway
+```
+
+## Running the desktop app
+
+```bash
+cargo run -p pioneer-desktop --bin pioneer-app
+```
+
+## Dev mode CLI
+
+```bash
+cargo run -p pioneer-cli --features dev --bin pioneer-dev -- status
+```
+
+## Regenerating protocol schemas
+
+After changing types in `crates/protocol`:
+
+```bash
+./scripts/protocol/export.sh
+```
+
+Commit the updated schemas alongside the Rust changes.
+
+## Code style
+
+```bash
+cargo fmt --all          # format
+cargo clippy --workspace # lint
+cargo test --workspace   # test
+```
+
+CI runs all three. Format and clippy violations will block merge.
+
+## Pull requests
+
+- Keep PRs focused on a single concern
+- Update or add tests for changed behavior
+- If you change the protocol, regenerate schemas and include them in the PR

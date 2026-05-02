@@ -1,0 +1,67 @@
+---
+title: "Core Concepts"
+description: "The key abstractions in Pioneer: workspaces, threads, turns, tasks, providers, skills, and MCP servers."
+icon: "book"
+---
+
+## Workspace
+
+A **workspace** is the top-level container for your work. It groups threads and can have its own set of tools, MCP servers, and skills. Think of it as a project folder for your AI conversations.
+
+## Thread
+
+A **thread** is a conversation — a chronological sequence of turns. Threads live inside a workspace and can be organized into folders. The gateway maintains the full history of every thread in the local database.
+
+## Turn
+
+A **turn** is one round of the conversation: your message (the input) and the model's response (the output). A single turn can involve multiple tool calls. The agent loop keeps calling the model and executing tools until there's nothing left to do, then the turn is finalized.
+
+<Note>
+  Pioneer stores every turn attempt, including failed ones, so you can see exactly what the model tried to do even if a tool call errored out.
+</Note>
+
+## Provider
+
+A **provider** is an LLM backend — Anthropic, OpenAI, Ollama, etc. Pioneer abstracts over 12 providers with a single unified interface. Each provider has its own API key, base URL, and set of available models.
+
+See [Providers](/providers/overview) for a full list.
+
+## Tool
+
+A **tool** is a function the agent can call during a turn. Pioneer includes built-in tools (shell, file system, web search, computer use) and supports adding more via Skills and MCP servers.
+
+## Skill
+
+A **skill** is an installable package that adds new tools, system prompts, or behaviors to the agent. Skills are zip archives that follow the AgentSkills format. They can be installed from a registry or uploaded manually.
+
+See [Skills](/skills/overview) for details.
+
+## MCP Server
+
+An **MCP server** (Model Context Protocol) is an external process that exposes tools and resources to the agent over a standard protocol. Pioneer can connect to any MCP-compatible server via stdio or HTTP transport.
+
+See [MCP Servers](/mcp/overview) for details.
+
+## Task
+
+A **task** is an automated unit of work that can run on a schedule or be triggered manually. Tasks use the same agent loop as conversations but are designed for recurring, unattended execution. They support dependency graphs, delivery policies, and automatic retry.
+
+See [Tasks & Automation](/tasks/overview) for details.
+
+## Gateway
+
+The **gateway** is the long-running Rust service that owns all of the above. It persists state in a local SQLite database and exposes a WebSocket JSON-RPC API that the desktop app (and any other clients) connect to.
+
+## How they fit together
+
+```
+Workspace
+└── Thread
+    └── Turn (your message + agent response)
+        ├── Tool calls (shell, files, web, MCP tools, skill tools)
+        └── Events (streamed to the desktop in real time)
+
+Task
+└── Task Run (agent execution with input/output)
+    └── Delivery (result sent somewhere after completion)
+```

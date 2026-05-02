@@ -1,0 +1,78 @@
+---
+title: "Protocol Introduction"
+description: "Pioneer's JSON-RPC 2.0 protocol: transport, authentication, and conventions."
+icon: "code"
+---
+
+Pioneer's gateway exposes a **JSON-RPC 2.0** API over WebSocket. All clients (the desktop app, CLI, or any custom client) communicate with the gateway using this protocol.
+
+## Transport
+
+Connect to the gateway at:
+
+```
+ws://localhost:17878/ws
+```
+
+(or the port you configured)
+
+## Authentication
+
+All requests must include a JWT Bearer token in the WebSocket handshake or as a protocol-level field. Generate a token with:
+
+```bash
+pioneer issue-superuser-token
+```
+
+## Conventions
+
+**Request format:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "method": "threads.create",
+  "params": { ... }
+}
+```
+
+**Response format:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "result": { ... }
+}
+```
+
+**Notifications** (server → client, no id):
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "turn.event",
+  "params": { ... }
+}
+```
+
+## Sections
+
+<Columns cols={2}>
+  <Card title="Workspace & Threads" icon="folder" href="/protocol/workspace">
+    Workspace and thread management methods.
+  </Card>
+  <Card title="Turns" icon="messages" href="/protocol/turns">
+    Submitting messages and receiving streaming events.
+  </Card>
+  <Card title="Tasks" icon="clock" href="/protocol/tasks">
+    Task creation, scheduling, and run management.
+  </Card>
+  <Card title="Providers" icon="brain" href="/protocol/providers">
+    Provider configuration and model listing.
+  </Card>
+  <Card title="Skills" icon="puzzle-piece" href="/protocol/skills">
+    Skill installation and lifecycle management.
+  </Card>
+  <Card title="MCP Servers" icon="plug" href="/protocol/mcp">
+    MCP server registration and catalog.
+  </Card>
+</Columns>

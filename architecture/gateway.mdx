@@ -1,0 +1,55 @@
+---
+title: "Gateway"
+description: "The persistent backend service that owns all Pioneer state and execution."
+icon: "server"
+---
+
+The **gateway** (`crates/gateway`) is the heart of Pioneer. It is a long-running Tokio async service that:
+
+- Accepts WebSocket connections from the desktop app and other clients
+- Authenticates requests via JWT tokens
+- Dispatches JSON-RPC messages to the appropriate handlers
+- Runs the agent loop when a conversation turn is submitted
+- Persists all state to a local SQLite database
+
+## Subsystems
+
+**Transport** (`transport/`) — WebSocket server, connection lifecycle, authentication middleware.
+
+**Message dispatch** (`message/dispatch.rs`) — routes incoming JSON-RPC requests to the right handler based on method name.
+
+**Turn handlers** (`message/turn_handlers.rs`) — coordinates a conversation turn: builds context, invokes the agent loop, streams events back to the client.
+
+**Thread management** (`thread/`) — creates, reads, and updates threads and their folder structure.
+
+**Provider management** — stores API keys, lists models, routes LLM calls to the right provider implementation.
+
+**Resilience** (`resilience/`) — timeout management, error recovery, and graceful shutdown.
+
+## Request lifecycle
+
+```
+Client sends JSON-RPC request over WebSocket
+    ↓
+JWT auth middleware validates token
+    ↓
+dispatch.rs routes to handler
+    ↓
+Handler interacts with DB via CRUD layer
+    ↓
+(If turn) Agent loop runs
+    ↓
+Events streamed back as JSON-RPC notifications
+    ↓
+Turn finalized and persisted
+```
+
+## Configuration
+
+The gateway binds to `0.0.0.0:17878` by default (dev: `0.0.0.0:18778`). Override in `config.toml`:
+
+```toml
+[gateway]
+host = "127.0.0.1"
+port = 17878
+```

@@ -1,72 +1,152 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Pioneer",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4F46E5"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "User Guide",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
-              "quickstart",
-              "development"
+              "getting-started/installation",
+              "getting-started/quickstart",
+              "getting-started/concepts"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Providers",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "providers/overview",
+              "providers/anthropic",
+              "providers/openai",
+              "providers/ollama",
+              "providers/google",
+              "providers/openrouter",
+              "providers/azure",
+              "providers/bedrock",
+              "providers/others"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Skills",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/components",
-              "essentials/reusable-snippets"
+              "skills/overview",
+              "skills/installing",
+              "skills/managing",
+              "skills/security"
             ]
           },
           {
-            "group": "Agent ready",
+            "group": "MCP Servers",
             "pages": [
-              "agent-ready/prompt",
-              "agent-ready/visibility",
-              "agent-ready/contextual",
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "mcp/overview",
+              "mcp/connecting",
+              "mcp/catalog"
+            ]
+          },
+          {
+            "group": "Tasks & Automation",
+            "pages": [
+              "tasks/overview",
+              "tasks/scheduling",
+              "tasks/automation"
+            ]
+          },
+          {
+            "group": "Desktop App",
+            "pages": [
+              "desktop/overview",
+              "desktop/workspace",
+              "desktop/threads"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/reference"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "cli/overview",
+              "cli/commands"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Architecture",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
-              "api-reference/introduction"
+              "architecture/overview",
+              "architecture/crates"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Core Systems",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "architecture/gateway",
+              "architecture/agent-loop",
+              "architecture/protocol",
+              "architecture/tools"
+            ]
+          },
+          {
+            "group": "Subsystems",
+            "pages": [
+              "architecture/providers",
+              "architecture/skills",
+              "architecture/tasks",
+              "architecture/mcp",
+              "architecture/persistence",
+              "architecture/prompt"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Protocol Reference",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "protocol/introduction"
+            ]
+          },
+          {
+            "group": "Workspace & Threads",
+            "pages": [
+              "protocol/workspace",
+              "protocol/threads",
+              "protocol/turns"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "protocol/tasks",
+              "protocol/providers",
+              "protocol/skills",
+              "protocol/mcp"
             ]
           }
         ]
@@ -75,14 +155,9 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com/pioneer",
+          "icon": "github"
         }
       ]
     }
@@ -94,33 +169,22 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/pioneer"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
+    ]
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "claude",
+      "cursor"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/pioneer"
     }
   }
 }

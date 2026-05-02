@@ -1,0 +1,67 @@
+---
+title: "Quick Start"
+description: "Set up your first provider and have a conversation in under five minutes."
+icon: "bolt"
+---
+
+## 1. Start the gateway
+
+If you installed via the desktop app, the gateway starts automatically. Otherwise:
+
+```bash
+pioneer start
+pioneer status   # confirm it's running on port 17878
+```
+
+## 2. Add a provider
+
+Open the Desktop App → **Settings** → **Providers**, click **Add provider**, and select your LLM backend.
+
+<Tabs>
+  <Tab title="Anthropic (Claude)">
+    - Provider: **Anthropic**
+    - API Key: paste your key from [console.anthropic.com](https://console.anthropic.com)
+    - Default model: `claude-sonnet-4-6` (recommended)
+  </Tab>
+  <Tab title="OpenAI">
+    - Provider: **OpenAI**
+    - API Key: paste your key from [platform.openai.com](https://platform.openai.com)
+    - Default model: `gpt-4o`
+  </Tab>
+  <Tab title="Ollama (local)">
+    - Provider: **Ollama**
+    - Base URL: `http://localhost:11434` (default)
+    - No API key required
+
+    Make sure Ollama is running: `ollama serve`
+  </Tab>
+</Tabs>
+
+## 3. Create a workspace and thread
+
+1. In the sidebar, click **New workspace** and give it a name.
+2. Click **New thread** inside the workspace.
+3. Select your provider and model in the thread toolbar.
+
+## 4. Send your first message
+
+Type a message in the composer and press **Enter** (or **Cmd+Enter** for multiline).
+
+The agent will respond in real time. If the model calls any tools, you'll see each tool invocation rendered in the conversation timeline.
+
+## What's next?
+
+<Columns cols={2}>
+  <Card title="Core Concepts" icon="book" href="/getting-started/concepts">
+    Understand workspaces, threads, turns, tasks, and how they relate.
+  </Card>
+  <Card title="Install Skills" icon="puzzle-piece" href="/skills/overview">
+    Add skills to give the agent new capabilities.
+  </Card>
+  <Card title="Connect MCP Servers" icon="plug" href="/mcp/overview">
+    Hook the agent up to external APIs via Model Context Protocol.
+  </Card>
+  <Card title="Schedule Tasks" icon="clock" href="/tasks/overview">
+    Automate recurring workflows with the task scheduler.
+  </Card>
+</Columns>

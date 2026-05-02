@@ -1,0 +1,48 @@
+---
+title: "Crate Map"
+description: "A guide to all 16 Rust crates in the Pioneer workspace."
+icon: "boxes-stacked"
+---
+
+Pioneer is a Cargo workspace with 16 crates. Each crate has a single, well-defined responsibility.
+
+## Crate overview
+
+| Crate | Binary? | Purpose |
+|---|---|---|
+| `gateway` | ✅ `pioneer-gateway` | Main service: transport, auth, sessions, message dispatch |
+| `desktop` | ✅ `pioneer-app` | Native GPUI desktop application |
+| `cli` | ✅ `pioneer` | CLI tools and service manager |
+| `protocol` | — | JSON-RPC types, schemas, contract definitions |
+| `agent` | — | Agent execution loop and tool orchestration |
+| `provider` | — | LLM provider abstraction layer |
+| `tools` | — | Built-in tool implementations |
+| `mcp` | — | MCP client runtime and server catalog |
+| `skills` | — | Skill lifecycle, validation, runtime registration |
+| `tasks` | — | Scheduler, executor, triggers, delivery |
+| `promt` | — | Prompt compilation and token budgeting |
+| `config` | — | Layered configuration loader |
+| `crud` | — | Repository layer (SeaORM-backed data access) |
+| `entity` | — | SeaORM entity definitions |
+| `migration` | — | Database schema migrations |
+| `sqlite` | — | SQLite-specific abstractions |
+
+## Dependency flow
+
+```
+cli / desktop
+     │
+  gateway ──────────────────────────────┐
+     │                                  │
+  agent ─── provider                tools
+     │
+  promt    skills    tasks    mcp
+     │       │         │       │
+     └───────┴─────────┴───────┴── crud ── entity ── sqlite
+                                              │
+                                          migration
+                                              │
+                                          config
+```
+
+The `protocol` crate is shared across all layers as the single source of truth for types.

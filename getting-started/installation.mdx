@@ -1,0 +1,81 @@
+---
+title: "Installation"
+description: "Install the Pioneer gateway and desktop app on your machine."
+icon: "download"
+---
+
+<Note>
+  Pioneer runs on macOS, Linux, and Windows. The gateway is a Rust binary; the desktop app is a native GPUI application.
+</Note>
+
+## Prerequisites
+
+- **macOS** 13+, **Linux** (x86\_64 or arm64), or **Windows** 10+
+- At least one LLM provider API key (or a local Ollama instance)
+
+## Quick install (macOS / Linux)
+
+```bash
+curl -fsSL https://install.pioneer.sh | sh
+```
+
+This downloads the latest release, installs the `pioneer` CLI, and registers the gateway as a system service (launchd on macOS, systemd on Linux).
+
+## Manual install
+
+<Tabs>
+  <Tab title="macOS">
+    Download the `.dmg` from the [releases page](https://github.com/pioneer/pioneer/releases), open it, and drag **Pioneer.app** to `/Applications`.
+
+    The app manages the gateway service automatically on first launch.
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    # Download the AppImage
+    curl -LO https://github.com/pioneer/pioneer/releases/latest/download/pioneer.AppImage
+    chmod +x pioneer.AppImage
+    ./pioneer.AppImage
+    ```
+
+    Or install the CLI separately and run the gateway as a systemd service:
+
+    ```bash
+    pioneer install --service
+    ```
+  </Tab>
+  <Tab title="Windows">
+    Download the `.msi` installer from the [releases page](https://github.com/pioneer/pioneer/releases) and run it.
+
+    The installer registers the gateway as a Windows service.
+  </Tab>
+</Tabs>
+
+## Verify the installation
+
+```bash
+pioneer status
+```
+
+You should see the gateway process running and listening on port `17878`.
+
+## Updating
+
+```bash
+pioneer update
+```
+
+The CLI pulls the latest release from the configured update channel and restarts the service.
+
+## Uninstalling
+
+```bash
+pioneer uninstall
+```
+
+This stops the service, removes the binary, and (optionally) deletes the local database.
+
+## Next steps
+
+<Card title="Quick Start" icon="bolt" href="/getting-started/quickstart">
+  Configure your first provider and send your first message.
+</Card>

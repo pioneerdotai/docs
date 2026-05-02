@@ -1,0 +1,44 @@
+---
+title: "Agent Loop"
+description: "How Pioneer orchestrates LLM calls and tool execution within a turn."
+icon: "arrows-spin"
+---
+
+The **agent loop** (`crates/agent`) is the execution engine for a single conversation turn. It runs inside the gateway and coordinates everything that happens between the user sending a message and the final response being persisted.
+
+## Turn execution
+
+A turn proceeds like this:
+
+<Steps>
+  <Step title="Build prompt">
+    The prompt system (`crates/promt`) compiles the conversation history, system instructions, skill prompts, and tool definitions into the LLM's input format. Token budgets are enforced here.
+  </Step>
+  <Step title="Call the provider">
+    The agent sends the prompt to the configured LLM provider and receives a streaming response. The provider abstraction handles differences between APIs.
+  </Step>
+  <Step title="Parse tool calls">
+    If the model's response includes tool calls, the agent parses them from the response stream.
+  </Step>
+  <Step title="Execute tools">
+    Each tool call is routed to the appropriate executor: built-in tools (shell, files, web), skill tools, or MCP server tools.
+  </Step>
+  <Step title="Handle results">
+    Tool results are collected and fed back into the next model call. This loop continues until the model produces a final response with no tool calls, or the tool budget is exhausted.
+  </Step>
+  <Step title="Finalize turn">
+    The completed turn (messages, tool call history, events) is persisted to the database and the client is notified.
+  </Step>
+</Steps>
+
+## Recovery
+
+All events emitted during a turn are persisted durably before being acted on. If the gateway crashes mid-turn, it can reconstruct the state from the event log and resume or mark the turn as failed.
+
+## Tool budget
+
+Each turn has a configurable limit on the number of tool calls to prevent infinite loops. When the budget is exhausted, the agent stops and returns whatever response it has so far.
+
+## Error recovery policy
+
+The agent has configurable recovery strategies for tool failures: retry with backoff, skip and continue, or abort the turn. See `crates/agent/src/chat/tool_recovery_policy.rs` for the implementation.

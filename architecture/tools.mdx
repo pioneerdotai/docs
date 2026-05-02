@@ -1,0 +1,35 @@
+---
+title: "Tools System"
+description: "Built-in tools the agent can use: shell, file system, web, and computer use."
+icon: "wrench"
+---
+
+The **tools crate** (`crates/tools`) contains implementations of Pioneer's built-in tools — the actual code that runs when the agent calls a tool.
+
+## Built-in tools
+
+**Shell** — Execute system commands in a subprocess. Output (stdout + stderr) is captured and returned to the agent.
+
+**Files** — Read, write, patch, and grep files on the local file system. Supports unified diff application for precise code edits.
+
+**Web** — Search the web (DuckDuckGo), fetch URLs, and download files. Configurable timeouts and size limits prevent runaway downloads.
+
+**Computer Use** — Take screenshots, move the mouse, and type keyboard input. Powered by `enigo` and `xcap`.
+
+## Tool registry
+
+All tools are registered in a central registry. When the agent produces a tool call, the registry routes it to the correct executor by tool name.
+
+## Output policy
+
+Each tool has an output policy that controls what the agent sees from a tool call — the full output, a truncated version, or a summary. This prevents the context window from being overwhelmed by large file reads or shell outputs.
+
+## Loop guard
+
+The agent loop has a built-in guard against infinite tool-calling loops. If the same tool is called with identical arguments more than a configured number of times in a single turn, the loop is broken and the agent is asked to proceed without that tool.
+
+## Adding tools via Skills or MCP
+
+Built-in tools are the baseline. Additional tools come from:
+- **Skills** — installed packages that register new tool definitions
+- **MCP servers** — external processes that expose tools over the Model Context Protocol
