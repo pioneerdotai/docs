@@ -4,7 +4,7 @@ description: "Use the pioneer CLI to install, start, stop, inspect, update, and 
 icon: "terminal"
 ---
 
-The `pioneer` CLI manages the gateway service.
+The `pioneer` CLI manages the gateway service and provides maintenance commands for gateway secrets.
 
 Use it when:
 
@@ -13,6 +13,9 @@ Use it when:
 - starting or stopping the service
 - updating gateway binaries
 - issuing a token for protocol clients
+- checking keystore status and permissions
+- cleaning orphan MCP secret values
+- rotating the superuser JWT signing material
 - debugging a desktop connection problem
 
 ## Common commands
@@ -23,6 +26,9 @@ pioneer start
 pioneer stop
 pioneer update
 pioneer issue-superuser-token
+pioneer secrets status
+pioneer secrets garbage-collection --dry-run
+pioneer secrets rotate-jwt-token superuser
 pioneer version
 pioneer help
 ```
@@ -34,6 +40,9 @@ Several commands support `--json`:
 ```bash
 pioneer status --json
 pioneer start --json
+pioneer secrets status --json
+pioneer secrets garbage-collection --json
+pioneer secrets rotate-jwt-token superuser --json
 pioneer version --json
 ```
 
@@ -78,4 +87,3 @@ The service runs as the current OS user.
 <Card title="CLI Commands" icon="code" href="/cli/commands">
   See command syntax, flags, and examples.
 </Card>
-

@@ -33,6 +33,8 @@ pioneer issue-superuser-token
 
 Tokens are validated during the WebSocket handshake. A missing or invalid bearer token rejects the connection with HTTP `401`.
 
+The superuser JWT signing material is stored in the gateway keystore. Rotate it with `pioneer secrets rotate-jwt-token superuser`; existing superuser bearer tokens become invalid and must be reissued.
+
 ## Request Envelope
 
 Every request uses JSON-RPC `2.0`. Request ids are strings with exactly 21 characters.

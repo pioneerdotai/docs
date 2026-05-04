@@ -78,6 +78,7 @@ home_directory = ".pioneer.dev"
 The runtime home contains state such as:
 
 - gateway database
+- keystore database
 - install state
 - gateway settings
 - skills
@@ -85,13 +86,15 @@ The runtime home contains state such as:
 
 ## Provider credentials
 
-Provider keys are stored in the gateway settings, not in the desktop app.
+Provider keys are stored in the gateway keystore.
 
 This means:
 
 - each gateway has its own provider credentials
 - remote gateways need their own provider setup
 - switching gateways also switches provider settings
+
+Operational details for `keystore.db` are covered in [Secret Storage](/architecture/secrets).
 
 ## Database settings
 
@@ -167,4 +170,3 @@ For desktop-managed local gateways, restart the gateway from the desktop app if 
 <Card title="Configuration Reference" icon="list" href="/configuration/reference">
   View important config keys and examples.
 </Card>
-

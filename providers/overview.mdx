@@ -8,7 +8,7 @@ Pioneer needs a model provider before it can answer in threads or run model-back
 
 Provider setup is intentionally the same shape everywhere. Connect the desktop app to the gateway you want to configure, click the providers icon in the bottom bar to open **Providers**, choose the provider type, enter the required credential or endpoint details, save, and select a model in a thread.
 
-The important detail is where the provider is saved. Provider configuration belongs to the gateway, not to the desktop app. If you configure a provider on `Local` and then switch to `Work Gateway`, the work gateway needs its own provider configuration.
+The important detail is where the provider is saved. Provider configuration belongs to the gateway, not to the desktop app. Secret API keys and tokens are stored in that gateway's `keystore.db`. If you configure a provider on `Local` and then switch to `Work Gateway`, the work gateway needs its own provider configuration and credentials.
 
 <Note>
   Provider requests are made by the gateway host. A remote gateway needs network access to the provider even if your desktop computer already has access.

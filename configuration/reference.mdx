@@ -105,6 +105,17 @@ These limits help stop runaway loops, but they are not a security sandbox.
 | `gateway.database.max_connections` | `1` | SQLite connection count |
 | `gateway.database.run_migrations_on_startup` | `true` | Apply migrations during gateway startup |
 
+## Gateway runtime settings file
+
+Runtime secret values are not configured as ordinary app config keys. The gateway creates `gateway-settings.toml` under runtime home with:
+
+```toml
+[secrets]
+backend = "keystore"
+```
+
+Only `keystore` is supported. The old `db-keystore` backend name is not accepted. This setting selects the secret backend; the storage model itself is described in [Secret Storage](/architecture/secrets).
+
 ## Auth settings
 
 | Key | Default | Purpose |
@@ -122,4 +133,3 @@ These limits help stop runaway loops, but they are not a security sandbox.
 | `desktop.gateway.startup_timeout_ms` | `10000` | Local gateway startup timeout |
 | `desktop.gateway.ws_ping_interval_ms` | `10000` | WebSocket ping interval |
 | `desktop.gateway.registry_file_name` | `gateway-registry.toml` | Desktop gateway registry file |
-

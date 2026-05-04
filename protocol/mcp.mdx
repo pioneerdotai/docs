@@ -105,6 +105,8 @@ The JSON inside `config_json` is parsed by the gateway. For HTTP servers, use a 
 
 `scope_kind` defaults to `workspace`. `enabled` and `allow_implicit_invocation` are also accepted top-level install params and default to `true`; they are Pioneer policy values, not part of the MCP server config JSON itself.
 
+Secret values from `env`, `headers`, tokens, and authorization fields are stored in the gateway keystore. Protocol responses use redacted transport/source data and secret refs; they do not echo raw secret values.
+
 ## Install Result
 
 ```json

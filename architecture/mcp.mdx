@@ -67,9 +67,11 @@ Common optional fields include `required`, `startup_timeout_sec`, `tool_timeout_
 
 ## Secrets And Redaction
 
-Environment variables and HTTP headers can contain secrets. The config parser materializes secret refs, stores secret values through gateway settings, and stores redacted transport/source data in the database. Runtime sessions resolve secrets through `McpSecretResolver` when a server task starts.
+Environment variables and HTTP headers can contain secrets. The config parser materializes secret refs, stores secret values through the gateway keystore, and stores redacted transport/source data in `gateway.db`. Runtime sessions resolve secrets through `McpSecretResolver` when a server task starts.
 
 This keeps the server installation readable and auditable without copying raw secret values into catalog snapshots or normal list responses.
+
+When an MCP install is updated or uninstalled, the gateway deletes stale keystore refs after the database change succeeds. The CLI also exposes `pioneer secrets garbage-collection` for orphan MCP secret values that need an explicit cleanup pass.
 
 ## Runtime Lifecycle
 
@@ -105,3 +107,4 @@ For stdio servers, `command`, `args`, `cwd`, and `env` are evaluated on the gate
 - [Gateway](/architecture/gateway) explains why MCP processes are gateway-owned.
 - [Skills Architecture](/architecture/skills) explains the parallel extension system for skills.
 - [Persistence Layer](/architecture/persistence) explains MCP installations, catalog snapshots, audit events, and turn bindings.
+- [Secret Storage](/architecture/secrets) explains where MCP secret values live.

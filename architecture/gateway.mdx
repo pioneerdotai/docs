@@ -23,7 +23,7 @@ The gateway owns:
 
 - WebSocket JSON-RPC transport and request dispatch
 - session tracking and workspace-scoped notifications
-- gateway settings and provider API key storage
+- gateway settings and keystore-backed secret storage
 - workspace and thread lifecycle
 - turn lifecycle and agent runtime wiring
 - provider model listing and provider cache invalidation
@@ -35,7 +35,7 @@ The gateway owns:
 
 ## Main Types
 
-`MessageProcessor` in `crates/gateway/src/message/mod.rs` is the high-level request processor. It holds the runtime graph: `ThreadManager`, `AgentManager`, `ProviderRegistry`, `SessionManager`, `WorkspaceManager`, `CrudStore`, gateway settings, context budgets, `McpService`, task runtime, task agent executor, timeout supervisor, and recovery coordinator.
+`MessageProcessor` in `crates/gateway/src/message/mod.rs` is the high-level request processor. It holds the runtime graph: `ThreadManager`, `AgentManager`, `ProviderRegistry`, `SessionManager`, `WorkspaceManager`, `CrudStore`, `GatewaySecrets`, context budgets, `McpService`, task runtime, task agent executor, timeout supervisor, and recovery coordinator.
 
 `SessionManager` in `crates/gateway/src/session/mod.rs` tracks connected WebSocket sessions, per-connection outbound channels, and the workspace associated with each connection. Most UI updates are sent as JSON-RPC notifications to thread subscribers or workspace subscribers.
 
@@ -44,6 +44,8 @@ The gateway owns:
 `McpService` in `crates/gateway/src/mcp_service.rs` owns the live MCP runtime tasks. It starts, stops, restarts, and calls MCP servers, persists catalog snapshots, publishes runtime status, and materializes MCP tools for the agent loop.
 
 `TaskRuntime` from `pioneer-tasks` is created by the gateway and then bridged back into the gateway through `TaskAgentExecutor` and `GatewayTaskToolProvider`.
+
+`GatewaySecrets` in `crates/gateway/src/secrets.rs` is the gateway-facing facade over `pioneer-keystore`. It reads and writes provider API keys, MCP secret values, and the singleton superuser JWT signing material without exposing raw values through normal settings or database records.
 
 These types are deliberately not hidden behind a single abstract "app service." Pioneer has several runtimes with different lifecycles: WebSocket sessions are connection-scoped, agent loops are thread-scoped, MCP tasks are installation-scoped, task runs are scheduler-scoped, and settings are gateway-scoped. `MessageProcessor` wires them together without pretending they are the same kind of state.
 
@@ -121,7 +123,7 @@ This means not all gateway work is request-driven. Some state changes are produc
 
 ## Local And Remote Deployment
 
-The gateway can run on the same machine as the desktop app or on a remote server. This does not change the architecture: tools, MCP servers, skill dependency checks, provider calls, storage, and task execution happen on the gateway host. If a desktop app connects to a remote gateway, installing a command or file only on the desktop machine does not make it available to tools running on the remote gateway.
+The gateway can run on the same machine as the desktop app or on a remote server. This does not change the architecture: tools, MCP servers, skill dependency checks, provider calls, keystore access, storage, and task execution happen on the gateway host. If a desktop app connects to a remote gateway, installing a command or file only on the desktop machine does not make it available to tools running on the remote gateway.
 
 ## Related Pages
 
@@ -129,3 +131,4 @@ The gateway can run on the same machine as the desktop app or on a remote server
 - [Agent Loop](/architecture/agent-loop) explains what happens after the gateway dispatches a turn.
 - [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the subsystems the gateway owns.
 - [Persistence Layer](/architecture/persistence) explains how gateway events become durable read models.
+- [Secret Storage](/architecture/secrets) explains `keystore.db`, secret refs, and maintenance commands.

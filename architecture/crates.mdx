@@ -3,7 +3,7 @@ title: "Crate Map"
 description: "The Rust workspace layout and how the crates depend on each other."
 ---
 
-Pioneer is a Cargo workspace with sixteen Rust crates. The split is intentionally direct: public protocol, gateway orchestration, agent execution, provider adapters, tools, tasks, MCP, skills, prompt compilation, and storage are separate layers.
+Pioneer is a Cargo workspace with seventeen Rust crates. The split is intentionally direct: public protocol, gateway orchestration, agent execution, provider adapters, tools, tasks, MCP, skills, prompt compilation, secret storage, and durable storage are separate layers.
 
 This page is a map, not the architecture itself. Use it when you need to know where a responsibility lives before reading the deeper page for that layer.
 
@@ -11,7 +11,7 @@ This page is a map, not the architecture itself. Use it when you need to know wh
 
 The split follows runtime boundaries. Provider code should not know about WebSocket sessions. Prompt compilation should not know about SQLite. Tools should not know which client requested a turn. The gateway is allowed to wire everything together; most other crates should stay focused.
 
-That shape keeps changes smaller. Adding a provider should mostly touch `provider` and gateway provider listing/key handling. Changing prompt section ordering should mostly touch `promt` and prompt tests. Adding a task event should touch `protocol`, `tasks`, `crud`, and gateway notifications, but not desktop-specific execution code.
+That shape keeps changes smaller. Adding a provider should mostly touch `provider` and gateway provider listing/key handling, with secret values routed through `keystore`. Changing prompt section ordering should mostly touch `promt` and prompt tests. Adding a task event should touch `protocol`, `tasks`, `crud`, and gateway notifications, but not desktop-specific execution code.
 
 ## Workspace Crates
 
@@ -19,9 +19,10 @@ That shape keeps changes smaller. Adding a provider should mostly touch `provide
 |---|---:|---|
 | `crates/gateway` | binary + library | Main service. Owns WebSocket JSON-RPC sessions, auth, settings, workspaces, threads, turns, providers, MCP service, skills handlers, task runtime, resilience workers, and persistence coordination. |
 | `crates/desktop` | binary | Native GPUI desktop client. Connects to gateways, starts/manages a local gateway, and renders conversations, providers, skills, MCP, tasks, and settings. |
-| `crates/cli` | binary | Command-line utility and service management entry point. |
+| `crates/cli` | binary | Command-line utility, service management entry point, token issuance, and keystore maintenance surface. |
 | `crates/protocol` | library | Public JSON-RPC contract, request/response types, notification types, domain DTOs, method constants, and schema export. |
 | `crates/agent` | library | Per-thread agent runtime, turn execution, provider loop, tool loop, MCP/tool/task materialization hooks, skill resolution, recovery handling. |
+| `crates/keystore` | library | Secret storage facade backed by `db-keystore`, stable secret ids, metadata, permission hardening, and an in-memory test store. |
 | `crates/promt` | library | Prompt compiler. Builds stable and dynamic system prompt sections, reads bootstrap files, applies prompt budgets, emits prompt manifests and fingerprints. |
 | `crates/provider` | library | Provider trait, provider registry, provider implementations, streaming/non-streaming chat, tool-call parsing, attachment normalization and upload planning. |
 | `crates/tools` | library | Built-in tool registry, shell sessions, filesystem tools, patch application, grep, web search/fetch/download, computer use, dynamic tool extension bundles, output policies, retry classification. |
@@ -40,7 +41,9 @@ That shape keeps changes smaller. Adding a provider should mostly touch `provide
 flowchart TB
   Desktop["desktop"] --> Protocol["protocol"]
   Desktop --> CLI["cli"]
+  Desktop --> Keystore["keystore"]
   CLI --> Config["config"]
+  CLI --> Gateway
 
   Gateway["gateway"] --> Protocol
   Gateway --> Agent["agent"]
@@ -51,6 +54,7 @@ flowchart TB
   Gateway --> Skills["skills"]
   Gateway --> CRUD["crud"]
   Gateway --> Config
+  Gateway --> Keystore
 
   Agent --> Protocol
   Agent --> Provider
@@ -85,6 +89,7 @@ The important rule is that `protocol` sits at the public edge while `gateway` is
 | How is previous conversation context selected? | `crates/gateway/src/message/provider_handlers.rs` |
 | How are tools exposed to the model? | `crates/agent/src/chat/mod.rs`, `crates/tools/src/lib.rs` |
 | How are MCP servers installed and called? | `crates/gateway/src/message/mcp/mod.rs`, `crates/gateway/src/mcp_service.rs`, `crates/mcp/src/config.rs` |
+| How are secret values stored? | `crates/keystore/src/lib.rs`, `crates/gateway/src/secrets.rs`, `crates/desktop/src/gateway/secrets.rs` |
 | How are skills resolved into prompt and tools? | `crates/agent/src/chat/skills.rs`, `crates/skills/src/prompt.rs`, `crates/skills/src/runtime.rs` |
 | How do tasks create subagents? | `crates/gateway/src/message/task_agent_executor.rs`, `crates/tasks/src/service.rs` |
 | How is data persisted? | `crates/crud/src/lib.rs`, `crates/crud/src/projector.rs`, `crates/crud/src/task_projector.rs` |

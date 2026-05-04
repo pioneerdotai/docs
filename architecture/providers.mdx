@@ -34,7 +34,7 @@ The agent chooses streaming when `capabilities().streaming` is true and the turn
 
 ## Provider Registry
 
-The gateway creates a `ProviderRegistry` with a key resolver backed by gateway settings. The registry lazily creates provider instances and caches them by provider name. When a provider key changes, the gateway invalidates the cached provider so the next turn uses fresh credentials.
+The gateway creates a `ProviderRegistry` with a key resolver backed by `GatewaySecrets` and `pioneer-keystore`. The registry lazily creates provider instances and caches them by provider name. When a provider key changes, the gateway invalidates the cached provider so the next turn uses fresh credentials.
 
 Provider construction is centralized in `create_provider`. That function maps provider aliases to concrete adapters. It also includes a large set of OpenAI-compatible endpoints where the only difference is base URL and auth style.
 

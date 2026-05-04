@@ -44,6 +44,8 @@ Settings are split between app-level preferences and gateway-owned configuration
 
 That separation is intentional. It lets one desktop app control several independent Pioneer environments without mixing their state.
 
+Gateway bearer tokens saved by the desktop app are stored in the desktop keystore. The gateway registry keeps only `auth_token_ref` values, so raw bearer tokens are not serialized into `gateway-registry.toml`.
+
 ## Localization
 
 The desktop UI includes English, German, Spanish, French, Hindi, Japanese, Russian, and Chinese locales.

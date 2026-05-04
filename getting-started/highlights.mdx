@@ -30,6 +30,10 @@ The gateway can automatically fan work out to subagents with their own prompts, 
 
 Pioneer includes providers for OpenAI, Anthropic, OpenRouter, Gemini, Azure OpenAI, Bedrock, Ollama, Copilot, Claude Code, Gemini CLI, Kilo CLI, and many OpenAI-compatible endpoints.
 
+### Keystore-Backed Secrets
+
+Provider API keys, MCP env/header secrets, superuser JWT signing material, and desktop gateway bearer tokens are stored in `keystore.db`, not in ordinary config tables.
+
 ### Real Tools
 
 Agents can use shell sessions, file reads and edits, patch application, grep, web search and fetch, URL downloads, computer use, MCP tool proxying, and dynamic skill tools.

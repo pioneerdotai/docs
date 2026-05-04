@@ -86,6 +86,7 @@
               "architecture/tasks",
               "architecture/mcp",
               "architecture/persistence",
+              "architecture/secrets",
               "architecture/prompt"
             ]
           },

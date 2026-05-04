@@ -6,7 +6,7 @@ icon: "rocket"
 
 Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. It combines a persistent gateway, a native desktop app, a JSON-RPC protocol, provider adapters, durable threads, task automation, MCP servers, skills, and real local tools.
 
-The gateway is the core of Pioneer. It owns state, configuration, storage, model access, task execution, tool execution, MCP runtime, skills, and thread history. The desktop app is the primary client for connecting to one or more gateways, whether the gateway is running on the same computer or on a remote server.
+The gateway is the core of Pioneer. It owns state, configuration, storage, model access, task execution, tool execution, MCP runtime, skills, and thread history. Secret values such as provider API keys, MCP env/header secrets, and superuser JWT signing material live in the gateway keystore. The desktop app is the primary client for connecting to one or more gateways, whether the gateway is running on the same computer or on a remote server.
 
 <Warning>
   Pioneer is in an extremely early stage of development. Expect rough edges, breaking changes, and incomplete flows. Use it carefully, and test it in a safe environment before trusting it with important work or exposing a gateway outside your machine.
@@ -26,7 +26,7 @@ That keeps the core memory-safe, fast, and small. The desktop app is native GPUI
 
 Pioneer is split into three user-facing pieces.
 
-**Gateway** is the main runtime and control plane. It runs as a service, stores the data, talks to model providers, executes tools, manages MCP servers and skills, schedules tasks, and exposes the JSON-RPC WebSocket API.
+**Gateway** is the main runtime and control plane. It runs as a service, stores data in `gateway.db`, stores secret values in `keystore.db`, talks to model providers, executes tools, manages MCP servers and skills, schedules tasks, and exposes the JSON-RPC WebSocket API.
 
 **Desktop app** is the primary native client. It connects to gateways, starts and manages a local gateway when needed, and gives you the UI for conversations, provider setup, MCP, skills, settings, and thread history.
 

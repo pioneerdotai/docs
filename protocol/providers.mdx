@@ -3,7 +3,7 @@ title: "Providers API"
 description: "Listing providers, listing provider models, and managing API keys through the gateway."
 ---
 
-Provider methods are deliberately small. The gateway owns provider configuration, stores credentials, discovers models, and normalizes model metadata for clients. A desktop app, CLI, mobile app, or custom client should not talk directly to every model provider just to build a model picker.
+Provider methods are deliberately small. The gateway owns provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. A desktop app, CLI, mobile app, or custom client should not talk directly to every model provider just to build a model picker.
 
 Use these methods when a client needs to show available providers, fetch their model catalogs, or update the API key used by the gateway.
 
@@ -121,7 +121,7 @@ The important client rule is simple: choose by `id`, display by `name` when pres
 
 ## Setting An API Key
 
-API keys are stored on the gateway. If the desktop app connects to a remote gateway, the key is stored on that remote gateway, not in the desktop process.
+API keys are stored in the gateway keystore. If the desktop app connects to a remote gateway, the key is stored on that remote gateway, not in the desktop process.
 
 ```json
 {

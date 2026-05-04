@@ -90,6 +90,12 @@ pioneer status
 
 The status output should tell you whether the service is active, which address it listens on, whether the gateway is reachable, and where its runtime home lives.
 
+To inspect secret storage health without printing secret values, run:
+
+```bash
+pioneer secrets status
+```
+
 If your shell cannot find `pioneer`, open a new terminal. On Unix systems, make sure `~/.local/bin` is in your `PATH`:
 
 ```bash
@@ -109,6 +115,8 @@ pioneer issue-superuser-token
 Then add a gateway connection in the desktop app using the gateway host, port, and token. Give it a plain name you will recognize later, such as `Work Gateway`, `Home Server`, or `Sandbox`.
 
 Remember that the desktop app is only the client. If you connect to a gateway on a server, tools run on that server and see that server's files, environment variables, network, and permissions.
+
+Saved desktop gateway tokens are stored in the desktop keystore. The desktop registry stores token refs, not raw bearer tokens.
 
 ## Bind Address And Port
 
@@ -172,4 +180,3 @@ pioneer stop
 ## Next
 
 Once the gateway is running, go to [Quick Start](/getting-started/quickstart) and configure your first model provider.
-

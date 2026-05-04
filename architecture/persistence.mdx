@@ -1,9 +1,9 @@
 ---
 title: "Persistence Layer"
-description: "SQLite, SeaORM entities, CRUD repositories, projectors, events, and runtime recovery tables."
+description: "SQLite, SeaORM entities, CRUD repositories, projectors, events, runtime recovery tables, and secret storage boundaries."
 ---
 
-Pioneer persists gateway state in SQLite through SeaORM. The persistence layer is split into entity definitions, migrations, SQLite helpers, and the `CrudStore` repository/projector facade used by the gateway and task runtime.
+Pioneer persists normal gateway state in `gateway.db` through SeaORM. Secret values are stored separately in `keystore.db`. The persistence layer is split into entity definitions, migrations, SQLite helpers, the `CrudStore` repository/projector facade, and a keystore boundary used by gateway and desktop secret flows.
 
 Persistence is not just storage for finished conversations. It is part of the runtime contract. The gateway uses it to make active turns visible, recover from interrupted work, audit which prompt and skills were used, track MCP catalogs, reconcile tasks, and keep clients in sync after reconnect.
 
@@ -25,6 +25,7 @@ The persistence layer gives these flows a consistent place to append durable eve
 | `crates/migration` | Schema migrations. |
 | `crates/sqlite` | SQLite-specific write coordination and helpers. |
 | `crates/crud` | Repository methods, typed records, turn projector, task projector, and materialization helpers. |
+| `crates/keystore` | `db-keystore` facade, stable secret ids, metadata, permission hardening, and test memory store. |
 
 Business logic should not call SeaORM entities directly from the gateway. The normal boundary is `CrudStore`.
 
@@ -66,6 +67,7 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | Turns | turn rows, turn input, turn items, turn item attempts, status history, timeline events |
 | Prompt/context | prompt manifests, retained `turn_llm_context` rows during active recovery windows |
 | Providers/attachments | attachment upload registry for provider file reuse |
+| Secrets | no raw values; domain rows store refs or redacted data only |
 | Skills | installations, workspace policy, turn bindings, audit events, dependency snapshots, upload sessions |
 | MCP | server installations, catalog snapshots, audit events, turn MCP bindings |
 | Tasks | tasks, triggers, runs, events, dependencies, agent specs, deliveries, write locks |
@@ -77,11 +79,21 @@ The gateway can detect and repair deterministic read-model invariant violations 
 
 This repair path is not a substitute for correct projectors. It exists because a gateway can stop between durable event append and all downstream cleanup, especially while the project is evolving.
 
+## Secret Storage Boundary
+
+`gateway.db` and `keystore.db` have different responsibilities.
+
+`gateway.db` stores domain state: threads, turns, tasks, skills, provider attachment metadata, MCP installations, MCP catalog snapshots, audit records, and secret refs.
+
+`keystore.db` stores raw secret values: provider API keys, MCP env/header secret values, superuser JWT signing material, and desktop gateway bearer tokens. It is created in the runtime home next to `gateway.db` for gateway use. The desktop app also uses the same keystore crate for saved gateway bearer tokens.
+
+Current keystore storage is unencrypted. Pioneer hardens runtime directory and SQLite file permissions, but any OS user or process that can read the runtime home can read the keystore file. See [Secret Storage](/architecture/secrets) for operational details.
+
 ## Persistence Guidelines
 
 Add new user-visible state through protocol types first, then storage records, then projector/repository methods. For evented flows, persist the event and project the read model in one coordinated path. For runtime-only state, prefer explicit cleanup and recovery behavior over hidden global maps.
 
-Do not store raw secrets in ordinary domain tables. Provider keys and MCP secrets belong in gateway settings/secret storage, while database records should contain redacted config or secret refs.
+Do not store raw secrets in ordinary domain tables or `gateway-settings.toml`. Provider keys, MCP secrets, desktop gateway bearer tokens, and JWT signing material belong in the keystore. Database records should contain redacted config or secret refs.
 
 ## Related Pages
 

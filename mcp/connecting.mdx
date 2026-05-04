@@ -14,7 +14,7 @@ Before you add one, decide where it belongs. A work MCP server should usually li
 
 In the desktop app, connect to the gateway where the MCP server should run. Click the MCP icon in the bottom bar, click **Install**, paste the MCP JSON config into the config field, and submit it.
 
-Pioneer reads the JSON, validates each server under `mcpServers`, stores secrets through the gateway secret store, creates the server entries, and starts or connects to enabled servers.
+Pioneer reads the JSON, validates each server under `mcpServers`, stores secret values in the gateway keystore, stores redacted server entries in `gateway.db`, and starts or connects to enabled servers.
 
 ## Stdio Servers
 
@@ -84,7 +84,9 @@ Every server config lives under `mcpServers` and uses the object key as the serv
 
 Do not paste MCP secrets into chat prompts. Put API keys, tokens, and other credentials in the MCP JSON `env` or `headers` fields, or in the gateway environment when your server reads credentials from there.
 
-Pioneer stores secret values from `env`, `headers`, tokens, and authorization fields through the gateway secret store and redacts them from diagnostics and source references.
+Pioneer stores secret values from `env`, `headers`, tokens, and authorization fields in `keystore.db` through the gateway secret store. Diagnostics, source references, and list/detail responses use redacted data and secret refs instead of raw values.
+
+When you update or uninstall an MCP server, Pioneer removes stale keystore refs after the database change succeeds. If you need to inspect or clean orphaned MCP secret refs explicitly, use `pioneer secrets status` and `pioneer secrets garbage-collection`.
 
 ## Health And First Test
 

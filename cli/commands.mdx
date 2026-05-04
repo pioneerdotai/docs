@@ -77,11 +77,54 @@ Generate and print a JWT for privileged clients.
 pioneer issue-superuser-token
 ```
 
-Use this when adding a gateway connection from a custom client or remote desktop app.
+Use this when adding a gateway connection from a custom client or remote desktop app. The token is signed with the current singleton superuser JWT material stored in the gateway keystore.
 
 <Warning>
   Treat this token like a password. It grants privileged access to the gateway.
 </Warning>
+
+## `pioneer secrets status`
+
+Show keystore status without printing secret values.
+
+```bash
+pioneer secrets status
+pioneer secrets status --json
+```
+
+Human output includes:
+
+- keystore path
+- encryption mode
+- total secret entry count
+- counts by secret kind
+- runtime directory and keystore file permission health
+- MCP orphan secret status
+
+If `gateway.db` does not exist yet, MCP orphan status is reported as unavailable.
+
+## `pioneer secrets garbage-collection`
+
+Clean orphan MCP secret values from the gateway keystore.
+
+```bash
+pioneer secrets garbage-collection
+pioneer secrets garbage-collection --dry-run
+pioneer secrets garbage-collection --json
+```
+
+The command compares stored MCP secret refs with active MCP installation refs in `gateway.db`. It only deletes MCP secret values, and it refuses to run when `gateway.db` is missing. Use `--dry-run` to inspect counts without deleting anything.
+
+## `pioneer secrets rotate-jwt-token superuser`
+
+Rotate the singleton superuser JWT signing material.
+
+```bash
+pioneer secrets rotate-jwt-token superuser
+pioneer secrets rotate-jwt-token superuser --json
+```
+
+Rotation does not print signing material or bearer tokens. If material already existed, existing superuser bearer tokens become invalid. Run `pioneer issue-superuser-token` afterwards to issue a fresh token.
 
 ## `pioneer stop`
 
@@ -141,4 +184,3 @@ The native installer flow:
 7. Optionally starts the service.
 8. Checks gateway health.
 9. Rolls back on failure.
-

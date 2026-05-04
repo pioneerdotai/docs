@@ -14,7 +14,7 @@ Because multiple workspace management is not exposed yet, gateways are the main 
 
 Use a separate gateway when the machine, files, accounts, provider keys, MCP servers, skills, task schedules, or security boundary should be different. A work gateway can stay close to work repositories and internal tools. A home gateway can run on a personal server. A sandbox gateway can exist only for testing tools and skills.
 
-The desktop app can connect to all of them, but they do not share state. Each gateway has its own database, provider settings, default workspace, skills, MCP servers, tasks, and execution environment.
+The desktop app can connect to all of them, but they do not share state. Each gateway has its own database, keystore, provider settings, default workspace, skills, MCP servers, tasks, and execution environment.
 
 ## Use Threads For Context
 
@@ -27,4 +27,3 @@ For example, `Research MCP server options` is more useful than `Notes`, and `Fix
 <Warning>
   The default workspace is not a sandbox. Tool runs still execute as the gateway OS user.
 </Warning>
-

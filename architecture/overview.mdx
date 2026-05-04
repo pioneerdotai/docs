@@ -3,7 +3,7 @@ title: "Architecture Overview"
 description: "The main runtime model of Pioneer: gateway, clients, protocol, agents, tools, storage, MCP, skills, and tasks."
 ---
 
-Pioneer is organized around one rule: the gateway is the product core. Clients connect to it, but the gateway owns the durable state, runtime state, model access, tool execution, task execution, MCP runtime, skills runtime, settings, and history.
+Pioneer is organized around one rule: the gateway is the product core. Clients connect to it, but the gateway owns the durable state, runtime state, model access, tool execution, task execution, MCP runtime, skills runtime, settings, keystore-backed secrets, and history.
 
 The desktop app is the primary client today. It is a native GPUI application that can start a local gateway for a single-machine setup or connect to one or more remote gateways. Other clients can be built against the JSON-RPC protocol without depending on desktop internals.
 
@@ -48,7 +48,9 @@ flowchart TB
   MCP["pioneer-mcp\nMCP client runtime"]
   Skills["pioneer-skills\nskill catalog and runtime"]
   CRUD["pioneer-crud\nrepository and projectors"]
-  DB["SQLite\nSeaORM entities and migrations"]
+  Keystore["pioneer-keystore\nsecret storage facade"]
+  GatewayDB["gateway.db\nSeaORM entities and migrations"]
+  KeystoreDB["keystore.db\ndb-keystore SQLite"]
 
   Desktop -->|"WebSocket JSON-RPC"| Gateway
   Mobile -->|"WebSocket JSON-RPC"| Gateway
@@ -62,13 +64,15 @@ flowchart TB
   Gateway --> MCP
   Gateway --> Skills
   Gateway --> CRUD
+  Gateway --> Keystore
   Agent --> Prompt
   Agent --> Providers
   Agent --> Tools
   Agent --> Skills
   Agent --> MCP
   Agent --> Tasks
-  CRUD --> DB
+  CRUD --> GatewayDB
+  Keystore --> KeystoreDB
 ```
 
 ## Runtime Boundaries

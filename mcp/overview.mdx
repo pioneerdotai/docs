@@ -26,6 +26,8 @@ MCP connections belong to a gateway and become available through the current wor
 
 This keeps environments clean. A work gateway can connect to work systems. A home gateway can connect to personal tools. A sandbox gateway can test new MCP servers before they touch anything important.
 
+MCP secrets are scoped the same way. Redacted install data and secret refs live in the gateway database, while actual secret values from `env` and `headers` live in that gateway's keystore.
+
 ## Enabled And Implicit MCP
 
 MCP servers and their exposed tools can be enabled or disabled. A disabled server can stay configured on the gateway, but agents should not use its tools.
