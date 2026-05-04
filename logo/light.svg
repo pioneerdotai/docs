@@ -1,7 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <svg width="512px" height="512px" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <title>Combined Shape</title>
-    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
         <path d="M310,0 C421.561519,0 512,90.4384805 512,202 L512,310 C512,421.561519 421.561519,512 310,512 L202,512 C90.4384805,512 0,421.561519 0,310 L0,202 C0,90.4384805 90.4384805,0 202,0 L310,0 Z M354.994949,121.649712 L121.649712,354.994949 L157.005051,390.350288 L390.350288,157.005051 L354.994949,121.649712 Z" id="Combined-Shape" fill="#1071FF"></path>
     </g>
 </svg>
