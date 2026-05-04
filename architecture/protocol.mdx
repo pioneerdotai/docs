@@ -1,37 +1,66 @@
 ---
 title: "Protocol Layer"
-description: "The JSON-RPC 2.0 contract that defines all communication between gateway and clients."
-icon: "code"
+description: "The JSON-RPC contract between gateways and clients."
 ---
 
-The **protocol crate** (`crates/protocol`) is the single source of truth for all types shared between the gateway and its clients. It has no business logic — only type definitions and serialization.
+`crates/protocol` is the public contract for Pioneer. It defines the JSON-RPC envelopes, method names, request payloads, response payloads, notification payloads, domain DTOs, and generated JSON Schema documents.
 
-## Design goals
+Clients should depend on the protocol, not on gateway internals. The gateway may reorganize storage, scheduling, or runtime code without changing how clients call `turn/start`, listen for `item/completed`, install MCP servers, or update provider keys.
 
-- **Version-stable** — clients can depend on protocol types without importing internal crates
-- **Schema-generated** — JSON schemas are auto-generated from Rust types and committed to `schemas/`
-- **Self-documenting** — type names and field names are the API contract
+This crate is the line between "implementation" and "product API." If a field appears here, desktop, future mobile apps, custom clients, tests, and generated schemas can start depending on it.
 
-## What it defines
+## Why This Layer Exists
 
-- JSON-RPC request and response envelopes
-- Workspace, thread, turn, and task types
-- Provider and model listing types
-- Skill lifecycle operation types
-- MCP server and catalog types
-- Agent event stream types (progress, tool calls, thinking, errors)
-- Markdown document representation for rich text rendering
+Pioneer is designed to support more than one client. The desktop app is first, but the gateway should also be usable from mobile clients, CLIs, automation scripts, and third-party protocol clients. That only works if the public API is explicit and generated from one source of truth.
 
-## Regenerating schemas
+The protocol crate also prevents accidental coupling. A client should not import `pioneer-crud` to understand a turn. It should receive `Turn`, `TurnItem`, and notification payloads from `pioneer-protocol`.
 
-After changing types in `crates/protocol`:
+## Transport Contract
 
-```bash
-./scripts/protocol/export.sh
-```
+Pioneer uses JSON-RPC 2.0 over WebSocket. Requests have a method name from `pioneer_protocol::constants::methods`, an id, and typed params. Responses return either a typed result or a JSON-RPC error. Notifications use method names from `pioneer_protocol::constants::events` and have no response id.
 
-This runs a schema export binary that writes updated JSON schemas to `schemas/`. Commit both the Rust changes and the updated schemas together.
+`RequestId` is a typed protocol value with fixed length validation. This avoids treating client correlation ids as arbitrary unbounded strings.
 
-## Transport
+## Method Groups
 
-All communication uses **JSON-RPC 2.0** over a WebSocket connection. The gateway sends notifications (streaming events) and the client sends requests. The protocol crate defines the method names and payload types for both.
+| Group | Examples |
+|---|---|
+| Workspaces | `workspace/list`, `workspace/create`, `workspace/default` |
+| Threads | `thread/start`, `thread/get`, `thread/history`, `thread/tree`, folder operations |
+| Turns | `turn/start`, `turn/cancel`, `turn/get`, `turn/items`, `turn/timeline` |
+| Providers | `provider/list`, `provider/models/list`, `provider/set_api_key`, `provider/delete_api_key` |
+| Skills | `skills/list`, `skills/install`, `skills/update`, `skills/uninstall`, `skills/health`, upload and policy methods |
+| MCP | `mcp/list`, `mcp/install`, `mcp/policy/set`, `mcp/server/restart`, `mcp/uninstall`, `mcp/server/details` |
+| Tasks | `task/create`, `task/get`, `task/list`, `task/tree`, `task/events`, `task/wait`, `task/cancel`, `task/reschedule`, `task/detach`, `task/pause`, `task/resume`, `task/agenda`, `task/deliveries` |
+
+## Notification Groups
+
+The protocol includes notifications for thread changes, turn lifecycle, item lifecycle, tool retry and recovery, context compression, skills changes, MCP status/catalog changes, task events, delivery state, and write locks.
+
+The gateway treats durable agent events as the source for many notifications. A client can render live progress without knowing whether an event originated from the provider stream, a built-in tool, an MCP tool, a skill runtime tool, or the task scheduler.
+
+## Schema Generation
+
+Protocol schemas are generated from Rust types and written under `schemas/`. The schema export helpers live in the protocol crate. When a protocol type changes, the Rust type and generated schema should be updated together.
+
+The architecture goal is simple: API review should happen at the protocol boundary. If a type is client-visible, it belongs in `crates/protocol`. If it is only used by one implementation layer, keep it in that layer.
+
+## Versioning Discipline
+
+The current project is still early, so breaking protocol changes can happen. Even so, developers should treat field names, enum variants, method constants, and notification payloads as user-facing architecture. A storage refactor should not force a protocol change unless the product behavior changes too.
+
+## Change Guidelines
+
+When changing protocol types, ask three questions:
+
+1. Is this field truly client-visible, or is it an implementation detail?
+2. Does the gateway have enough information to populate it consistently?
+3. Does the schema output need to change together with the Rust type?
+
+If the answer to the first question is no, keep the type in the owning crate. If the answer is yes, add it here and update the gateway, docs, and schemas together.
+
+## Related Pages
+
+- [Gateway](/architecture/gateway) explains where protocol methods are dispatched.
+- [Persistence Layer](/architecture/persistence) explains how protocol-visible state maps to durable records.
+- [Tasks And Subagents](/architecture/tasks), [MCP Architecture](/architecture/mcp), and [Skills Architecture](/architecture/skills) explain large protocol surfaces.

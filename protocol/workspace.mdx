@@ -1,7 +1,163 @@
 ---
-title: "Workspace API"
-description: "JSON-RPC methods for creating and managing workspaces."
-icon: "folder"
+title: "Workspace & Threads API"
+description: "JSON-RPC methods for workspace lookup, thread lifecycle, folders, thread history, and thread notifications."
 ---
 
-<Note>Coming soon. This page will document all workspace-related JSON-RPC methods: `workspaces.create`, `workspaces.list`, `workspaces.get`, `workspaces.update`, `workspaces.delete`.</Note>
+Workspaces group threads, skills, MCP policy, tasks, and settings. The protocol already exposes workspace methods, but the current desktop app creates one default workspace automatically and does not yet expose full workspace switching.
+
+Threads are the primary conversation container. A thread has a workspace, mode (`Chat` or `Agent`), model, model provider, optional name, sidebar visibility, and turn history.
+
+## Workspace Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `workspace/list` | `WorkspaceListParams` | `WorkspaceListResponse` | Return known workspaces. |
+| `workspace/default` | `WorkspaceDefaultParams` | `WorkspaceDefaultResponse` | Return or create the default workspace. |
+| `workspace/create` | `WorkspaceCreateParams` | `WorkspaceCreateResponse` | Create a workspace by caller-provided `workspace_id`. |
+
+### `workspace/default`
+
+Use this first when a client needs a workspace id.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "workspace/default",
+  "params": {}
+}
+```
+
+Response:
+
+```json
+{
+  "workspace": {
+    "id": "ws_000000000000000001",
+    "name": "Default Workspace",
+    "is_active": true,
+    "is_current": true,
+    "created_at": 1760000000,
+    "updated_at": 1760000000
+  }
+}
+```
+
+## Thread Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `thread/start` | `ThreadStartParams` | `ThreadStartResponse` | Create a thread and subscribe the current connection to it. |
+| `thread/get` | `ThreadGetParams` | `ThreadGetResponse` | Load one thread. |
+| `thread/tree` | `ThreadTreeParams` | `ThreadTreeResponse` | Load workspace threads, folders, and placements. |
+| `thread/history` | `ThreadHistoryParams` | `ThreadHistoryResponse` | Replay durable history events for a thread. |
+| `thread/move` | `ThreadMoveParams` | `ThreadMoveResponse` | Move a thread into or out of a folder. |
+| `thread/folder/create` | `ThreadFolderCreateParams` | `ThreadFolderCreateResponse` | Create a folder. |
+| `thread/folder/move` | `ThreadFolderMoveParams` | `ThreadFolderMoveResponse` | Move a folder under another folder or to root. |
+| `thread/folder/delete` | `ThreadFolderDeleteParams` | `ThreadFolderDeleteResponse` | Delete a folder. |
+| `thread/unsubscribe` | `ThreadUnsubscribeParams` | `ThreadUnsubscribeResponse` | Stop sending thread-scoped notifications to this connection. |
+
+## Starting A Thread
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "thread/start",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "workspace_id": "ws_000000000000000001",
+    "name": "Research",
+    "model": "google/gemini-3-flash-preview",
+    "model_provider": "openrouter",
+    "mode": "Agent",
+    "sandbox": "FullAccess"
+  }
+}
+```
+
+Important fields:
+
+| Field | Notes |
+|---|---|
+| `thread_id` | Client-provided id. |
+| `workspace_id` | Workspace that owns the thread. |
+| `mode` | `Chat` disables tools; `Agent` enables the agent loop and tool orchestration. |
+| `sandbox` | Currently `FullAccess` only. Tool runs are not separately sandboxed yet. |
+| `origin_kind` | `user`, `task_run`, or `system`. Task subagents use hidden task-run threads. |
+| `sidebar_visibility` | `visible` or `hidden`. Hidden is used for internal/task threads. |
+| `agent_nickname`, `agent_role` | Optional labels for task/subagent threads. |
+
+Response:
+
+```json
+{
+  "thread": {
+    "id": "thr_000000000000000001",
+    "workspace_id": "ws_000000000000000001",
+    "name": "Research",
+    "mode": "Agent",
+    "status": "Idle"
+  },
+  "sandbox": {
+    "mode": "FullAccess"
+  }
+}
+```
+
+## Thread Tree
+
+`thread/tree` returns all threads plus folders and placement rows for a workspace. Clients should use this instead of trying to infer sidebar layout from thread rows alone.
+
+```json
+{
+  "method": "thread/tree",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+Result shape:
+
+```json
+{
+  "workspace_id": "ws_000000000000000001",
+  "threads": [],
+  "folders": [],
+  "placements": [
+    {
+      "thread_id": "thr_000000000000000001",
+      "workspace_id": "ws_000000000000000001",
+      "folder_id": null
+    }
+  ]
+}
+```
+
+## Thread History
+
+`thread/history` returns durable events, not only final messages. It is the replay API for rebuilding a timeline after reconnect.
+
+```json
+{
+  "method": "thread/history",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "limit": 500
+  }
+}
+```
+
+History event payloads include turn start, item start, item deltas, item completion, recovery events, tool retry events, tool loop budget events, and terminal turn events.
+
+## Thread Notifications
+
+| Event | Params | Meaning |
+|---|---|---|
+| `thread/started` | `ThreadStartedNotification` | A thread was created and started. |
+| `thread/updated` | `ThreadUpdatedNotification` | Thread metadata or status changed. |
+| `thread/closed` | `ThreadClosedNotification` | Thread was closed/unloaded for this client context. |
+| `thread/tree/changed` | `ThreadTreeChangedNotification` | Thread/folder/sidebar tree should be reloaded. |
+
+Thread subscription is connection-scoped. Starting or interacting with a thread associates the connection with that thread/workspace; `thread/unsubscribe` removes the thread subscription for that connection.

@@ -1,7 +1,107 @@
 ---
 title: "MCP Architecture"
-description: "How Pioneer implements the Model Context Protocol client runtime."
-icon: "plug"
+description: "MCP install parsing, runtime sessions, catalogs, policy, and dynamic tool calls."
 ---
 
-<Note>Coming soon. This page will cover the MCP client runtime (stdio + HTTP transports), server catalog and tool discovery, policy enforcement, health diagnostics, and error handling.</Note>
+Pioneer implements MCP as a gateway-owned client runtime. The desktop app configures MCP servers, but the gateway host starts stdio servers, connects to HTTP servers, stores catalogs, resolves secrets, and calls MCP tools during agent turns.
+
+MCP is a bridge between Pioneer and external tool ecosystems. Pioneer does not treat MCP servers as trusted in-process plugins. It treats them as configured external runtimes with transport, policy, status, catalog, secrets, and audit state.
+
+<Warning>
+  MCP server commands and HTTP reachability are evaluated from the gateway host. This is one of the most common sources of confusion when using a remote gateway.
+</Warning>
+
+## Why This Layer Exists
+
+MCP servers are not just a list of tools. They have startup behavior, auth, catalogs, changing availability, stderr/errors, retry state, and secrets. That requires a runtime service rather than a static config reader.
+
+`pioneer-mcp` owns protocol-facing MCP concerns such as config parsing, transports, clients, catalogs, and runtime sessions. `McpService` in the gateway owns gateway-facing concerns: database rows, live task supervision, notifications, tool materialization, and calls from the agent's tool runtime.
+
+## Components
+
+| Component | Code | Responsibility |
+|---|---|---|
+| Config parser | `crates/mcp/src/config.rs` | Parses `mcpServers` JSON, validates names/transports, extracts secrets, creates install plans. |
+| Domain model | `crates/mcp/src/domain.rs` | Installation, transport, scope, source, policy, availability, runtime state, and secret ref types. |
+| Runtime connector | `crates/mcp/src/runtime/mod.rs` | Connects to MCP servers and exposes `McpRuntimeSession`. |
+| Clients | `crates/mcp/src/client/*` | `rmcp`-based stdio and streamable HTTP clients. |
+| Gateway service | `crates/gateway/src/mcp_service.rs` | Starts/stops/restarts server tasks, tracks snapshots, stores catalogs, publishes status, materializes tools. |
+| Gateway handlers | `crates/gateway/src/message/mcp/*` | JSON-RPC methods for install, list, policy, restart, uninstall, and details. |
+
+## Install Config
+
+Pioneer accepts the familiar top-level shape:
+
+```json
+{
+  "mcpServers": {
+    "server_name": {
+      "command": "some-command",
+      "args": ["--flag"],
+      "env": {
+        "API_KEY": "secret-value"
+      }
+    }
+  }
+}
+```
+
+or:
+
+```json
+{
+  "mcpServers": {
+    "server_name": {
+      "url": "https://example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer secret-value"
+      }
+    }
+  }
+}
+```
+
+Each server must define exactly one transport: `command` for stdio or `url` for streamable HTTP. Server names must match `^[A-Za-z0-9_-]{1,64}$`.
+
+Common optional fields include `required`, `startup_timeout_sec`, `tool_timeout_sec`, and `timeout`. Policy flags such as enabled state and implicit invocation are stored as installation/policy state, not required in the basic config examples.
+
+## Secrets And Redaction
+
+Environment variables and HTTP headers can contain secrets. The config parser materializes secret refs, stores secret values through gateway settings, and stores redacted transport/source data in the database. Runtime sessions resolve secrets through `McpSecretResolver` when a server task starts.
+
+This keeps the server installation readable and auditable without copying raw secret values into catalog snapshots or normal list responses.
+
+## Runtime Lifecycle
+
+`McpService::reload_workspace` loads installed workspace servers from the database and compares them with currently running tasks. Disabled servers are stopped and reported as disabled. Changed fingerprints cause a restart. Removed servers are stopped.
+
+For enabled servers, `McpService` starts a task that connects through `RmcpRuntimeConnector`, obtains the initial catalog, stores status, watches server events, refreshes catalogs, and accepts tool-call commands over an internal channel.
+
+Runtime states include `not_started`, `disabled`, `starting`, `ready`, `degraded`, `auth_required`, `failed`, `stopping`, `stopped`, and `restarting`.
+
+## Catalogs
+
+When a server becomes live, Pioneer stores a catalog snapshot: server info, server instructions hash, tools, resources, resource templates, prompts, catalog version, and generation timestamp.
+
+Catalog changes publish `mcp/server/catalog_changed` and increment the gateway MCP snapshot version. The agent uses the live snapshot and stored catalog to decide which MCP tools can be materialized for a turn.
+
+## Policy And Tool Materialization
+
+MCP policy is per gateway and per workspace. A server can be installed but disabled. A server can also be installed and enabled without allowing implicit tool exposure.
+
+At turn time, the agent asks `AgentMcpToolProvider` for availability and materialized tools. `McpService` reloads the workspace, checks installation policy, checks runtime state, loads the catalog snapshot, and builds dynamic tool descriptors. Blocked servers produce diagnostics instead of breaking the turn.
+
+When the model calls a materialized MCP tool, the tool runtime sends the call back to `McpService`. The service forwards it to the live server task, waits for `McpToolCallResult`, and records audit/binding data.
+
+This indirection is important. The model never calls an MCP server directly. The call passes through the Pioneer tool runtime and gateway MCP service, so output policy, diagnostics, audit records, turn bindings, and runtime errors stay under Pioneer control.
+
+## Local Versus Remote Gateways
+
+For stdio servers, `command`, `args`, `cwd`, and `env` are evaluated on the gateway host. For HTTP servers, the gateway host must be able to reach the URL. If the gateway runs remotely, MCP connectivity must be tested from that remote machine, not from the desktop client.
+
+## Related Pages
+
+- [Tools System](/architecture/tools) explains how MCP tools become model-visible dynamic tools.
+- [Gateway](/architecture/gateway) explains why MCP processes are gateway-owned.
+- [Skills Architecture](/architecture/skills) explains the parallel extension system for skills.
+- [Persistence Layer](/architecture/persistence) explains MCP installations, catalog snapshots, audit events, and turn bindings.

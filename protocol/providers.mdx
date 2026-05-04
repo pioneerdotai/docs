@@ -1,7 +1,177 @@
 ---
 title: "Providers API"
-description: "JSON-RPC methods for provider configuration and model listing."
-icon: "brain"
+description: "Listing providers, listing provider models, and managing API keys through the gateway."
 ---
 
-<Note>Coming soon. This page will document provider add/update/delete methods, model listing, API key management, and streaming capability detection.</Note>
+Provider methods are deliberately small. The gateway owns provider configuration, stores credentials, discovers models, and normalizes model metadata for clients. A desktop app, CLI, mobile app, or custom client should not talk directly to every model provider just to build a model picker.
+
+Use these methods when a client needs to show available providers, fetch their model catalogs, or update the API key used by the gateway.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `provider/list` | `ProviderListParams` | `ProviderListResponse` | Return configured provider adapters. |
+| `provider/models/list` | `ProviderListModelsParams` | `ProviderListModelsResponse` | Return models known for one provider. |
+| `provider/set_api_key` | `ProviderSetApiKeyParams` | `ProviderSetApiKeyResponse` | Store or replace a provider API key. |
+| `provider/delete_api_key` | `ProviderDeleteApiKeyParams` | `ProviderDeleteApiKeyResponse` | Remove a provider API key. |
+
+## Listing Providers
+
+`provider/list` does not require a workspace id. Provider configuration belongs to the gateway, so the same provider setup can be used by every workspace on that gateway.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "provider/list",
+  "params": {}
+}
+```
+
+Response:
+
+```json
+{
+  "providers": [
+    { "name": "openai" },
+    { "name": "anthropic" },
+    { "name": "openrouter" },
+    { "name": "ollama" }
+  ]
+}
+```
+
+The `name` is the stable provider identifier used in `model_provider`, `provider/models/list`, and API-key methods.
+
+## Listing Models
+
+Use `provider/models/list` after the user selects a provider. The gateway returns normalized metadata that a client can use for filtering, badges, warnings, or default selection.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "provider/models/list",
+  "params": {
+    "provider": "openai"
+  }
+}
+```
+
+Response shape:
+
+```json
+{
+  "provider": "openai",
+  "models": [
+    {
+      "id": "gpt-5.1",
+      "name": "GPT-5.1",
+      "description": null,
+      "created": null,
+      "provider": "openai",
+      "owned_by": null,
+      "limits": {
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "context_window": null
+      },
+      "capabilities": {
+        "vision": true,
+        "tool_calling": true,
+        "json_output": true,
+        "streaming": true,
+        "thinking": true,
+        "fine_tuning": null,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["text"]
+      },
+      "pricing": null,
+      "active": true,
+      "family": "gpt",
+      "lifecycle_status": null
+    }
+  ]
+}
+```
+
+Model metadata is advisory. Providers differ in how much information they expose, so clients must tolerate `null` for limits, pricing, lifecycle state, and individual capabilities.
+
+## Model Metadata
+
+`ProviderModelInfo` is the normalized model object.
+
+| Field | Meaning |
+|---|---|
+| `id` | Provider model id. This is the value to put into `model`. |
+| `name` | Optional display name. |
+| `description` | Optional model description. |
+| `created` | Optional provider-created timestamp. |
+| `provider` | Provider id that owns the model entry. |
+| `owned_by` | Optional provider owner string. |
+| `limits` | Optional input/output/context-window limits. |
+| `capabilities` | Optional capability flags and modality lists. |
+| `pricing` | Optional token/image/request pricing metadata. |
+| `active` | Whether the model should be treated as active. |
+| `family` | Optional family/group label. |
+| `lifecycle_status` | Optional provider-specific lifecycle marker. |
+
+The important client rule is simple: choose by `id`, display by `name` when present, and never require a metadata field that may be `null`.
+
+## Setting An API Key
+
+API keys are stored on the gateway. If the desktop app connects to a remote gateway, the key is stored on that remote gateway, not in the desktop process.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "provider/set_api_key",
+  "params": {
+    "provider": "anthropic",
+    "api_key": "sk-ant-..."
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "provider": "anthropic",
+  "updated": true
+}
+```
+
+After updating a key, clients usually refresh `provider/models/list` for that provider because a newly valid credential can change what the gateway can discover.
+
+## Deleting An API Key
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "provider/delete_api_key",
+  "params": {
+    "provider": "anthropic"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "provider": "anthropic",
+  "deleted": true
+}
+```
+
+Deleting a key does not delete threads or turns that already used that provider. It only affects future provider calls and model discovery.
+
+## Client Behavior
+
+Provider setup is gateway-local. A client connected to three gateways should show provider status for the selected gateway, because each gateway may have different keys, local Ollama availability, and provider access.
+
+For thread creation and turn execution, pass the selected provider id through `model_provider` and the selected model id through `model`. See [Threads API](/protocol/threads) and [Turns API](/protocol/turns).

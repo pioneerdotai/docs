@@ -1,7 +1,231 @@
 ---
 title: "Turns API"
-description: "Submitting messages, receiving streaming events, and turn history."
-icon: "paper-plane"
+description: "Submitting turns, cancelling turns, reading turn items, composing timelines, and handling streaming turn notifications."
 ---
 
-<Note>Coming soon. This page will document turn submission, the streaming event protocol (tool calls, thinking, content, errors), turn cancellation, and history retrieval methods.</Note>
+A turn is one unit of assistant execution inside a thread. The client creates a turn with `turn/start`, then observes progress through notifications. In `Chat` mode a turn is a provider call. In `Agent` mode a turn can include prompt compilation, tool calls, MCP calls, skills, task tools, subagents, retries, and recovery.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `turn/start` | `TurnStartParams` | `TurnStartResponse` | Start a new turn in a thread. |
+| `turn/cancel` | `TurnCancelParams` | `TurnCancelResponse` | Cancel or interrupt an in-progress turn. |
+| `turn/get` | `TurnGetParams` | `TurnGetResponse` | Load one turn model. |
+| `turn/items` | `TurnItemsParams` | `TurnItemsResponse` | Load persisted item events for one turn. |
+| `turn/timeline` | `TurnTimelineParams` | `TurnTimelineResponse` | Load a composed timeline, optionally including task/child-turn events. |
+
+## Starting A Turn
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "turn/start",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "mode": "Agent",
+    "sandbox_policy": {
+      "mode": "FullAccess"
+    },
+    "input": [
+      {
+        "type": "text",
+        "text": "Inspect the project and summarize the architecture.",
+        "textElements": []
+      }
+    ]
+  }
+}
+```
+
+Important fields:
+
+| Field | Notes |
+|---|---|
+| `thread_id` | Existing thread id. |
+| `turn_id` | Client-provided id for this turn. |
+| `input` | Array of `UserInput` items. Text, files, images, audio, video, skills, and mentions are represented here. |
+| `model`, `model_provider` | Optional per-turn override. If omitted, the thread model/provider is used. |
+| `sandbox_policy` | Optional sandbox policy object. Current shape is `{ "mode": "FullAccess" }`. |
+| `mode` | Optional per-turn thread mode override, `Chat` or `Agent`. |
+
+Response:
+
+```json
+{
+  "turn": {
+    "id": "trn_000000000000000001",
+    "status": "InProgress",
+    "prompt_manifest": null
+  }
+}
+```
+
+The response only means the gateway accepted the turn. Render progress from notifications.
+
+## User Input
+
+`UserInput` is a tagged union. Common variants:
+
+```json
+[
+  { "type": "text", "text": "Hello", "textElements": [] },
+  { "type": "localFile", "path": "/Users/alexander/Code/pioneer/README.md" },
+  { "type": "localImage", "path": "/tmp/screenshot.png" },
+  { "type": "image", "url": "https://example.com/image.png" },
+  { "type": "skill", "name": "Documents", "path": "workspace/documents" },
+  { "type": "mention", "name": "repo", "path": "app://github/repo" }
+]
+```
+
+Attachments are resolved by the gateway/provider pipeline. Local paths are evaluated on the gateway host, not on the client machine unless the gateway is local.
+
+## Cancelling A Turn
+
+```json
+{
+  "method": "turn/cancel",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "reason": "User stopped the turn"
+  }
+}
+```
+
+The response contains the updated `Turn`. A cancelled turn is represented as an interrupted/failed terminal state depending on where cancellation lands in the runtime.
+
+## Reading Items
+
+`turn/items` returns persisted `TurnItemEvent` rows for one turn.
+
+```json
+{
+  "method": "turn/items",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001"
+  }
+}
+```
+
+Result:
+
+```json
+{
+  "thread_id": "thr_000000000000000001",
+  "workspace_id": "ws_000000000000000001",
+  "turn_id": "trn_000000000000000001",
+  "events": [],
+  "last_sequence": 42
+}
+```
+
+## Composed Timeline
+
+`turn/timeline` is the richer read API. It can compose parent turn events with task events and child-agent events.
+
+```json
+{
+  "method": "turn/timeline",
+  "params": {
+    "threadId": "thr_000000000000000001",
+    "turnId": "trn_000000000000000001",
+    "composeTasks": true,
+    "includeCollapsedTaskEvents": false,
+    "maxChildItemsPerTask": 100
+  }
+}
+```
+
+Timeline items carry an `origin`:
+
+| Origin kind | Meaning |
+|---|---|
+| `parent_turn` | Item came from the requested turn. |
+| `task_event` | Item came from a task created/attached to the turn. |
+| `child_turn` | Item came from a task subagent child thread. |
+
+Use `turn/timeline` when rendering a task-aware conversation timeline. Use `turn/items` when you only need raw events for the parent turn.
+
+## Turn Items
+
+`TurnItem` is the timeline object that clients render. Main variants:
+
+| Variant | Meaning |
+|---|---|
+| `userMessage` | User text and attachments. |
+| `agentMessage` | Assistant visible answer text, optionally with Markdown AST. |
+| `reasoning` | Reasoning/thinking item. |
+| `systemEvent` | Informational/warning/error event. |
+| `task` | Task/subagent item composed into the turn. |
+| `commandExecution` | Shell/session tool call. |
+| `fileChange` | File edit/patch tool call. |
+| `webSearch` | Web search tool call. |
+| `webFetch` | Web fetch tool call. |
+| `download` | URL download tool call. |
+| `dynamicToolCall` | MCP, skill, task, or other dynamic tool call. |
+
+Tool items include `status`, `arguments`, `output_policy`, display/storage payloads, optional recovery policy, optional recovery view, and normalized outcome fields.
+
+## Streaming Notifications
+
+Turn execution is observed through notifications:
+
+| Event | Params | Meaning |
+|---|---|---|
+| `turn/started` | `TurnStartedNotification` | Turn accepted and started. |
+| `item/started` | `ItemStartedNotification` | A timeline item was opened. |
+| `item/agent_message/delta` | `ItemDeltaNotification` | Assistant text delta. |
+| `item/command_execution/output_delta` | `ItemDeltaNotification` | Shell stdout/stderr-style output delta. |
+| `item/file_change/output_delta` | `ItemDeltaNotification` | File-change output delta. |
+| `item/tool/progress` | `ItemDeltaNotification` | Tool progress update. |
+| `item/completed` | `ItemCompletedNotification` | A timeline item reached terminal display state. |
+| `item/updated` | `ItemUpdatedNotification` | A timeline item was updated after initial creation. |
+| `turn/completed` | `TurnCompletedNotification` | Turn completed successfully. |
+| `turn/failed` | `TurnFailedNotification` | Turn failed or was interrupted. |
+| `turn/timeline/changed` | `TurnTimelineChangedNotification` | Composed timeline should be reloaded. |
+
+Delta notifications include `stream`: `agent_message`, `stdout`, `stderr`, `tool_progress`, `file_change`, or `generic`.
+
+## Recovery And Retry Notifications
+
+The gateway also publishes detailed recovery events:
+
+| Event | Meaning |
+|---|---|
+| `item/timeout_detected` | Tool or item attempt exceeded a deadline. |
+| `item/recovery_opened` | A recovery job was opened for an item. |
+| `item/recovery_attached` | A recovery attempt was attached to an existing recovery job. |
+| `item/retry_scheduled` | Provider/item retry scheduled for a later time. |
+| `item/retry_attempt_started` | Retry attempt started. |
+| `item/recovery_succeeded` | Recovery succeeded. |
+| `item/recovery_exhausted` | Recovery attempts were exhausted. |
+| `item/tool/retry_scheduled` | Tool retry episode scheduled after recoverable tool failure. |
+| `item/tool/retry_resolved` | Tool retry resolved. |
+| `item/tool/retry_exhausted` | Tool retry budget exhausted. |
+| `turn/tool_loop/budget_exceeded` | Agent tool loop hit round/tool-call budget. |
+| `context/compressing` | Gateway is compressing thread history. |
+| `context/compressed` | History compression finished. |
+
+Clients can render these as timeline diagnostics or use them to trigger a timeline refresh.
+
+## Prompt Manifest
+
+When the prompt compiler runs, the `Turn` can receive a `prompt_manifest`:
+
+```json
+{
+  "compiler_version": "0.1.0",
+  "profile": "assistant_full",
+  "section_ids": ["identity_base", "assistant_safety", "skills_runtime_prompt"],
+  "fingerprint_stable": "...",
+  "fingerprint_dynamic": "...",
+  "fingerprint_full": "...",
+  "diagnostics": []
+}
+```
+
+The manifest is metadata for auditing prompt shape. It does not contain the full prompt text.

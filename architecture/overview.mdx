@@ -1,76 +1,137 @@
 ---
 title: "Architecture Overview"
-description: "How Pioneer is structured: the gateway, desktop app, protocol, and agent loop."
-icon: "diagram-project"
+description: "The main runtime model of Pioneer: gateway, clients, protocol, agents, tools, storage, MCP, skills, and tasks."
 ---
 
-Pioneer is a Rust workspace of 16 crates organized around a clear separation of concerns: a persistent **gateway** service owns all state and execution, while a **desktop app** is just a thin client that connects to it.
+Pioneer is organized around one rule: the gateway is the product core. Clients connect to it, but the gateway owns the durable state, runtime state, model access, tool execution, task execution, MCP runtime, skills runtime, settings, and history.
 
-## High-level diagram
+The desktop app is the primary client today. It is a native GPUI application that can start a local gateway for a single-machine setup or connect to one or more remote gateways. Other clients can be built against the JSON-RPC protocol without depending on desktop internals.
 
+This architecture is less about "frontend talks to backend" and more about "clients attach to a durable assistant runtime." A gateway can live on a laptop, a workstation, or a remote server. Wherever it lives, that is where the assistant's state and execution live too.
+
+## How To Read This Section
+
+If you are new to the codebase, start here, then read [Gateway](/architecture/gateway), [Agent Loop](/architecture/agent-loop), and [Prompt And Context](/architecture/prompt). Those three pages explain the central path from a client message to an LLM request and back to persisted timeline events.
+
+After that, pick the subsystem you are changing:
+
+<CardGroup cols={2}>
+  <Card title="Protocol" href="/architecture/protocol">
+    Read this before changing JSON-RPC methods, notification payloads, schemas, or anything a client consumes.
+  </Card>
+  <Card title="Tools" href="/architecture/tools">
+    Read this before changing shell/file/web/computer-use tools, output projection, or retry behavior.
+  </Card>
+  <Card title="Tasks And Subagents" href="/architecture/tasks">
+    Read this before changing scheduled work, attached task tools, task trees, or subagent execution.
+  </Card>
+  <Card title="Persistence" href="/architecture/persistence">
+    Read this before changing tables, projectors, durable events, recovery state, or read models.
+  </Card>
+</CardGroup>
+
+## System Shape
+
+```mermaid
+flowchart TB
+  Desktop["Desktop app\nGPUI native client"]
+  Mobile["Future mobile clients"]
+  Custom["Custom protocol clients"]
+
+  Gateway["Gateway\nTokio service"]
+  Protocol["pioneer-protocol\nJSON-RPC types and schemas"]
+  Agent["pioneer-agent\nturn runtime and tool loop"]
+  Prompt["pioneer-promt\nsystem prompt compiler"]
+  Providers["pioneer-provider\nLLM provider adapters"]
+  Tools["pioneer-tools\nbuilt-in and dynamic tools"]
+  Tasks["pioneer-tasks\ntask scheduler and executor"]
+  MCP["pioneer-mcp\nMCP client runtime"]
+  Skills["pioneer-skills\nskill catalog and runtime"]
+  CRUD["pioneer-crud\nrepository and projectors"]
+  DB["SQLite\nSeaORM entities and migrations"]
+
+  Desktop -->|"WebSocket JSON-RPC"| Gateway
+  Mobile -->|"WebSocket JSON-RPC"| Gateway
+  Custom -->|"WebSocket JSON-RPC"| Gateway
+  Desktop -. uses .- Protocol
+  Mobile -. uses .- Protocol
+  Custom -. uses .- Protocol
+  Gateway --> Protocol
+  Gateway --> Agent
+  Gateway --> Tasks
+  Gateway --> MCP
+  Gateway --> Skills
+  Gateway --> CRUD
+  Agent --> Prompt
+  Agent --> Providers
+  Agent --> Tools
+  Agent --> Skills
+  Agent --> MCP
+  Agent --> Tasks
+  CRUD --> DB
 ```
-┌─────────────────────────────────────────────┐
-│              Desktop App (GPUI)             │
-│   Sidebar │ Timeline │ Composer │ Settings  │
-└──────────────────┬──────────────────────────┘
-                   │ WebSocket JSON-RPC
-┌──────────────────▼──────────────────────────┐
-│                  Gateway                    │
-│  Transport │ Auth │ Workspaces │ Sessions   │
-│  ┌──────────────────────────────────────┐   │
-│  │           Agent Loop                │   │
-│  │  Prompt → LLM Provider → Tool Calls │   │
-│  └──────────────────────────────────────┘   │
-│  Tasks │ Skills │ MCP │ SQLite DB           │
-└─────────────────────────────────────────────┘
-```
 
-## Core components
+## Runtime Boundaries
 
-<Columns cols={2}>
-  <Card title="Gateway" icon="server" href="/architecture/gateway">
-    The persistent Rust service. Owns all state, runs the agent loop, manages the database.
-  </Card>
-  <Card title="Agent Loop" icon="arrows-spin" href="/architecture/agent-loop">
-    Orchestrates LLM calls and tool execution within a single conversation turn.
-  </Card>
-  <Card title="Protocol" icon="code" href="/architecture/protocol">
-    JSON-RPC 2.0 contract layer. Defines all types shared between gateway and clients.
-  </Card>
-  <Card title="Tools" icon="wrench" href="/architecture/tools">
-    Built-in tool implementations: shell, files, web, and computer use.
-  </Card>
-</Columns>
+The gateway is the only process that directly mutates Pioneer state. It accepts protocol requests, validates them, updates the in-memory managers when needed, persists the durable read model through `pioneer-crud`, and publishes JSON-RPC notifications to connected sessions.
 
-## Subsystems
+The agent loop runs inside the gateway. A conversation turn is not a client-side action after submission; it becomes gateway-owned work. The gateway loads history, resolves policies, starts or reuses the agent runtime for the thread, streams model/tool progress back to clients, and persists durable events as the turn changes.
 
-<Columns cols={3}>
-  <Card title="Providers" icon="brain" href="/architecture/providers">
-    Unified LLM provider interface across 12+ backends.
-  </Card>
-  <Card title="Skills" icon="puzzle-piece" href="/architecture/skills">
-    Installable skill package lifecycle and runtime registration.
-  </Card>
-  <Card title="Tasks" icon="clock" href="/architecture/tasks">
-    Scheduler, executor, triggers, delivery, and reconciliation.
-  </Card>
-  <Card title="MCP" icon="plug" href="/architecture/mcp">
-    Model Context Protocol client runtime and server catalog.
-  </Card>
-  <Card title="Persistence" icon="database" href="/architecture/persistence">
-    SeaORM + SQLite repository layer and migration system.
-  </Card>
-  <Card title="Prompt System" icon="file-lines" href="/architecture/prompt">
-    Prompt compilation, token budgeting, and rendering.
-  </Card>
-</Columns>
+The protocol crate is the public boundary. It defines request and response payloads, notification payloads, method names, error envelopes, task types, tool result types, provider types, MCP types, skill types, prompt manifests, and schema export helpers. Internal crates can change implementation details without changing the client contract as long as the protocol stays stable.
 
-## Design principles
+This boundary is what lets Pioneer support many clients without making each client understand how tasks, tools, MCP, skills, and provider adapters are implemented. The desktop app should not know how a tool output is projected for recovery. A mobile app should not know how an MCP stdio process is restarted. A custom client should not know how the task scheduler computes retries. They should all see the same protocol events.
 
-**Protocol-first.** All contracts are defined as JSON-RPC types in the `protocol` crate, with JSON schemas auto-generated. Clients never depend on internal implementation details.
+## Why The Gateway Is The Center
 
-**Event sourcing.** Agent execution emits durable events that are persisted before being acted on. This enables recovery after crashes and interruptions.
+Pioneer needs to coordinate things that do not fit cleanly inside a UI process: long-running turns, tool sessions, task schedules, child agent threads, MCP server processes, provider retries, prompt manifests, and recovery state. Putting that work in the gateway gives the system one place to make decisions about state, policy, and durability.
 
-**Local-first.** Everything runs on your machine. The gateway is a self-contained process with no required external dependencies beyond an LLM provider.
+This also makes remote usage straightforward. If the gateway runs on a remote workstation, the assistant can use files, tools, MCP servers, provider settings, and task history from that workstation. The desktop app becomes a window into that gateway instead of the place where work happens.
 
-**Repository pattern.** All database access goes through a clean CRUD layer; nothing in the business logic touches SeaORM directly.
+The tradeoff is that developers must always ask "which host does this code run on?" Provider calls, tool commands, MCP stdio commands, skill dependency checks, and task execution all happen where the gateway runs. Client-side convenience should not accidentally become client-side authority.
+
+## Main Flows
+
+<AccordionGroup>
+  <Accordion title="Starting a turn">
+    A client calls `turn/start` with a `thread_id`, `turn_id`, selected mode, model, provider, sandbox mode, and user input. The gateway updates the thread manager, persists the turn start through `CrudStore::materialize_turn_start`, ensures an agent runtime exists for the thread, loads conversation history, loads workspace skill policy, and dispatches the turn into `AgentManager::start_turn`.
+  </Accordion>
+
+  <Accordion title="Building model input">
+    The gateway builds historical chat messages from completed turns. If history is close to the configured context budget, it compresses older turns into a summary with a provider call. The agent then compiles the system prompt with `pioneer-promt`, resolves skills, materializes MCP and task tools, builds the current user message, appends retained tool context for recovery when needed, and sends a `ChatRequest` through the selected provider.
+  </Accordion>
+
+  <Accordion title="Executing tools">
+    In agent mode, provider tool calls are routed through `pioneer-tools`. Built-in tools, MCP tools, skill tools, and task orchestration tools are presented through one router. Tool events are forwarded back to the gateway as durable item events and progress events. Tool outputs are projected differently for the model, timeline, storage, and recovery evidence.
+  </Accordion>
+
+  <Accordion title="Running tasks and subagents">
+    The task runtime stores tasks as durable task events and projected read models. When a task has an agent spec, the gateway task executor creates or restores a hidden child thread, starts a child turn, links thread lineage to the parent task, and reconciles the task result when the child turn completes, fails, or is interrupted.
+  </Accordion>
+
+  <Accordion title="Loading MCP and skills">
+    MCP servers and skills are installed per gateway and per workspace policy. At turn time, enabled and allowed items are resolved into prompt context and dynamic tools. Disabled or non-implicit items stay installed but are not automatically exposed to the model.
+  </Accordion>
+</AccordionGroup>
+
+## Durability Model
+
+Pioneer uses an event-heavy read model rather than a single mutable transcript blob. Turns emit durable events such as item started, item completed, prompt manifest compiled, skill bindings resolved, MCP bindings created, provider failures, recovery events, and terminal turn state. Tasks have their own task event stream and projector.
+
+The database stores both source events and projected tables. This lets the UI load fast read models while still keeping enough event data to audit and recover execution. It also means a developer should treat projectors and repository methods as part of the architecture, not as incidental persistence code.
+
+The practical reason is failure handling. A turn can stream text, call a shell command, receive a partial tool result, hit a provider timeout, create child tasks, or be cancelled by the user. If all of that lived only in memory, a gateway restart would turn every interesting failure into a mystery. Durable events give Pioneer something to reconcile.
+
+For details, read [Persistence Layer](/architecture/persistence) after this overview. For the event producer side, read [Agent Loop](/architecture/agent-loop) and [Tasks And Subagents](/architecture/tasks).
+
+## Current Important Limitations
+
+Pioneer is early-stage software. Some protocol and storage shapes are ahead of the desktop UI. For example, the protocol and database model support workspaces, but the current desktop flow creates one default workspace automatically and does not yet expose full workspace creation and switching.
+
+Tool runs are not sandboxed yet. Built-in tools and dynamic tools currently execute with the privileges of the OS user running the gateway. This is an architectural fact developers must keep in mind when working on tools, MCP, skills, and remote gateway deployment.
+
+## Related Pages
+
+- [Crate Map](/architecture/crates) explains where each piece lives in the Rust workspace.
+- [Gateway](/architecture/gateway) follows request handling and runtime ownership.
+- [Prompt And Context](/architecture/prompt) explains how history, prompt sections, skills, retries, and runtime facts become model input.
+- [Tools System](/architecture/tools), [MCP Architecture](/architecture/mcp), and [Skills Architecture](/architecture/skills) explain the three main ways the model gets capabilities beyond plain chat.

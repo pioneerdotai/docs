@@ -1,7 +1,281 @@
 ---
 title: "Skills API"
-description: "JSON-RPC methods for skill installation and lifecycle management."
-icon: "puzzle-piece"
+description: "Uploading, installing, listing, enabling, disabling, validating, and monitoring Pioneer skills."
 ---
 
-<Note>Coming soon. This page will document skill upload sessions, installation methods, enable/disable, uninstall, audit timeline retrieval, and health check methods.</Note>
+Skills are reusable capability packs that the gateway can expose to agents. Pioneer skills are compatible with the [Agent Skills](https://agentskills.io/home) specification, but installation and policy are managed by the gateway so every client connected to that gateway sees the same catalog.
+
+The skills protocol has three jobs: move a skill archive to the gateway, install/update/uninstall the skill, and control whether agents may use it explicitly or implicitly.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `skills/list` | `SkillListParams` | `SkillListResponse` | List installed skills and optional health/policy state. |
+| `skills/upload/start` | `SkillsUploadStartParams` | `SkillsUploadStartResponse` | Start an archive upload session. |
+| `skills/upload/finish` | `SkillsUploadFinishParams` | `SkillsUploadFinishResponse` | Finalize an upload session. |
+| `skills/upload/abort` | `SkillsUploadAbortParams` | `SkillsUploadAbortResponse` | Abort an upload session. |
+| `skills/install` | `SkillsInstallParams` | `SkillsInstallResponse` | Install a skill from a finished upload. |
+| `skills/update` | `SkillsUpdateParams` | `SkillsUpdateResponse` | Replace an installed skill from a finished upload. |
+| `skills/uninstall` | `SkillsUninstallParams` | `SkillsUninstallResponse` | Remove an installed skill. |
+| `skills/health` | `SkillsHealthParams` | `SkillsHealthResponse` | Inspect validation, dependency, trust, and audit state. |
+| `skills/policy/list` | `SkillsPolicyListParams` | `SkillsPolicyListResponse` | List workspace policy overrides. |
+| `skills/policy/set` | `SkillsPolicySetParams` | `SkillsPolicySetResponse` | Enable/disable a skill or implicit invocation. |
+
+## Listing Skills
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "skills/list",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "include_health": true,
+    "include_policy": true
+  }
+}
+```
+
+Response shape:
+
+```json
+{
+  "snapshot_version": 12,
+  "generated_at": 1777900000,
+  "skills": [
+    {
+      "slug": "documents",
+      "source_kind": "workspace",
+      "display_name": "Documents",
+      "description": "Work with document files.",
+      "version": "0.1.0",
+      "fingerprint": "sha256:...",
+      "trust_level": "trusted",
+      "install": {
+        "managed": true,
+        "installed": true,
+        "install_path": "/path/on/gateway",
+        "updated_at": 1777900000
+      },
+      "policy": {
+        "enabled": true,
+        "allow_implicit_invocation": false
+      },
+      "health": {
+        "status": "ok",
+        "dependency_failures": [],
+        "security_blocks": [],
+        "validation_issues": []
+      },
+      "status": "ready"
+    }
+  ]
+}
+```
+
+Use `snapshot_version` as an invalidation aid. When the gateway sends `skills/changed`, refresh the list and replace the local catalog.
+
+## Policy Model
+
+Skills have two separate policy switches:
+
+| Field | Meaning |
+|---|---|
+| `enabled` | Whether the skill can be used at all. Disabled skills stay installed but are not exposed to agents. |
+| `allow_implicit_invocation` | Whether the gateway may include the skill as an automatically available capability. When false, the skill can still be selected explicitly by the user or client flow. |
+
+This split matters for client UX. "Installed" is not the same as "available to agents", and "available explicitly" is not the same as "agent may decide to use it on its own".
+
+## Upload Flow
+
+Skill installation starts with a compressed archive upload. The supported archive format is currently `tar_gz`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "skills/upload/start",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "file_name": "documents.tar.gz",
+    "archive_format": "tar_gz",
+    "compressed_size_bytes": 73422,
+    "uncompressed_size_hint_bytes": 240000,
+    "sha256": "9f86d081884c7d659a2feaa0c55ad015..."
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "upload_id": "upl_000000000000000001",
+  "recommended_chunk_size_bytes": 1048576,
+  "max_chunk_size_bytes": 4194304,
+  "max_compressed_size_bytes": 104857600,
+  "max_uncompressed_size_bytes": 524288000,
+  "expires_at_unix": 1777900300
+}
+```
+
+After this response, chunks are not sent as JSON-RPC requests. They are sent as binary WebSocket frames on the same authenticated connection.
+
+## Binary Chunk Frame
+
+A skill upload chunk frame has this layout:
+
+| Bytes | Content |
+|---|---|
+| `0..4` | Magic bytes: `PSU1` |
+| `4..8` | Big-endian `u32` header length. |
+| next `header_len` | UTF-8 JSON `SkillsUploadChunkHeader`. |
+| remaining bytes | Raw archive chunk bytes. |
+
+Chunk header:
+
+```json
+{
+  "workspace_id": "ws_000000000000000001",
+  "upload_id": "upl_000000000000000001",
+  "offset": 0,
+  "len": 1048576,
+  "chunk_sha256": "optional-chunk-hash"
+}
+```
+
+The gateway acknowledges chunks with a notification:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "skills/upload/chunk_ack",
+  "params": {
+    "upload_id": "upl_000000000000000001",
+    "offset": 0,
+    "len": 1048576,
+    "received_bytes": 1048576,
+    "next_offset": 1048576
+  }
+}
+```
+
+Clients should use `next_offset` for resumable upload UI and retry from the acknowledged offset after reconnect.
+
+## Finishing Or Aborting Upload
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "skills/upload/finish",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "upload_id": "upl_000000000000000001"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "upload_id": "upl_000000000000000001",
+  "status": "ready",
+  "sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+  "compressed_size_bytes": 73422
+}
+```
+
+If the user cancels before install, call `skills/upload/abort` with `workspace_id` and `upload_id`.
+
+## Installing A Skill
+
+Installation consumes a finished upload. The only lifecycle source currently accepted by the public protocol is `uploaded_archive`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "skills/install",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "source": {
+      "type": "uploaded_archive",
+      "upload_id": "upl_000000000000000001"
+    },
+    "target_source_kind": "workspace"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "status": "installed",
+  "skill": {
+    "slug": "documents",
+    "source_kind": "workspace",
+    "version": "0.1.0",
+    "fingerprint": "sha256:...",
+    "trust_level": "trusted",
+    "install_path": "/path/on/gateway"
+  },
+  "audit": {
+    "events_written": 3
+  }
+}
+```
+
+Use `skills/update` for replacing an existing skill. It accepts `slug`, `source_kind`, `source`, and optional `expected_previous_fingerprint` for optimistic concurrency.
+
+## Setting Policy
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
+  "method": "skills/policy/set",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "skill_slug": "documents",
+    "source_kind": "workspace",
+    "enabled": true,
+    "allow_implicit_invocation": false
+  }
+}
+```
+
+Omit a field when you want to keep its current value. For example, toggling only implicit invocation should send `allow_implicit_invocation` without `enabled`.
+
+## Health
+
+`skills/health` is for detailed diagnostics. Pass an empty `skills` array to inspect all skills, or pass exact `{ slug, source_kind }` targets.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "fffffffffffffffffffff",
+  "method": "skills/health",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "skills": [
+      { "slug": "documents", "source_kind": "workspace" }
+    ],
+    "audit_limit": 16
+  }
+}
+```
+
+Health responses include dependency diagnostics, security findings, validation issues, trust-gate decisions, and recent audit events. Clients should surface blocking diagnostics before letting a user assume a skill is ready.
+
+## Notifications
+
+| Event | Meaning |
+|---|---|
+| `skills/changed` | Installed skills or policy changed; refresh `skills/list`. |
+| `skills/upload/chunk_ack` | Upload chunk was accepted; continue from `next_offset`. |
+
+Skills are scoped by gateway and workspace. A skill installed on one remote gateway is not available on another gateway until it is installed there too.

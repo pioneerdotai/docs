@@ -1,7 +1,256 @@
 ---
 title: "MCP API"
-description: "JSON-RPC methods for MCP server registration and catalog management."
-icon: "plug"
+description: "Installing MCP servers, listing catalogs, changing policy, restarting runtimes, and reading server details."
 ---
 
-<Note>Coming soon. This page will document MCP server add/update/remove methods, tool catalog listing, server health checks, and restart methods.</Note>
+MCP servers extend the gateway with external tools, resources, resource templates, and prompts. Pioneer follows the [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro), while the Pioneer protocol manages installation, runtime state, policy, health, and catalog visibility around those servers.
+
+The gateway is the MCP host. If a desktop app is connected to a remote gateway, stdio server commands run on the remote machine and HTTP server URLs must be reachable from that remote machine.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `mcp/list` | `McpListParams` | `McpListResponse` | List installed MCP servers for a workspace. |
+| `mcp/install` | `McpInstallParams` | `McpInstallResponse` | Install or update servers from MCP JSON config. |
+| `mcp/policy/set` | `McpPolicySetParams` | `McpPolicySetResponse` | Enable/disable a server or implicit invocation. |
+| `mcp/server/restart` | `McpServerRestartParams` | `McpServerRestartResponse` | Restart one server runtime. |
+| `mcp/uninstall` | `McpUninstallParams` | `McpUninstallResponse` | Remove one server installation. |
+| `mcp/server/details` | `McpServerDetailsParams` | `McpServerDetailsResponse` | Load catalog, health, audit, and recent binding details. |
+
+## Listing Servers
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "mcp/list",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+Response shape:
+
+```json
+{
+  "snapshot_version": 7,
+  "generated_at": 1777900000,
+  "servers": [
+    {
+      "id": "mcp_000000000000000001",
+      "name": "filesystem",
+      "display_name": "Filesystem",
+      "scope": "workspace",
+      "source_kind": "config",
+      "transport": {
+        "kind": "stdio",
+        "command": "npx"
+      },
+      "policy": {
+        "enabled": true,
+        "allow_implicit_invocation": true
+      },
+      "required": false,
+      "fingerprint": "sha256:...",
+      "runtime": {
+        "state": "ready",
+        "live": true,
+        "last_seen_at": 1777900000
+      },
+      "tools_count": 4,
+      "resources_count": 0,
+      "resource_templates_count": 0,
+      "prompts_count": 0,
+      "status": "ready"
+    }
+  ]
+}
+```
+
+Use `snapshot_version` together with `mcp/changed` and server status notifications to keep a client catalog fresh.
+
+## Installing Servers
+
+`mcp/install` accepts the same JSON shape users commonly put in MCP client config files: an object with `mcpServers`. Pass that JSON as a string in `config_json`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "mcp/install",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "scope_kind": "workspace",
+    "config_json": "{ \"mcpServers\": { \"filesystem\": { \"command\": \"npx\", \"args\": [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/Users/alexander/Code\"], \"env\": {} } } }"
+  }
+}
+```
+
+The JSON inside `config_json` is parsed by the gateway. For HTTP servers, use a URL transport entry in that config string:
+
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "url": "https://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ..."
+      }
+    }
+  }
+}
+```
+
+`scope_kind` defaults to `workspace`. `enabled` and `allow_implicit_invocation` are also accepted top-level install params and default to `true`; they are Pioneer policy values, not part of the MCP server config JSON itself.
+
+## Install Result
+
+```json
+{
+  "status": "ok",
+  "servers": [
+    {
+      "name": "filesystem",
+      "status": "installed",
+      "diagnostics": [],
+      "server": {
+        "id": "mcp_000000000000000001",
+        "name": "filesystem",
+        "scope": "workspace",
+        "source_kind": "config",
+        "transport": {
+          "kind": "stdio",
+          "command": "npx"
+        },
+        "policy": {
+          "enabled": true,
+          "allow_implicit_invocation": true
+        },
+        "required": false,
+        "fingerprint": "sha256:...",
+        "runtime": {
+          "state": "starting",
+          "live": false
+        },
+        "tools_count": 0,
+        "resources_count": 0,
+        "resource_templates_count": 0,
+        "prompts_count": 0,
+        "status": "not_started"
+      }
+    }
+  ],
+  "audit": {
+    "events_written": 1
+  }
+}
+```
+
+`status` can be `ok`, `partial`, or `validation_error`. Individual server result status can be `installed`, `updated`, or `validation_error`. Clients should render per-server diagnostics, because a config file may contain several servers and only some may fail.
+
+## Policy
+
+MCP server policy mirrors skills policy:
+
+| Field | Meaning |
+|---|---|
+| `enabled` | Whether the server is available to agents. Disabled servers remain installed. |
+| `allow_implicit_invocation` | Whether the gateway may expose the server's tools for automatic agent use. |
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "mcp/policy/set",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "name": "filesystem",
+    "scope_kind": "workspace",
+    "enabled": true,
+    "allow_implicit_invocation": false
+  }
+}
+```
+
+Omit `enabled` or `allow_implicit_invocation` to preserve the current value.
+
+## Runtime And Restart
+
+`runtime.state` reports process/service state. Known states are `not_started`, `disabled`, `starting`, `ready`, `degraded`, `auth_required`, `failed`, `stopping`, `stopped`, and `restarting`.
+
+Restart a server when credentials, environment, or external dependencies changed:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "mcp/server/restart",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "name": "filesystem",
+    "scope_kind": "workspace"
+  }
+}
+```
+
+The response means the restart was accepted. Watch `mcp/server/status_changed` for the actual runtime transition.
+
+## Server Details
+
+Use `mcp/server/details` for a detail panel, debug page, or agent-tool picker.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
+  "method": "mcp/server/details",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "server_id": "mcp_000000000000000001"
+  }
+}
+```
+
+The response includes:
+
+| Field | Meaning |
+|---|---|
+| `server` | The same summary object returned by `mcp/list`. |
+| `catalog.tools` | Tool names, titles, descriptions, input schema summaries, and MCP annotations. |
+| `catalog.resources` | Static resources exposed by the server. |
+| `catalog.resource_templates` | Parameterized resource templates. |
+| `catalog.prompts` | MCP prompts exposed by the server. |
+| `health` | Runtime state, status reason, last error, retry info, catalog version, and stderr tail. |
+| `audit` | Recent policy/tool decisions. |
+| `recent_bindings` | Recent gateway callable names bound to raw MCP tool names. |
+
+MCP tool names are normalized into gateway callable names when exposed to agents. Use `recent_bindings` and catalog data when building debug UI.
+
+## Uninstalling
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "fffffffffffffffffffff",
+  "method": "mcp/uninstall",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "name": "filesystem",
+    "scope_kind": "workspace"
+  }
+}
+```
+
+Uninstalling removes the server installation and writes audit events. It does not rewrite past turn history; old tool calls remain part of historical turns.
+
+## Notifications
+
+| Event | Meaning |
+|---|---|
+| `mcp/changed` | Server installation or policy changed; refresh `mcp/list`. |
+| `mcp/server/status_changed` | A server runtime changed state or status. |
+| `mcp/server/catalog_changed` | Server tools/resources/prompts changed; refresh details or list. |
+
+For clients, these notifications are invalidation signals. The gateway remains the source of truth for current server state.

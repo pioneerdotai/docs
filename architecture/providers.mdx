@@ -1,7 +1,84 @@
 ---
 title: "Provider System"
-description: "How Pioneer abstracts over 12+ LLM backends with a unified interface."
-icon: "brain"
+description: "How Pioneer normalizes LLM providers, streaming, tools, models, and attachments."
 ---
 
-<Note>Coming soon. This page will cover the provider trait, streaming response handling, tool call parsing, attachment upload, model listing, and how to add a new provider.</Note>
+`crates/provider` gives the agent one interface for many model backends. The rest of Pioneer talks to `Provider`, `ChatRequest`, `ChatMessage`, `ToolDefinition`, and `ProviderToolCall`; provider adapters translate those into OpenAI, Anthropic, Gemini, Ollama, Bedrock, CLI, or OpenAI-compatible API calls.
+
+The provider layer should feel boring to the rest of the system. Its job is to absorb API differences so the agent loop can reason in one vocabulary: messages, tools, streaming chunks, usage, reasoning, and normalized tool calls.
+
+<Note>
+  If a change requires the agent loop to know that "Anthropic does X but OpenAI does Y", first check whether that difference belongs inside the provider adapter.
+</Note>
+
+## Why This Layer Exists
+
+LLM providers disagree about almost everything: streaming shape, tool-call deltas, system prompt placement, attachment support, file upload APIs, model listing, auth, base URLs, and error formats. Pioneer cannot let those differences leak into every runtime layer.
+
+The provider crate creates a membrane. Above it, Pioneer speaks `ChatRequest`. Below it, each adapter does whatever is necessary for its API. This keeps prompt compilation, tool routing, task execution, and persistence independent from provider-specific wire formats.
+
+## Provider Trait
+
+Every provider implements:
+
+| Method | Purpose |
+|---|---|
+| `name()` | Human-readable provider id. |
+| `capabilities()` | Streaming, vision, tool calling, and input type support. |
+| `chat()` | Non-streaming request/response call. |
+| `stream_chat()` | Streaming response as `StreamChunk` values. Providers without native streaming can fall back to one final chunk. |
+| `list_models()` | Optional model listing. |
+| `warmup()` | Optional connection pre-warm. |
+
+The agent chooses streaming when `capabilities().streaming` is true and the turn is not forced into non-streaming mode.
+
+## Provider Registry
+
+The gateway creates a `ProviderRegistry` with a key resolver backed by gateway settings. The registry lazily creates provider instances and caches them by provider name. When a provider key changes, the gateway invalidates the cached provider so the next turn uses fresh credentials.
+
+Provider construction is centralized in `create_provider`. That function maps provider aliases to concrete adapters. It also includes a large set of OpenAI-compatible endpoints where the only difference is base URL and auth style.
+
+## Request Shape
+
+The common `ChatRequest` includes:
+
+- model id
+- ordered chat messages
+- temperature and max token controls
+- optional tool definitions
+- optional tool choice
+- optional parallel tool call flag
+- optional compiled prompt payload
+
+`ChatMessage` supports text content, reasoning content, tool-call messages, tool-result messages, and structured content parts for files, images, audio, and video.
+
+## Tool Calls
+
+Provider adapters normalize tool calls into `ProviderToolCall`: id, name, and JSON arguments. The agent does not need to know whether a provider streamed tool-call fragments, returned a final tool-call array, or encoded function calls in a provider-specific shape.
+
+Parsing lives under `crates/provider/src/tools`. Provider-specific code should preserve the common invariant: by the time the agent sees a tool call, the tool name and arguments are ready for the tool router.
+
+## Attachments
+
+The attachment pipeline normalizes input parts before provider submission. It handles byte sources, paths, URLs, and references. Provider capabilities decide whether a given input can be sent natively, uploaded as a provider file, inlined as a data URL, or converted to text fallback.
+
+Gateway configuration controls attachment size limits, total request limits, allowed path roots, URL-source behavior, redirect limits, private-network rules, MIME checks, retry behavior, circuit breaker behavior, and upload registry TTL.
+
+## Provider Failures
+
+Provider calls can fail before the first chunk, between chunks, during tool-call parsing, or in non-streaming calls. The agent/provider layer classifies these failures so the gateway recovery coordinator can decide whether to schedule a recovery attempt, mark the turn failed, or continue with available state.
+
+Context-length failures are detected from provider error messages and treated specially because they usually require context compression or prompt reduction rather than a simple retry.
+
+Error normalization is one of the most important responsibilities of this crate. A raw HTTP error tells the user little and gives the gateway little to recover from. A classified provider failure can say whether the problem happened before generation, during streaming, while parsing tool calls, or because the context was too large.
+
+## Adding A Provider
+
+Add a provider by implementing `Provider`, declaring accurate capabilities, mapping `ChatRequest` into the provider API, normalizing stream chunks and tool calls, and registering the adapter in `create_provider`. If the provider supports model listing or file uploads, implement those paths in the provider crate rather than leaking provider-specific logic into the agent or gateway.
+
+## Related Pages
+
+- [Prompt And Context](/architecture/prompt) explains the `compiled_prompt` payload that providers receive.
+- [Agent Loop](/architecture/agent-loop) explains when providers are called and how streaming chunks become turn events.
+- [Tools System](/architecture/tools) explains what happens after normalized tool calls leave the provider layer.
+- [Gateway](/architecture/gateway) explains provider key storage and provider cache invalidation.

@@ -1,7 +1,173 @@
 ---
 title: "Threads API"
-description: "JSON-RPC methods for managing conversation threads and folders."
-icon: "messages"
+description: "Starting threads, reading thread models and history, managing the thread tree, and handling thread notifications."
 ---
 
-<Note>Coming soon. This page will document thread methods: create, list, get, update, delete, move to folder, and folder management methods.</Note>
+Threads are the durable conversation containers in Pioneer. A thread belongs to a workspace, has a mode, stores its turns, and appears in the workspace tree unless it is hidden. Chat clients render threads directly; task and subagent flows often create hidden threads that are still fully durable and auditable.
+
+The protocol separates thread data from sidebar layout. Use `thread/get` for one thread, `thread/history` for replay, and `thread/tree` for the complete workspace tree.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `thread/start` | `ThreadStartParams` | `ThreadStartResponse` | Create or open a thread. |
+| `thread/get` | `ThreadGetParams` | `ThreadGetResponse` | Load one thread. |
+| `thread/tree` | `ThreadTreeParams` | `ThreadTreeResponse` | Load threads, folders, and placements for a workspace. |
+| `thread/history` | `ThreadHistoryParams` | `ThreadHistoryResponse` | Replay persisted thread events. |
+| `thread/move` | `ThreadMoveParams` | `ThreadMoveResponse` | Move a thread within the tree. |
+| `thread/folder/create` | `ThreadFolderCreateParams` | `ThreadFolderCreateResponse` | Create a folder. |
+| `thread/folder/move` | `ThreadFolderMoveParams` | `ThreadFolderMoveResponse` | Move a folder. |
+| `thread/folder/delete` | `ThreadFolderDeleteParams` | `ThreadFolderDeleteResponse` | Delete a folder. |
+| `thread/unsubscribe` | `ThreadUnsubscribeParams` | `ThreadUnsubscribeResponse` | Stop receiving live notifications for a thread. |
+
+## Starting A Thread
+
+Clients provide the thread id. That keeps reconnect and optimistic UI flows simple: the client can create local UI state immediately and then reconcile with the gateway response.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "thread/start",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "workspace_id": "ws_000000000000000001",
+    "name": "Architecture review",
+    "model": "gpt-5.1",
+    "model_provider": "openai",
+    "mode": "Agent",
+    "sandbox": "FullAccess",
+    "origin_kind": "user",
+    "sidebar_visibility": "visible"
+  }
+}
+```
+
+Important fields:
+
+| Field | Meaning |
+|---|---|
+| `thread_id` | Client-provided stable id. |
+| `workspace_id` | Workspace that owns the thread. |
+| `name` | Optional display name. |
+| `model`, `model_provider` | Optional defaults used by turns in this thread. |
+| `mode` | `Chat` or `Agent`. Chat is plain assistant conversation; Agent enables tool and task orchestration. |
+| `sandbox` | Current value is `FullAccess`. Tool runs are not isolated yet. |
+| `origin_kind` | `user`, `task_run`, or `system`. |
+| `sidebar_visibility` | `visible` or `hidden`. Hidden threads are useful for subagents and internal task runs. |
+| `agent_nickname`, `agent_role` | Optional labels for agent/subagent threads. |
+
+`mode` and `sandbox` are PascalCase because they are Rust enum variants without snake-case renaming. `origin_kind` and `sidebar_visibility` are snake-case strings.
+
+## Thread Modes
+
+`Chat` and `Agent` are part of the thread model, not separate APIs. A client starts turns the same way in both modes through `turn/start`; the gateway decides which execution path to run.
+
+In `Chat` mode the gateway focuses on conversation with the selected model. In `Agent` mode the gateway can compile richer context, expose tools, call MCP servers, invoke skills, create tasks, and coordinate subagents. Clients should show the mode clearly because it changes what a user should expect from a turn.
+
+## Reading One Thread
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "thread/get",
+  "params": {
+    "thread_id": "thr_000000000000000001"
+  }
+}
+```
+
+Use `thread/get` when opening a thread by id or reconciling after a notification. The response contains the durable thread row with its workspace id, mode, model defaults, status fields, and timestamps.
+
+## Workspace Tree
+
+`thread/tree` is the primary method for a sidebar or thread picker. It returns three related collections: threads, folders, and placements. Do not sort threads by timestamps and call it a tree; folder placement is stored separately.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "thread/tree",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+Response shape:
+
+```json
+{
+  "workspace_id": "ws_000000000000000001",
+  "threads": [],
+  "folders": [],
+  "placements": []
+}
+```
+
+Placements let the gateway preserve UI structure across clients. If another client moves a thread, your client should refresh the tree after `thread/tree/changed`.
+
+## Moving Threads And Folders
+
+Use move methods for tree edits instead of mutating local order and hoping the gateway catches up.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "thread/move",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001",
+    "folder_id": "fld_000000000000000001"
+  }
+}
+```
+
+Folder methods follow the same shape: create a folder under a workspace, move it to a different parent, or delete it. Folder deletion is a layout operation; clients should refresh `thread/tree` afterward to render the gateway's resulting state.
+
+## Thread History
+
+`thread/history` returns durable protocol events, not only final assistant messages. It is the replay API for rebuilding a thread timeline after reconnect, crash recovery, or opening a thread on another device.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
+  "method": "thread/history",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "limit": 200
+  }
+}
+```
+
+History events include turn starts, item starts, streamed deltas, item completions, retries, recovery events, tool-loop budget events, and terminal turn events. For current rendering, prefer [Turns API](/protocol/turns) `turn/timeline` when you already know the turn id; use `thread/history` when you need to rebuild from the thread level.
+
+## Unsubscribing
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "fffffffffffffffffffff",
+  "method": "thread/unsubscribe",
+  "params": {
+    "thread_id": "thr_000000000000000001"
+  }
+}
+```
+
+Use this when a client closes a thread view but keeps the WebSocket connection open. It reduces live event fan-out; it does not delete the thread or its history.
+
+## Notifications
+
+| Event | Meaning |
+|---|---|
+| `thread/started` | A thread was created/opened. |
+| `thread/updated` | Thread metadata changed. |
+| `thread/closed` | Thread was closed. |
+| `thread/tree/changed` | The workspace thread tree changed and should be reloaded. |
+
+Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, or `turn/timeline` as needed.

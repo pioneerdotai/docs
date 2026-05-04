@@ -1,7 +1,91 @@
 ---
 title: "Persistence Layer"
-description: "How Pioneer stores data: SeaORM, SQLite, the CRUD layer, and migrations."
-icon: "database"
+description: "SQLite, SeaORM entities, CRUD repositories, projectors, events, and runtime recovery tables."
 ---
 
-<Note>Coming soon. This page will cover the entity model (threads, turns, tasks, skills, MCP servers, attachments), the SeaORM repository pattern, SQLite configuration, and the migration system.</Note>
+Pioneer persists gateway state in SQLite through SeaORM. The persistence layer is split into entity definitions, migrations, SQLite helpers, and the `CrudStore` repository/projector facade used by the gateway and task runtime.
+
+Persistence is not just storage for finished conversations. It is part of the runtime contract. The gateway uses it to make active turns visible, recover from interrupted work, audit which prompt and skills were used, track MCP catalogs, reconcile tasks, and keep clients in sync after reconnect.
+
+<Tip>
+  Read [Gateway](/architecture/gateway) first if you want to understand who calls the persistence layer. Read [Agent Loop](/architecture/agent-loop) and [Tasks And Subagents](/architecture/tasks) if you want to understand the main event producers.
+</Tip>
+
+## Why This Layer Exists
+
+Pioneer has many pieces of state that change while work is still running. A simple "save final answer" table would not be enough. The UI needs timeline items as they start and complete. Recovery needs retained LLM context. Task scheduling needs queued and retryable runs. MCP needs catalog snapshots. Skills need audit records and dependency snapshots.
+
+The persistence layer gives these flows a consistent place to append durable events, project read models, and repair deterministic state after restart.
+
+## Crates
+
+| Crate | Role |
+|---|---|
+| `crates/entity` | SeaORM entity modules for every table. |
+| `crates/migration` | Schema migrations. |
+| `crates/sqlite` | SQLite-specific write coordination and helpers. |
+| `crates/crud` | Repository methods, typed records, turn projector, task projector, and materialization helpers. |
+
+Business logic should not call SeaORM entities directly from the gateway. The normal boundary is `CrudStore`.
+
+That boundary keeps schema details from leaking upward. If a handler wants thread history, it asks `CrudStore` for thread history; it should not know which joins or tables produce that view.
+
+## CrudStore
+
+`CrudStore` holds a `DatabaseConnection`, `TurnProjector`, `TaskProjector`, and `SqliteWriteCoordinator`. It exposes typed methods for threads, turns, items, skills, MCP, tasks, recovery jobs, attachment upload registry, prompt manifests, and retained LLM context.
+
+The write coordinator is important because the gateway is async and can have concurrent request handlers, background workers, MCP runtime tasks, and task scheduler work touching SQLite.
+
+## Turn Persistence
+
+Turns use durable event payloads and projected read models. `TurnEventPayload` includes turn start, item start, item completion, item updates, timeout/recovery events, retry events, tool-loop budget exhaustion, turn completion, and turn failure.
+
+`TurnProjector` writes or updates:
+
+- threads
+- sandbox policy
+- turns
+- turn input
+- turn status history
+- turn items
+- turn item attempts
+
+Prompt manifests, skill bindings, MCP bindings, and retained LLM context are persisted by gateway durable event handling around the core projector.
+
+## Task Persistence
+
+Tasks have their own event stream. `AppendedTaskEvent` includes event id, task id, optional run/thread/turn ids, sequence, event type, payload, workspace id, root task id, parent task id, and timestamp.
+
+The task projector maintains task read models: tasks, triggers, runs, dependencies, agent specs, deliveries, delivery attempts, write locks, and task trees.
+
+## Important Tables By Domain
+
+| Domain | Stored data |
+|---|---|
+| Workspaces and threads | workspace rows, thread rows, folder placement, thread lineage, sandbox policy, summaries |
+| Turns | turn rows, turn input, turn items, turn item attempts, status history, timeline events |
+| Prompt/context | prompt manifests, retained `turn_llm_context` rows during active recovery windows |
+| Providers/attachments | attachment upload registry for provider file reuse |
+| Skills | installations, workspace policy, turn bindings, audit events, dependency snapshots, upload sessions |
+| MCP | server installations, catalog snapshots, audit events, turn MCP bindings |
+| Tasks | tasks, triggers, runs, events, dependencies, agent specs, deliveries, write locks |
+| Recovery | recovery jobs and provider failure metadata |
+
+## Read-Model Repair
+
+The gateway can detect and repair deterministic read-model invariant violations on startup. Examples include terminal tool payloads still marked in progress, terminal turns with running attempts, or terminal task/run rows missing completion timestamps.
+
+This repair path is not a substitute for correct projectors. It exists because a gateway can stop between durable event append and all downstream cleanup, especially while the project is evolving.
+
+## Persistence Guidelines
+
+Add new user-visible state through protocol types first, then storage records, then projector/repository methods. For evented flows, persist the event and project the read model in one coordinated path. For runtime-only state, prefer explicit cleanup and recovery behavior over hidden global maps.
+
+Do not store raw secrets in ordinary domain tables. Provider keys and MCP secrets belong in gateway settings/secret storage, while database records should contain redacted config or secret refs.
+
+## Related Pages
+
+- [Protocol Layer](/architecture/protocol) describes the public types that often drive storage changes.
+- [Gateway](/architecture/gateway) explains request handling and durable event persistence.
+- [Prompt And Context](/architecture/prompt) explains prompt manifests and retained LLM context.
+- [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the domain-specific records stored here.

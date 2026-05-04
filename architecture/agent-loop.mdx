@@ -1,44 +1,125 @@
 ---
 title: "Agent Loop"
-description: "How Pioneer orchestrates LLM calls and tool execution within a turn."
-icon: "arrows-spin"
+description: "How a Pioneer turn becomes provider calls, tool calls, durable events, and a final answer."
 ---
 
-The **agent loop** (`crates/agent`) is the execution engine for a single conversation turn. It runs inside the gateway and coordinates everything that happens between the user sending a message and the final response being persisted.
+The agent loop lives in `crates/agent`. It is the execution engine for a thread turn after the gateway has accepted `turn/start`, persisted the initial state, and selected the provider/model.
 
-## Turn execution
+The gateway does not call the provider directly for normal turns. It delegates to `AgentManager`, which owns a per-thread runtime task. That task receives commands such as `StartTurn`, runs one active turn at a time, and publishes durable events and live progress back to the gateway.
 
-A turn proceeds like this:
+The agent loop is where Pioneer stops being a chat wrapper. It decides when to call the model, which tools the model may see, how tool results return to the model, when a failed tool deserves a retry, when a child task must be waited on, and when the final answer is allowed to close the turn.
 
-<Steps>
-  <Step title="Build prompt">
-    The prompt system (`crates/promt`) compiles the conversation history, system instructions, skill prompts, and tool definitions into the LLM's input format. Token budgets are enforced here.
-  </Step>
-  <Step title="Call the provider">
-    The agent sends the prompt to the configured LLM provider and receives a streaming response. The provider abstraction handles differences between APIs.
-  </Step>
-  <Step title="Parse tool calls">
-    If the model's response includes tool calls, the agent parses them from the response stream.
-  </Step>
-  <Step title="Execute tools">
-    Each tool call is routed to the appropriate executor: built-in tools (shell, files, web), skill tools, or MCP server tools.
-  </Step>
-  <Step title="Handle results">
-    Tool results are collected and fed back into the next model call. This loop continues until the model produces a final response with no tool calls, or the tool budget is exhausted.
-  </Step>
-  <Step title="Finalize turn">
-    The completed turn (messages, tool call history, events) is persisted to the database and the client is notified.
-  </Step>
-</Steps>
+<Note>
+  The agent loop does not persist directly to SQLite. It emits durable events. The gateway persists those events and publishes committed notifications. See [Gateway](/architecture/gateway) and [Persistence Layer](/architecture/persistence).
+</Note>
 
-## Recovery
+## Why This Layer Exists
 
-All events emitted during a turn are persisted durably before being acted on. If the gateway crashes mid-turn, it can reconstruct the state from the event log and resume or mark the turn as failed.
+Provider APIs are not enough to run an assistant. Pioneer needs a layer that can repeatedly call a provider, execute real tools between provider calls, update UI state while work is happening, and preserve enough state to recover from interruptions.
 
-## Tool budget
+That responsibility belongs in `pioneer-agent` rather than in the gateway handlers because it is turn execution logic, not transport logic. It also does not belong in provider adapters because provider adapters should only translate common chat requests into provider-specific API calls.
 
-Each turn has a configurable limit on the number of tool calls to prevent infinite loops. When the budget is exhausted, the agent stops and returns whatever response it has so far.
+## Thread Runtime
 
-## Error recovery policy
+`run_agent_loop` in `crates/agent/src/agent_loop.rs` is the per-thread command loop. It keeps the active turn handle, turn run id, cancellation token, and recovery context. A second running turn for the same thread is rejected, because the thread transcript and tool state are linear.
 
-The agent has configurable recovery strategies for tool failures: retry with backoff, skip and continue, or abort the turn. See `crates/agent/src/chat/tool_recovery_policy.rs` for the implementation.
+When a turn starts, the loop resolves the provider from `ProviderRegistry`, builds an `ActiveTurnRequest`, and spawns the chat execution task. Cancellation uses a short grace period before the runtime marks the turn interrupted.
+
+## Chat Mode And Agent Mode
+
+Pioneer has two thread modes:
+
+| Mode | Behavior |
+|---|---|
+| `chat` | Sends history and the current user message to the provider. No tools are exposed. The system prompt may still be compiled and passed as provider prompt payload. |
+| `agent` | Builds a full prompt bundle, resolves skills, materializes MCP/tools/tasks, runs provider rounds, executes tool calls, feeds tool results back into the model, and stops when the model produces a final answer or the loop budget is exhausted. |
+
+The branch is in `execute_chat_turn_flow`. The gateway chooses the mode from the thread state and passes it into `AgentManager::start_turn`.
+
+Chat mode exists for direct model conversations where tool access would be unnecessary or risky. Agent mode exists when Pioneer should be allowed to inspect files, run tools, call MCP servers, use skills, and coordinate subagents. This is a product-level distinction, not just a provider flag.
+
+## Agent Mode Flow
+
+```mermaid
+sequenceDiagram
+  participant Gateway
+  participant Agent
+  participant Prompt
+  participant Provider
+  participant Tools
+  participant Store
+
+  Gateway->>Agent: StartTurn(history, input, model, provider)
+  Agent->>Agent: resolve skills, MCP, task tools
+  Agent->>Prompt: compile system prompt bundle
+  Agent-->>Gateway: PromptManifestCompiled
+  loop provider/tool rounds
+    Agent->>Provider: ChatRequest(messages, tools, compiled_prompt)
+    Provider-->>Agent: text, reasoning, tool calls
+    Agent->>Tools: execute tool calls
+    Tools-->>Agent: model-visible tool results
+    Agent-->>Gateway: item started/completed/progress events
+  end
+  Agent-->>Gateway: TurnCompleted or TurnFailed
+  Gateway->>Store: persist durable events and read models
+```
+
+## Model Input Construction
+
+The model request is assembled in layers:
+
+1. The gateway supplies historical `ChatMessage` values from completed turns.
+2. The agent builds the current user message from `UserInput`.
+3. The agent resolves active skills and builds a skills prompt.
+4. The agent materializes task tools if task orchestration is available.
+5. The agent compiles the prompt bundle through `pioneer-promt`.
+6. The agent materializes MCP tools and dynamic skill tools.
+7. The tool router exposes only model-visible tool definitions for the current round.
+8. Recovered tool context is appended as assistant tool-call and tool-result messages when a turn is being recovered.
+
+The provider receives a `ChatRequest` containing `messages`, optional `tools`, `parallel_tool_calls`, and `compiled_prompt`. Provider adapters are responsible for mapping that common request into provider-specific API payloads.
+
+The ordering is intentional. History comes from the gateway because it is persisted thread state. Skills, MCP tools, and task tools are resolved inside the agent because they are turn-scoped capabilities. The prompt is compiled after those decisions because skills and task orchestration can add dynamic prompt sections.
+
+For the exact prompt sections and history compression rules, see [Prompt And Context](/architecture/prompt).
+
+## Tool Loop Guard
+
+Agent mode uses `ToolLoopGuard` from `pioneer-tools` to prevent runaway loops. It limits provider rounds and total tool calls per turn. When the budget is exhausted, the prompt is refreshed with a final-answer instruction and tools are disabled so the model can finish from available evidence.
+
+Tool retry is separate from tool-loop budget. `ToolRetryController` classifies recoverable tool failures, decides whether another corrected tool call should be attempted, and can inject retry instructions into the dynamic prompt section.
+
+## Durable Events
+
+The agent emits durable events such as:
+
+- `PromptManifestCompiled`
+- `TurnSkillsResolved`
+- `SkillAuditEvents`
+- `TurnLlmContextAppended`
+- `ItemStarted`
+- `ItemCompleted`
+- tool retry lifecycle events
+- provider failure and recovery events
+- `TurnCompleted`, `TurnFailed`, or `TurnInterrupted`
+
+The gateway listener persists these events through `CrudStore` before publishing committed notifications to clients. This keeps UI state and database state aligned.
+
+## Recovery Context
+
+Some tool outputs are retained in `turn_llm_context` while the turn is active. If a provider failure or recovery attempt needs to reconstruct the LLM-visible state, the agent can reinsert those retained tool-result messages in sequence order. After the turn reaches a terminal state, the gateway deletes retained LLM context rows for that turn.
+
+Recovery is intentionally tied to durable events. Provider failures are classified, recovery jobs are scheduled by the gateway, and successful or failed recovery attempts are reconciled back into the turn lifecycle.
+
+## Where Tooling Enters
+
+The agent loop does not know how to run every tool itself. It asks `pioneer-tools` to build a runtime from built-ins plus extension bundles. MCP, skills, and tasks all become tool bundles, which means the provider sees one coherent tool list even though the backing implementations are very different.
+
+That is the reason tool output policies live below the agent loop. The agent needs a model-visible result, but the gateway timeline, storage layer, and recovery layer may need different projections of the same output. See [Tools System](/architecture/tools).
+
+## Related Pages
+
+- [Prompt And Context](/architecture/prompt) explains how `compiled_prompt` and `messages` are built.
+- [Provider System](/architecture/providers) explains how `ChatRequest` reaches OpenAI, Anthropic, Gemini, Ollama, Bedrock, CLI providers, and compatible endpoints.
+- [Tasks And Subagents](/architecture/tasks) explains the task tools and child-thread execution path.
+- [Tools System](/architecture/tools) explains routing, output projection, and retry classification.

@@ -1,7 +1,139 @@
 ---
-title: "Prompt System"
-description: "How Pioneer compiles, budgets, and renders prompts for the LLM."
-icon: "file-lines"
+title: "Prompt And Context"
+description: "How Pioneer builds conversation history, compiles system prompts, and sends model input."
 ---
 
-<Note>Coming soon. This page will cover prompt bundle compilation (conversation history + system instructions + tool definitions), token counting with tiktoken-rs, budget enforcement, sanitization rules, and diagnostic snapshots.</Note>
+Prompt construction is split across two layers:
+
+The gateway decides which previous conversation messages should be included. The agent compiles the system prompt and current turn runtime context. The provider adapter then maps the common `ChatRequest` into the provider-specific API shape.
+
+This split is deliberate. Conversation history is durable thread state, so the gateway owns loading, summarizing, and truncating it. Runtime instructions are turn-scoped, so the agent owns skills, retry instructions, task orchestration policy, and runtime facts. Provider adapters should only translate the already-built request into API-specific payloads.
+
+<Tip>
+  If you are debugging "why did the model say that?", start here, then inspect the turn's `PromptManifest`, the thread history, and the provider request shape described in [Provider System](/architecture/providers).
+</Tip>
+
+## Why Prompt Compilation Is A Separate Crate
+
+Prompt behavior changes the product more than most internal refactors. Small wording changes can affect tool use, recovery, task delegation, and user trust. Keeping prompt compilation in `pioneer-promt` makes it testable and reviewable as its own layer instead of hiding it in the middle of the agent loop.
+
+The compiler also gives Pioneer stable/dynamic prompt separation. Stable sections can be fingerprinted and potentially cached by providers. Dynamic sections can change between rounds when skills, retry instructions, continuation hints, or runtime facts change.
+
+## Conversation History
+
+Historical context is loaded by `MessageProcessor::load_conversation_history` in `crates/gateway/src/message/provider_handlers.rs`.
+
+The gateway loads up to 200 completed conversation entries from `CrudStore::get_thread_conversation_history`. It also loads the thread summary if one exists. Token counting uses `tiktoken-rs` with `cl100k_base` as a provider-agnostic approximation.
+
+The budget is derived from gateway thread config:
+
+```text
+history_budget = max_context_tokens - response_reserve_tokens
+```
+
+If the estimated history is under 80% of that budget, Pioneer sends the existing summary plus all loaded entries. If it reaches 80%, the gateway asks the configured summary model, or the thread model if no summary model is configured, to compress the conversation into roughly 10% of the history budget.
+
+If compression succeeds, the model receives one system message:
+
+```text
+Summary of earlier conversation:
+...
+```
+
+If compression fails, the gateway falls back to truncating recent turns to fit the budget.
+
+The compression policy optimizes for continuity over raw transcript length. Once a thread becomes too large, sending every old message is less useful than preserving decisions, file paths, user corrections, and unresolved work in a compact summary. The summary is stored on the thread and reused on later turns.
+
+## Prompt Compiler
+
+The system prompt compiler lives in `crates/promt`. The crate name is intentionally `promt` in the current workspace.
+
+`compile_prompt` receives `PromptCompileInput`:
+
+| Input | Meaning |
+|---|---|
+| `workspace_root` | Directory where bootstrap prompt files are read. |
+| `profile` | Prompt profile: full, minimal, or none. Agent turns use `AssistantFull`. |
+| `skills_prompt` | Dynamic skills section built after skill resolution. |
+| `retry_instruction` | Dynamic instruction inserted after recoverable tool failures or loop budget exhaustion. |
+| `include_tool_recovery_policy` | Adds stable tool failure recovery instructions. |
+| `include_task_orchestration_policy` | Adds task/subagent orchestration guidance when task tools are available. |
+| `continue_generation_hint` | Adds continuation guidance during recovery. |
+| `dynamic_context` | Reserved dynamic context hook. Currently passed as `None` by the main agent flow. |
+| `extra_system` | Runtime facts such as local date/time and OS. |
+| `limits` | Character budgets for bootstrap files. |
+
+## Prompt Sections
+
+The compiler builds ordered sections:
+
+| Section | Stability | Source |
+|---|---|---|
+| Identity | Stable | Built-in identity base. |
+| Safety | Stable | Built-in safety lines. |
+| Soul Core | Stable | `SOUL.md`, or default soul prompt if missing. |
+| Identity Core | Stable | `IDENTITY.md`, or default identity prompt if missing. |
+| User Persona | Stable | `USER.md` if present. |
+| Tool Recovery Policy | Stable | Built-in policy when enabled. |
+| Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
+| Recovery Continuation | Dynamic | Built-in continuation hint when requested. |
+| Skills Runtime | Dynamic | Active skills prompt for the turn. |
+| Retry Instruction | Dynamic | Tool retry or final-answer instruction. |
+| Dynamic Context | Dynamic | Optional caller-provided context. |
+| Extra System | Dynamic | Current runtime date/time and OS. |
+
+Stable and dynamic sections are rendered separately. The final prompt is:
+
+```text
+stable_system_text
+PROMT_CACHE_BOUNDARY
+dynamic_system_text
+```
+
+The provider receives both the split form and `full_system_text` through `CompiledPromptPayload`. Adapters can use this to support provider-side prompt caching where available.
+
+## Bootstrap Files
+
+The compiler reads the canonical files in this order:
+
+1. `SOUL.md`
+2. `IDENTITY.md`
+3. `USER.md`
+
+Each file is budgeted with a maximum per-file character limit and a total character limit. Missing files, read errors, file truncation, and total-budget truncation become prompt diagnostics. The resulting prompt manifest is persisted on the turn so developers can audit what sections were compiled without storing the entire prompt text as the primary contract.
+
+## Skills Prompt
+
+Skills are resolved before prompt compilation. `pioneer-skills` builds a compact `[Skills]` section listing active skills, their exact `read_skill` slug, and their descriptions. When few skills are active and budget allows, explicitly mentioned or path-matched skills can include full skill bodies. If the prompt budget is tight, the section includes a `read_skill` hint so the model can load exact skill instructions on demand.
+
+## Tool Definitions Are Separate
+
+Tool definitions are not embedded as prompt prose. The agent passes model-visible tool definitions in `ChatRequest.tools`. The prompt can explain recovery or task orchestration policy, but the callable JSON schema for tools goes through the provider tool-calling interface.
+
+This distinction prevents two common bugs. First, a tool should not become callable just because its name appears in prompt text. Second, removing a tool from the model-visible tool list should actually remove the capability, not merely change an instruction sentence. Tool availability is enforced by the tool router described in [Tools System](/architecture/tools).
+
+## Prompt Manifest
+
+Every prompt compilation emits a `PromptManifest` durable event with compiler version, profile, section ids, stable/dynamic/full fingerprints, and diagnostics. The gateway persists this metadata on the turn through `CrudStore::update_turn_prompt_manifest`.
+
+The manifest is the audit handle. It tells a developer which prompt shape was sent, whether bootstrap files were missing or truncated, and whether dynamic sections changed between provider rounds.
+
+The manifest intentionally stores metadata rather than turning the prompt into the only source of truth. The actual behavior is the combination of prompt sections, conversation messages, tool definitions, provider adapter behavior, and runtime policies.
+
+## Common Debugging Path
+
+When model behavior looks wrong, check these in order:
+
+1. Was the thread in `chat` or `agent` mode? See [Agent Loop](/architecture/agent-loop).
+2. Was history compressed or truncated by the gateway?
+3. Which prompt sections appear in the `PromptManifest`?
+4. Were relevant skills resolved, disabled, or non-implicit? See [Skills Architecture](/architecture/skills).
+5. Which tools were model-visible for that provider round? See [Tools System](/architecture/tools).
+6. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
+
+## Related Pages
+
+- [Gateway](/architecture/gateway) explains where history loading is triggered.
+- [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.
+- [Skills Architecture](/architecture/skills) explains the skills prompt.
+- [Tasks And Subagents](/architecture/tasks) explains why task orchestration can add prompt policy.

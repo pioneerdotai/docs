@@ -1,7 +1,79 @@
 ---
-title: "Tasks Architecture"
-description: "How the Pioneer task scheduler and executor work under the hood."
-icon: "clock"
+title: "Tasks And Subagents"
+description: "The task runtime, scheduler, events, write locks, deliveries, and child agent threads."
 ---
 
-<Note>Coming soon. This page will cover the scheduler, executor, trigger system, durable event bus, task tree dependency enforcement, write locks, delivery subsystem, and reconciliation after crashes.</Note>
+Tasks are durable units of work owned by the gateway. They can be created by clients, scheduled by triggers, or created by an agent through task tools. A task may execute as an agent subtask by using an agent spec.
+
+Tasks exist because not all assistant work should be trapped inside one foreground turn. Some work should run later, retry, report progress, coordinate child threads, or be detached from the parent conversation. The task runtime gives Pioneer a durable shape for that work.
+
+<Tip>
+  Read this page together with [Agent Loop](/architecture/agent-loop). The agent loop exposes task tools; the task runtime owns the durable task tree and subagent execution.
+</Tip>
+
+## Why Tasks Are Separate From Threads
+
+A thread is a conversation timeline. A task is a unit of work with lifecycle, trigger, retry policy, dependencies, delivery, and optional child execution. Sometimes a task creates a hidden thread to do its work, but the task is still the owner of scheduling and result semantics.
+
+Keeping tasks separate from threads allows Pioneer to answer questions that a transcript alone cannot answer: is this work scheduled again, did it retry, which child run produced the result, is delivery still pending, did a write lock block execution, and what should happen if the gateway restarts?
+
+## Runtime Structure
+
+`TaskRuntime` in `crates/tasks/src/service.rs` owns:
+
+- `TaskService` for mutations and query-oriented operations
+- `TaskScheduler` for due triggers and queued runs
+- `TaskEventBus` for in-process task event subscriptions
+- `TaskExecutorRegistry` for executor implementations
+- `TaskStartupReconciler` for startup repair
+
+The gateway creates `TaskRuntime`, registers `TaskAgentExecutor`, starts the scheduler, and bridges task events into JSON-RPC notifications.
+
+## Durable Task Events
+
+Task mutations append `TaskEventPayload` values and project them into read-model tables. Common events include task created, trigger created, task scheduled, task queued, run created, run started, progress, run completed, run failed, task completed, task failed, task cancelled, write-lock changes, delivery queued, child thread linked, and tree changes.
+
+The `TaskProjector` keeps task, trigger, run, dependency, delivery, write-lock, and agent-spec tables consistent with the event stream.
+
+## Triggers And Scheduling
+
+Tasks can be immediate, scheduled for a time, interval-based, or cron-like. `TaskTriggerCalculator` validates trigger specs and computes initial and next fire times.
+
+`TaskScheduler` wakes from three sources: explicit notification, task event bus activity, and sleep until the next due item. Each pass processes due active triggers, due retry runs, and queued runs whose ready time has arrived.
+
+Concurrency policy controls whether a task can have multiple active runs. For recurring triggers, the scheduler computes the next fire time after each run is queued. For one-shot triggers, the trigger becomes exhausted.
+
+## Executors
+
+Executors implement `TaskExecutor`. The current gateway registers an agent executor that can run task work in hidden child threads. The executor receives `TaskExecutionContext`, `TaskRun`, and a `TaskExecutionHandle`.
+
+The handle is the executor's durable output channel. It can mark a run started, emit progress, link a child thread, complete a run, fail a run, cancel a run, release write locks, and queue delivery.
+
+## Subagents
+
+Subagents are task-backed child turns. When a task has `TaskAgentSpec`, `TaskAgentExecutor` creates or restores a hidden task thread, creates a hidden turn, links lineage to the parent task, and starts the agent loop with the spec's model, provider, prompt, context policy, tool policy, and result contract.
+
+Context policy controls what the child receives from the parent: empty context, custom context, recent parent context, summary-style context, or inherited context depending on the spec. The child result is reconciled back to the parent task when the child turn completes, fails, or is interrupted.
+
+Lineage is stored through `ThreadLineage`, so parent task trees can show where child work happened and recover it after a restart.
+
+This is why subagents are not just "spawn another chat." They are task runs with durable lineage. The child thread gives the agent a normal execution environment, while the task run gives the parent system progress, retries, cancellation, and result reconciliation.
+
+## Task Tools In The Agent Loop
+
+When task orchestration is available, the agent materializes task tools into the normal tool router. The prompt compiler also includes the task orchestration policy. The model can create attached tasks, wait for task sets, cancel tasks, detach tasks, and observe results.
+
+The parent turn is not allowed to silently finish while attached tasks created by that turn are still active. The agent loop injects a system observation telling the model to call exactly one of wait, cancel, or detach.
+
+## Retries, Locks, And Deliveries
+
+Retry policy can schedule retry runs after failures. Write locks prevent unsafe concurrent writes across task scopes. Delivery policy controls where task results go after terminal state, and delivery processing is run by the gateway background worker.
+
+Startup reconciliation repairs tasks and runs that were active when the gateway stopped. This is why task state is stored durably and projected rather than kept only in runtime memory.
+
+## Related Pages
+
+- [Gateway](/architecture/gateway) explains how the gateway starts the task runtime and bridges task events.
+- [Agent Loop](/architecture/agent-loop) explains how task tools are exposed during a turn.
+- [Prompt And Context](/architecture/prompt) explains the task orchestration prompt section.
+- [Persistence Layer](/architecture/persistence) explains task events and task projectors.

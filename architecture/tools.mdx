@@ -1,35 +1,82 @@
 ---
 title: "Tools System"
-description: "Built-in tools the agent can use: shell, file system, web, and computer use."
-icon: "wrench"
+description: "Built-in tools, dynamic tool bundles, routing, output policies, and retry classification."
 ---
 
-The **tools crate** (`crates/tools`) contains implementations of Pioneer's built-in tools — the actual code that runs when the agent calls a tool.
+`crates/tools` is the runtime layer that turns model tool calls into real actions. The agent loop asks it to build a tool runtime for a turn, then routes each provider tool call through that runtime.
 
-## Built-in tools
+Tools currently execute as the OS user running the gateway. There is not yet a separate sandbox for tool runs, so every tool implementation must be treated as security-sensitive.
 
-**Shell** — Execute system commands in a subprocess. Output (stdout + stderr) is captured and returned to the agent.
+The tools layer is where Pioneer crosses from language into side effects. Reading a file, running a command, calling an MCP server, applying a patch, or using computer control is no longer just "model output." It is gateway-host execution.
 
-**Files** — Read, write, patch, and grep files on the local file system. Supports unified diff application for precise code edits.
+<Warning>
+  Tool code must be written as privileged runtime code. A remote gateway means the tool runs on the remote host. A local gateway means it runs as the local OS user. Until sandboxing lands, tool policy and output policy are the main safety boundaries.
+</Warning>
 
-**Web** — Search the web (DuckDuckGo), fetch URLs, and download files. Configurable timeouts and size limits prevent runaway downloads.
+## Why This Layer Exists
 
-**Computer Use** — Take screenshots, move the mouse, and type keyboard input. Powered by `enigo` and `xcap`.
+Tools need a common runtime because Pioneer has several capability sources: built-ins, MCP servers, skills, and task orchestration. The model should not need to know which subsystem owns a tool. It should see a clean tool name, JSON schema, and result.
 
-## Tool registry
+At the same time, Pioneer needs consistent behavior after execution: timeline events, model-visible output, storage output, recovery evidence, retries, and diagnostics. If every subsystem returned raw text directly to the model, context windows would explode and recovery would be unreliable.
 
-All tools are registered in a central registry. When the agent produces a tool call, the registry routes it to the correct executor by tool name.
+## Runtime Pieces
 
-## Output policy
+| Piece | Responsibility |
+|---|---|
+| Tool registry | Stores tool specs and handlers by name. |
+| Tool router | Selects the handler for a raw tool call and controls which tools are visible to the model. |
+| Tool runtime | Executes calls, emits tool events, applies output projection, and returns model-visible results. |
+| Extension bundles | Add dynamic tools from MCP, skills, and tasks to the same runtime as built-ins. |
+| Output policy | Separates what the model sees from what the timeline, storage, and recovery systems retain. |
+| Retry classifier | Classifies tool failures as recoverable, fatal, partial, or successful so the agent can decide whether to retry. |
 
-Each tool has an output policy that controls what the agent sees from a tool call — the full output, a truncated version, or a summary. This prevents the context window from being overwhelmed by large file reads or shell outputs.
+## Built-In Tools
 
-## Loop guard
+The built-ins include shell command sessions, file reads, directory listing, grep, patch application, web search, web fetch, URL downloads, computer use, tool discovery, and tool suggestion.
 
-The agent loop has a built-in guard against infinite tool-calling loops. If the same tool is called with identical arguments more than a configured number of times in a single turn, the loop is broken and the agent is asked to proceed without that tool.
+Shell execution uses unified sessions. `exec_command` can start a process and return either final output or a session id. `write_stdin` can continue an existing session. Active sessions are bounded and buffered so long-running commands do not grow memory without limit.
 
-## Adding tools via Skills or MCP
+Filesystem tools are intentionally direct: read files, list directories, search with grep-style behavior, and apply patches. Manual patch edits in Pioneer are routed through the patch tool path rather than ad hoc file rewriting.
 
-Built-in tools are the baseline. Additional tools come from:
-- **Skills** — installed packages that register new tool definitions
-- **MCP servers** — external processes that expose tools over the Model Context Protocol
+Web tools are optional at runtime and controlled by gateway configuration. They can search, fetch, and download with limits.
+
+Computer use tools use native automation/screenshot dependencies where available. They are part of the same tool router, not a special client-side channel.
+
+## Dynamic Tools
+
+Dynamic tools are exposed through `ToolExtensionBundle`.
+
+MCP tools are created from live MCP server catalogs. Pioneer maps a server tool into a callable tool descriptor, then calls back into `McpService` when the model invokes it.
+
+Skill tools are declared by installed skills and validated by the skills runtime. They can represent shell, HTTP, or function-proxy style tools depending on the skill declaration and policy.
+
+Task tools are injected when task orchestration is available. They let an agent create attached tasks, wait for them, cancel them, detach them, and observe terminal child task results.
+
+The important architectural choice is that dynamic tools do not bypass the router. They are added to the same runtime, use the same output projection path, and emit the same kind of tool events. This is what lets the agent loop treat a built-in shell command, an MCP call, and a skill-provided function as variations of the same execution contract.
+
+## Output Projection
+
+A tool call produces more than one view of output. The model-visible view may be shorter or structured differently from the timeline view. Storage may keep full output, a summary, metadata only, or nothing depending on policy. Recovery evidence can include exit status, error class, retry hints, excerpts, and fingerprints.
+
+This matters because a large shell output or MCP response should not automatically flood the LLM context window. Tool authors should define output policies deliberately.
+
+## Retry And Recovery
+
+Tool failures are normalized into `ToolOutcome` with status and error class. Recoverable errors can trigger another provider round with a retry instruction. Fatal errors are surfaced to the model or fail the turn depending on context.
+
+The agent does not blindly retry forever. Retry decisions are constrained by per-episode and per-tool budgets, and the tool loop itself has a separate round/call budget.
+
+## What Not To Put Here
+
+Provider-specific tool-call parsing belongs in [Provider System](/architecture/providers). The tools crate should receive normalized tool calls.
+
+Prompt prose about when to use tools belongs in [Prompt And Context](/architecture/prompt). The tools crate should define capabilities and execution behavior, not assistant personality.
+
+MCP server lifecycle belongs in [MCP Architecture](/architecture/mcp). Skills installation and trust policy belong in [Skills Architecture](/architecture/skills). The tools layer only receives their already-materialized tool descriptors and handlers.
+
+## Related Pages
+
+- [Agent Loop](/architecture/agent-loop) explains when tools are exposed and called.
+- [MCP Architecture](/architecture/mcp) explains MCP-backed dynamic tools.
+- [Skills Architecture](/architecture/skills) explains skill-backed dynamic tools.
+- [Tasks And Subagents](/architecture/tasks) explains task orchestration tools.

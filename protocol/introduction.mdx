@@ -1,78 +1,167 @@
 ---
 title: "Protocol Introduction"
-description: "Pioneer's JSON-RPC 2.0 protocol: transport, authentication, and conventions."
-icon: "code"
+description: "Pioneer's JSON-RPC 2.0 protocol: transport, authentication, envelopes, method names, notifications, ids, schemas, and conventions."
 ---
 
-Pioneer's gateway exposes a **JSON-RPC 2.0** API over WebSocket. All clients (the desktop app, CLI, or any custom client) communicate with the gateway using this protocol.
+Pioneer clients talk to a gateway over JSON-RPC 2.0 on a WebSocket connection. The desktop app uses this protocol, and any other client can use the same contract without linking to gateway internals.
+
+The protocol reference documents the public surface from `crates/protocol`. If a method, event, or payload is not exported there, treat it as an implementation detail.
 
 ## Transport
 
-Connect to the gateway at:
+The default gateway listener is:
 
-```
-ws://localhost:17878/ws
+```text
+ws://localhost:17878
 ```
 
-(or the port you configured)
+The gateway accepts WebSocket text frames containing JSON-RPC requests. Server responses and notifications are also WebSocket text frames. A small number of upload paths use binary frames; those are documented on the relevant feature page.
 
 ## Authentication
 
-All requests must include a JWT Bearer token in the WebSocket handshake or as a protocol-level field. Generate a token with:
+The WebSocket handshake must include a bearer token:
+
+```http
+Authorization: Bearer <token>
+```
+
+The token is a gateway superuser JWT. You can issue one from the CLI:
 
 ```bash
 pioneer issue-superuser-token
 ```
 
-## Conventions
+Tokens are validated during the WebSocket handshake. A missing or invalid bearer token rejects the connection with HTTP `401`.
 
-**Request format:**
+## Request Envelope
+
+Every request uses JSON-RPC `2.0`. Request ids are strings with exactly 21 characters.
+
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "unique-request-id",
-  "method": "threads.create",
-  "params": { ... }
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "turn/start",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "input": [
+      {
+        "type": "text",
+        "text": "Hello",
+        "textElements": []
+      }
+    ]
+  }
 }
 ```
 
-**Response format:**
+Successful responses return the same id:
+
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "unique-request-id",
-  "result": { ... }
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "result": {
+    "turn": {
+      "id": "trn_000000000000000001",
+      "status": "InProgress"
+    }
+  }
 }
 ```
 
-**Notifications** (server → client, no id):
+Errors use JSON-RPC error envelopes:
+
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "turn.event",
-  "params": { ... }
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "error": {
+    "code": -32602,
+    "message": "invalid params for `turn/start`: `thread_id` is required"
+  }
 }
 ```
 
-## Sections
+Core JSON-RPC error codes are:
 
-<Columns cols={2}>
-  <Card title="Workspace & Threads" icon="folder" href="/protocol/workspace">
-    Workspace and thread management methods.
+| Code | Meaning |
+|---:|---|
+| `-32700` | Parse error |
+| `-32600` | Invalid request |
+| `-32601` | Method not found |
+| `-32602` | Invalid params |
+
+Feature-specific errors may include `error.data` with a machine-readable `code` and details.
+
+## Notifications
+
+Notifications are server-to-client JSON-RPC messages without an id. They are how clients observe long-running turns, tool output, task events, MCP status, and skill catalog changes.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "item/agent_message/delta",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "item_id": "itm_000000000000000001",
+    "delta": "Hello",
+    "stream": "agent_message"
+  }
+}
+```
+
+Clients should treat request responses as acceptance/lookup results, not as the whole operation. For example, `turn/start` returns after the gateway accepts the turn; the assistant response arrives through `turn/*` and `item/*` notifications.
+
+## Naming Conventions
+
+Method names use slash-separated groups:
+
+```text
+workspace/default
+thread/start
+turn/start
+provider/models/list
+skills/upload/start
+mcp/server/restart
+task/create
+```
+
+Payload field casing is mostly inherited from Rust serde attributes. Many request/response structs use snake_case fields, while task and timeline models often use camelCase. Do not infer casing from method names; use the schema or examples for the exact payload.
+
+## Schemas
+
+JSON Schemas are generated from `crates/protocol` and written to `/schemas`. The schema file names use snake_case type names, for example:
+
+- `/schemas/turn_start_params.json`
+- `/schemas/thread_tree_response.json`
+- `/schemas/mcp_install_params.json`
+- `/schemas/task_create_params.json`
+
+When implementing a client, use this reference for behavior and the generated schemas for exact type validation.
+
+## Reference Sections
+
+<CardGroup cols={2}>
+  <Card title="Workspace & Threads" href="/protocol/workspace">
+    Workspace lookup, thread creation, folders, history, and subscription cleanup.
   </Card>
-  <Card title="Turns" icon="messages" href="/protocol/turns">
-    Submitting messages and receiving streaming events.
+  <Card title="Turns" href="/protocol/turns">
+    Turn submission, cancellation, item events, timeline composition, and streaming notifications.
   </Card>
-  <Card title="Tasks" icon="clock" href="/protocol/tasks">
-    Task creation, scheduling, and run management.
+  <Card title="Providers" href="/protocol/providers">
+    Provider listing, model listing, and API key management.
   </Card>
-  <Card title="Providers" icon="brain" href="/protocol/providers">
-    Provider configuration and model listing.
+  <Card title="Skills" href="/protocol/skills">
+    Skill upload, install, update, uninstall, policy, health, and catalog notifications.
   </Card>
-  <Card title="Skills" icon="puzzle-piece" href="/protocol/skills">
-    Skill installation and lifecycle management.
+  <Card title="MCP Servers" href="/protocol/mcp">
+    MCP install config, policy, restart, uninstall, details, runtime status, and catalog notifications.
   </Card>
-  <Card title="MCP Servers" icon="plug" href="/protocol/mcp">
-    MCP server registration and catalog.
+  <Card title="Tasks" href="/protocol/tasks">
+    Durable task creation, scheduling, subagents, task trees, waiting, deliveries, and task events.
   </Card>
-</Columns>
+</CardGroup>
