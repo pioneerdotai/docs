@@ -81,8 +81,11 @@ The runtime home contains state such as:
 - keystore database
 - install state
 - gateway settings
+- editable identity files (`SOUL.md`, `IDENTITY.md`)
 - skills
 - computer-use artifacts
+
+On startup, the gateway creates missing `SOUL.md` and `IDENTITY.md` files in runtime home. Existing files are left unchanged. These files are read into the Soul Core and Identity Core prompt sections.
 
 ## Provider credentials
 

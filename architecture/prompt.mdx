@@ -52,7 +52,7 @@ The system prompt compiler lives in `crates/promt`. The crate name is intentiona
 
 | Input | Meaning |
 |---|---|
-| `workspace_root` | Directory where bootstrap prompt files are read. |
+| `workspace_root` | Bootstrap root where canonical prompt files are read. In the main agent flow this is the gateway runtime home from `home_directory`. |
 | `profile` | Prompt profile: full, minimal, or none. Agent turns use `AssistantFull`. |
 | `skills_prompt` | Dynamic skills section built after skill resolution. |
 | `retry_instruction` | Dynamic instruction inserted after recoverable tool failures or loop budget exhaustion. |
@@ -71,8 +71,8 @@ The compiler builds ordered sections:
 |---|---|---|
 | Identity | Stable | Built-in identity base. |
 | Safety | Stable | Built-in safety lines. |
-| Soul Core | Stable | `SOUL.md`, or default soul prompt if missing. |
-| Identity Core | Stable | `IDENTITY.md`, or default identity prompt if missing. |
+| Soul Core | Stable | `SOUL.md` from runtime home when present. |
+| Identity Core | Stable | `IDENTITY.md` from runtime home when present. |
 | User Persona | Stable | `USER.md` if present. |
 | Tool Recovery Policy | Stable | Built-in policy when enabled. |
 | Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
@@ -94,13 +94,32 @@ The provider receives both the split form and `full_system_text` through `Compil
 
 ## Bootstrap Files
 
-The compiler reads the canonical files in this order:
+For agent turns, bootstrap files are read from the gateway runtime home. The runtime home is the OS user home joined with `home_directory`, for example `~/.pioneer`.
+
+On gateway startup, Pioneer ensures the runtime home contains:
+
+- `SOUL.md`
+- `IDENTITY.md`
+
+If either file is missing, the gateway creates it with the current seed content from `pioneer-promt`. If a file already exists, Pioneer leaves it untouched, even if it has been customized or emptied. Compile-time defaults are not used anymore.
+
+The compiler reads canonical files in this order:
 
 1. `SOUL.md`
 2. `IDENTITY.md`
 3. `USER.md`
 
-Each file is budgeted with a maximum per-file character limit and a total character limit. Missing files, read errors, file truncation, and total-budget truncation become prompt diagnostics. The resulting prompt manifest is persisted on the turn so developers can audit what sections were compiled without storing the entire prompt text as the primary contract.
+`SOUL.md` and `IDENTITY.md` are model-evolvable identity files. When they are inserted into the prompt, Pioneer appends this reminder after each file block:
+
+```text
+This file is yours to evolve. As you learn who you are, update it.
+```
+
+That reminder is rendered into the prompt; it is not written into the files. The file path is already shown in the block heading.
+
+`USER.md` is optional and is not created automatically. If present in runtime home, it becomes the User Persona section.
+
+Each file is budgeted with a maximum per-file character limit and a total character limit. Missing files, read errors, file truncation, and total-budget truncation become prompt diagnostics. Missing `SOUL.md` or `IDENTITY.md` files do not fall back to Rust constants during compilation. The resulting prompt manifest is persisted on the turn so developers can audit what sections were compiled without storing the entire prompt text as the primary contract.
 
 ## Skills Prompt
 

@@ -10,8 +10,10 @@ This is a user-focused reference for settings you are likely to change. It is no
 
 | Key | Default | Purpose |
 | --- | --- | --- |
-| `home_directory` | `.pioneer` | Runtime home under the OS user home directory |
+| `home_directory` | `.pioneer` | Runtime home under the OS user home directory. The gateway stores state and editable prompt identity files here. |
 | `install_state_file_name` | `install-state.toml` | Install state file stored in runtime home |
+
+By default, runtime home is `~/.pioneer`. On startup, the gateway creates missing `SOUL.md` and `IDENTITY.md` files at the root of runtime home. These files seed the Soul Core and Identity Core prompt sections and may be edited over time.
 
 ## Install settings
 

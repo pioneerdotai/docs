@@ -23,6 +23,7 @@ The gateway owns:
 
 - WebSocket JSON-RPC transport and request dispatch
 - session tracking and workspace-scoped notifications
+- runtime home preparation, including `SOUL.md` and `IDENTITY.md` identity files
 - gateway settings and keystore-backed secret storage
 - workspace and thread lifecycle
 - turn lifecycle and agent runtime wiring
@@ -48,6 +49,17 @@ The gateway owns:
 `GatewaySecrets` in `crates/gateway/src/secrets.rs` is the gateway-facing facade over `pioneer-keystore`. It reads and writes provider API keys, MCP secret values, and the singleton superuser JWT signing material without exposing raw values through normal settings or database records.
 
 These types are deliberately not hidden behind a single abstract "app service." Pioneer has several runtimes with different lifecycles: WebSocket sessions are connection-scoped, agent loops are thread-scoped, MCP tasks are installation-scoped, task runs are scheduler-scoped, and settings are gateway-scoped. `MessageProcessor` wires them together without pretending they are the same kind of state.
+
+## Runtime Home
+
+At startup, the gateway resolves runtime home from `home_directory` and creates the directory if needed. The default is `~/.pioneer`.
+
+The gateway also ensures two editable identity files exist at the root of runtime home:
+
+- `SOUL.md`
+- `IDENTITY.md`
+
+Missing files are created with the current seed content. Existing files are never overwritten during startup. Prompt compilation later reads these files from runtime home, so changes made by the user or by the model can affect future turns without a code change.
 
 ## Request Dispatch
 
