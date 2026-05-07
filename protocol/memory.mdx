@@ -1,0 +1,91 @@
+---
+title: "Memory API"
+description: "JSON-RPC methods, notifications, and DTOs for durable agent memory."
+---
+
+Memory protocol methods let clients inspect and manage durable agent memory directly. The agent can also use model-visible memory tools during agent-mode turns, but those tools are separate from the client JSON-RPC protocol.
+
+All memory methods are served by the gateway and routed through `MemoryService`. Clients should treat the service response as authoritative even when the underlying capsule backend has stale search data.
+
+## Methods
+
+| Method | Purpose |
+| --- | --- |
+| `memory/search` | Search active memory in allowed scopes. |
+| `memory/get` | Get one memory record by id or scoped key. |
+| `memory/list` | List memory records with filters. |
+| `memory/remember` | Store or update a durable memory record through the service. |
+| `memory/forget` | Tombstone/suppress memory by id or scoped key. |
+| `memory/candidates/list` | List memory candidates and dormant review records. |
+| `memory/candidates/get` | Get one candidate. |
+| `memory/candidates/decide` | Apply an approve/reject/expire decision. |
+| `memory/candidates/approve` | Approve a candidate. |
+| `memory/candidates/reject` | Reject a candidate. |
+| `memory/candidates/edit_and_approve` | Edit candidate text and approve it. |
+| `memory/candidates/merge` | Merge a candidate into an existing memory. |
+| `memory/candidates/suppress_similar` | Suppress a candidate and similar future suggestions. |
+
+Candidate review methods exist even though the default product path currently rejects/suppresses middle-confidence candidates instead of surfacing a review queue to users.
+
+## Notifications
+
+| Event | Payload |
+| --- | --- |
+| `memory/changed` | Active memory was created, updated, superseded, or otherwise changed. |
+| `memory/candidate_created` | A memory candidate was created. |
+| `memory/forgotten` | One or more memory ids were forgotten/tombstoned. |
+
+Clients should listen for these events if they render memory management screens or cached memory lists.
+
+## Core DTOs
+
+| Type | Meaning |
+| --- | --- |
+| `MemoryRecord` | Active or historical durable memory row with scope, category, key, content, status, timestamps, sensitivity, and provenance. |
+| `MemoryScope` | `{ kind, key }` pair such as user, workspace, agent, thread, or task. |
+| `MemorySearchParams` | Query, categories, scopes, limit, sensitivity policy, and ranking inputs. |
+| `MemoryRememberParams` | Client-facing direct remember request. |
+| `MemoryForgetParams` | Forget target, reason, dry-run flag, and actor. |
+| `MemorySemanticFields` | Structured semantic description used by service-owned write/dedupe. |
+| `MemorySemanticWriteParams` | Internal/public semantic write contract for extractor and candidate policy paths. |
+| `MemoryCandidate` | Proposed memory plus policy score, status, evidence, and decision metadata. |
+
+Generated schemas are exported under `schemas/` in the repository. The protocol source is `crates/protocol/src/memory.rs`.
+
+## Candidate Statuses
+
+Candidate statuses include active review states and dormant states:
+
+| Status | Meaning |
+| --- | --- |
+| `pending` | Candidate exists but has not been decided. |
+| `pending_silent` | Candidate is retained silently for future UX/policy. |
+| `ask_on_use` | Candidate may be surfaced when relevant later. |
+| `needs_review` | Candidate needs explicit review. |
+| `approved` | Candidate was approved into active memory. |
+| `rejected` | Candidate was rejected. |
+| `auto_rejected` | Candidate was automatically rejected by policy. |
+| `review_disabled_rejected` | Middle-confidence candidate rejected because review routing is disabled. |
+| `merged_duplicate` | Candidate was merged into an existing record/candidate. |
+| `expired` | Candidate expired. |
+
+The default runtime does not currently use `pending_silent`, `ask_on_use`, or `needs_review` for user-facing review.
+
+## Semantic Write Contract
+
+Semantic writes are used by internal extraction and future advanced clients. They include:
+
+- semantic fields: intent, explicitness, category, subject, attribute, scope hint, durability, sensitivity, certainty;
+- normalized content and optional value;
+- evidence with source thread/turn/item/ref and quote/span;
+- provenance actor;
+- confidence and importance;
+- disposition such as `route_to_candidate_policy`.
+
+Even when a caller provides semantic fields, the service still owns canonical key generation, duplicate detection, scoring, and final state.
+
+## Related Pages
+
+- [Agent Memory](/memory/overview) explains user-facing behavior.
+- [Memory Architecture](/architecture/memory) explains the service and storage model.
+- [Protocol Introduction](/protocol/introduction) explains the JSON-RPC envelope.

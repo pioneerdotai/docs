@@ -11,7 +11,7 @@ This architecture is less about "frontend talks to backend" and more about "clie
 
 ## How To Read This Section
 
-If you are new to the codebase, start here, then read [Gateway](/architecture/gateway), [Agent Loop](/architecture/agent-loop), and [Prompt And Context](/architecture/prompt). Those three pages explain the central path from a client message to an LLM request and back to persisted timeline events.
+If you are new to the codebase, start here, then read [Gateway](/architecture/gateway), [Agent Loop](/architecture/agent-loop), [Hook Runtime](/architecture/hooks), and [Prompt And Context](/architecture/prompt). Those pages explain the central path from a client message to an LLM request and back to persisted timeline events.
 
 After that, pick the subsystem you are changing:
 
@@ -24,6 +24,9 @@ After that, pick the subsystem you are changing:
   </Card>
   <Card title="Tasks And Subagents" href="/architecture/tasks">
     Read this before changing scheduled work, attached task tools, task trees, or subagent execution.
+  </Card>
+  <Card title="Agent Memory" href="/architecture/memory">
+    Read this before changing durable memory, recall, memvid capsules, semantic writes, or candidate policy.
   </Card>
   <Card title="Persistence" href="/architecture/persistence">
     Read this before changing tables, projectors, durable events, recovery state, or read models.
@@ -41,9 +44,11 @@ flowchart TB
   Gateway["Gateway\nTokio service"]
   Protocol["pioneer-protocol\nJSON-RPC types and schemas"]
   Agent["pioneer-agent\nturn runtime and tool loop"]
+  Hooks["pioneer-hooks\nlifecycle hook runtime"]
   Prompt["pioneer-promt\nsystem prompt compiler"]
   Providers["pioneer-provider\nLLM provider adapters"]
   Tools["pioneer-tools\nbuilt-in and dynamic tools"]
+  Memory["pioneer-memory\nagent memory service"]
   Tasks["pioneer-tasks\ntask scheduler and executor"]
   MCP["pioneer-mcp\nMCP client runtime"]
   Skills["pioneer-skills\nskill catalog and runtime"]
@@ -62,15 +67,18 @@ flowchart TB
   Gateway --> Agent
   Gateway --> Tasks
   Gateway --> MCP
+  Gateway --> Memory
   Gateway --> Skills
   Gateway --> CRUD
   Gateway --> Keystore
+  Agent --> Hooks
   Agent --> Prompt
   Agent --> Providers
   Agent --> Tools
   Agent --> Skills
   Agent --> MCP
   Agent --> Tasks
+  Memory --> CRUD
   CRUD --> GatewayDB
   Keystore --> KeystoreDB
 ```
@@ -101,7 +109,7 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 
   <Accordion title="Building model input">
-    The gateway builds historical chat messages from completed turns. If history is close to the configured context budget, it compresses older turns into a summary with a provider call. The agent then compiles the system prompt with `pioneer-promt`, resolves skills, materializes MCP and task tools, builds the current user message, appends retained tool context for recovery when needed, and sends a `ChatRequest` through the selected provider.
+    The gateway builds historical chat messages from completed turns. If history is close to the configured context budget, it compresses older turns into a summary with a provider call. The agent runs turn hooks for policy, prompt context, tool materialization, and prompt sections; compiles the system prompt with `pioneer-promt`; resolves skills; materializes MCP and task tools; builds the current user message; appends retained tool context for recovery when needed; and sends a `ChatRequest` through the selected provider.
   </Accordion>
 
   <Accordion title="Executing tools">
@@ -110,6 +118,10 @@ The tradeoff is that developers must always ask "which host does this code run o
 
   <Accordion title="Running tasks and subagents">
     The task runtime stores tasks as durable task events and projected read models. When a task has an agent spec, the gateway task executor creates or restores a hidden child thread, starts a child turn, links thread lineage to the parent task, and reconciles the task result when the child turn completes, fails, or is interrupted.
+  </Accordion>
+
+  <Accordion title="Recalling and writing memory">
+    Memory hooks classify the turn, recall relevant durable facts, expose memory tools when policy allows, render the memory prompt contract, and run post-turn extraction after successful turns. The memory service owns scopes, ranking, canonical keys, dedupe, candidate scoring, tombstones, and memvid-backed storage.
   </Accordion>
 
   <Accordion title="Loading MCP and skills">
@@ -137,5 +149,6 @@ Tool runs are not sandboxed yet. Built-in tools and dynamic tools currently exec
 
 - [Crate Map](/architecture/crates) explains where each piece lives in the Rust workspace.
 - [Gateway](/architecture/gateway) follows request handling and runtime ownership.
-- [Prompt And Context](/architecture/prompt) explains how history, prompt sections, skills, retries, and runtime facts become model input.
+- [Hook Runtime](/architecture/hooks) explains how lifecycle phases and typed contributions keep domain logic out of the agent loop.
+- [Prompt And Context](/architecture/prompt) explains how history, prompt sections, skills, memory, retries, and runtime facts become model input.
 - [Tools System](/architecture/tools), [MCP Architecture](/architecture/mcp), and [Skills Architecture](/architecture/skills) explain the three main ways the model gets capabilities beyond plain chat.

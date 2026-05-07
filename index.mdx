@@ -4,7 +4,7 @@ description: "A local-first AI workspace built around a persistent gateway, nati
 icon: "rocket"
 ---
 
-Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. It combines a persistent gateway, a native desktop app, a JSON-RPC protocol, provider adapters, durable threads, task automation, MCP servers, skills, and real local tools.
+Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. It combines a persistent gateway, a native desktop app, a JSON-RPC protocol, provider adapters, durable threads, agent memory, task automation, MCP servers, skills, and real local tools.
 
 The gateway is the core of Pioneer. It owns state, configuration, storage, model access, task execution, tool execution, MCP runtime, skills, and thread history. Secret values such as provider API keys, MCP env/header secrets, and superuser JWT signing material live in the gateway keystore. The desktop app is the primary client for connecting to one or more gateways, whether the gateway is running on the same computer or on a remote server.
 
@@ -68,6 +68,12 @@ Each subagent can be scoped independently:
 
 This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in isolated threads, and the desktop app can still show the full task tree from one place. Users shape this with goals and policies, while Pioneer handles the orchestration.
 
+## Durable Agent Memory
+
+Pioneer can remember stable facts, preferences, project decisions, recurring instructions, and communication style. Memory is not just prompt text: agent mode combines recalled context, model-visible memory tools, post-turn extraction, candidate scoring, canonical-key dedupe, and memvid-backed search capsules.
+
+The memory service keeps SQLite as the control plane for scopes, status, provenance, tombstones, candidates, and policy decisions. Memvid is used as the searchable capsule store, while the control plane remains authoritative for visibility and safety.
+
 ## Where To Start
 
-Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Providers](/providers/overview) when you want to connect models, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.
+Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Providers](/providers/overview) when you want to connect models, [Agent Memory](/memory/overview) when you want continuity across turns, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.

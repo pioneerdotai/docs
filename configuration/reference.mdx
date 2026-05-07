@@ -40,6 +40,27 @@ Local-only example:
 listen_addr = "127.0.0.1:17878"
 ```
 
+## Agent memory settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.memory.enabled` | `true` | Enable durable agent memory runtime. |
+| `gateway.memory.capsules_dir` | `memory/capsules` | Memvid capsule directory under runtime home. |
+| `gateway.memory.allow_global_user_by_default` | `true` | Include global user memories in ordinary turn scopes. |
+| `gateway.memory.allow_global_agent_by_default` | `false` | Include global agent memories by default. |
+
+Example:
+
+```toml
+[gateway.memory]
+enabled = true
+capsules_dir = "memory/capsules"
+allow_global_user_by_default = true
+allow_global_agent_by_default = false
+```
+
+`capsules_dir` is resolved under runtime home. Pioneer rejects empty paths, absolute paths, `..`, and other unsafe runtime-home escapes.
+
 ## Thread defaults
 
 | Key | Default | Purpose |

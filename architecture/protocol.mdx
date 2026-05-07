@@ -30,12 +30,13 @@ Pioneer uses JSON-RPC 2.0 over WebSocket. Requests have a method name from `pion
 | Turns | `turn/start`, `turn/cancel`, `turn/get`, `turn/items`, `turn/timeline` |
 | Providers | `provider/list`, `provider/models/list`, `provider/set_api_key`, `provider/delete_api_key` |
 | Skills | `skills/list`, `skills/install`, `skills/update`, `skills/uninstall`, `skills/health`, upload and policy methods |
+| Memory | `memory/search`, `memory/get`, `memory/remember`, `memory/forget`, candidate review methods |
 | MCP | `mcp/list`, `mcp/install`, `mcp/policy/set`, `mcp/server/restart`, `mcp/uninstall`, `mcp/server/details` |
 | Tasks | `task/create`, `task/get`, `task/list`, `task/tree`, `task/events`, `task/wait`, `task/cancel`, `task/reschedule`, `task/detach`, `task/pause`, `task/resume`, `task/agenda`, `task/deliveries` |
 
 ## Notification Groups
 
-The protocol includes notifications for thread changes, turn lifecycle, item lifecycle, tool retry and recovery, context compression, skills changes, MCP status/catalog changes, task events, delivery state, and write locks.
+The protocol includes notifications for thread changes, turn lifecycle, item lifecycle, tool retry and recovery, context compression, memory changes, skills changes, MCP status/catalog changes, task events, delivery state, and write locks.
 
 The gateway treats durable agent events as the source for many notifications. A client can render live progress without knowing whether an event originated from the provider stream, a built-in tool, an MCP tool, a skill runtime tool, or the task scheduler.
 
@@ -63,4 +64,4 @@ If the answer to the first question is no, keep the type in the owning crate. If
 
 - [Gateway](/architecture/gateway) explains where protocol methods are dispatched.
 - [Persistence Layer](/architecture/persistence) explains how protocol-visible state maps to durable records.
-- [Tasks And Subagents](/architecture/tasks), [MCP Architecture](/architecture/mcp), and [Skills Architecture](/architecture/skills) explain large protocol surfaces.
+- [Memory Architecture](/architecture/memory), [Tasks And Subagents](/architecture/tasks), [MCP Architecture](/architecture/mcp), and [Skills Architecture](/architecture/skills) explain large protocol surfaces.

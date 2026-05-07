@@ -38,6 +38,14 @@ Use a new thread when you want fresh context. Keep one thread for a coding task,
 
 Each thread has a timeline. The timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When something surprises you, read the timeline before changing settings.
 
+## Agent Memory
+
+Agent memory is durable context that can be useful beyond the current thread. Pioneer can remember stable facts, preferences, recurring instructions, communication style, and project decisions, then recall them in later agent-mode turns.
+
+Memory is different from thread history. Thread history is the conversation transcript. Memory is a smaller set of durable facts stored by the gateway and searched through the memory service. Agent mode can expose memory tools and add a `Memory Recall` prompt section; chat mode does not mutate memory.
+
+If you ask Pioneer to forget something, memory creates a tombstone so stale search payloads are suppressed later.
+
 ## Providers And Models
 
 A provider is where models come from. Anthropic, OpenAI, Google, OpenRouter, Azure OpenAI, Bedrock, Ollama, and local OpenAI-compatible servers are all provider choices.

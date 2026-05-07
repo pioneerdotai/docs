@@ -3,7 +3,7 @@ title: "Crate Map"
 description: "The Rust workspace layout and how the crates depend on each other."
 ---
 
-Pioneer is a Cargo workspace with seventeen Rust crates. The split is intentionally direct: public protocol, gateway orchestration, agent execution, provider adapters, tools, tasks, MCP, skills, prompt compilation, secret storage, and durable storage are separate layers.
+Pioneer is a Cargo workspace with nineteen Rust crates. The split is intentionally direct: public protocol, gateway orchestration, agent execution, hook runtime, provider adapters, tools, tasks, MCP, skills, prompt compilation, agent memory, secret storage, and durable storage are separate layers.
 
 This page is a map, not the architecture itself. Use it when you need to know where a responsibility lives before reading the deeper page for that layer.
 
@@ -21,7 +21,9 @@ That shape keeps changes smaller. Adding a provider should mostly touch `provide
 | `crates/desktop` | binary | Native GPUI desktop client. Connects to gateways, starts/manages a local gateway, and renders conversations, providers, skills, MCP, tasks, and settings. |
 | `crates/cli` | binary | Command-line utility, service management entry point, token issuance, and keystore maintenance surface. |
 | `crates/protocol` | library | Public JSON-RPC contract, request/response types, notification types, domain DTOs, method constants, and schema export. |
-| `crates/agent` | library | Per-thread agent runtime, turn execution, provider loop, tool loop, MCP/tool/task materialization hooks, skill resolution, recovery handling. |
+| `crates/agent` | library | Per-thread agent runtime, turn execution, provider loop, tool loop, lifecycle hook wiring, MCP/tool/task materialization, skill resolution, recovery handling. |
+| `crates/hooks` | library | Typed lifecycle hook runtime, hook subscriptions, phase requests, contribution sets, execution/failure policy, dependencies, diagnostics, and hook-run summaries. |
+| `crates/memory` | library | Durable agent memory service, memvid backend integration, recall ranking, semantic writes, canonical keys, candidate policy, tombstones, and repair diagnostics. |
 | `crates/keystore` | library | Secret storage facade backed by `db-keystore`, stable secret ids, metadata, permission hardening, and an in-memory test store. |
 | `crates/promt` | library | Prompt compiler. Builds stable and dynamic system prompt sections, reads bootstrap files, applies prompt budgets, emits prompt manifests and fingerprints. |
 | `crates/provider` | library | Provider trait, provider registry, provider implementations, streaming/non-streaming chat, tool-call parsing, attachment normalization and upload planning. |
@@ -47,6 +49,7 @@ flowchart TB
 
   Gateway["gateway"] --> Protocol
   Gateway --> Agent["agent"]
+  Gateway --> Memory["memory"]
   Gateway --> Provider["provider"]
   Gateway --> Tools["tools"]
   Gateway --> Tasks["tasks"]
@@ -56,6 +59,7 @@ flowchart TB
   Gateway --> Config
   Gateway --> Keystore
 
+  Agent --> Hooks["hooks"]
   Agent --> Protocol
   Agent --> Provider
   Agent --> Tools
@@ -68,6 +72,8 @@ flowchart TB
   Tools --> MCP
   Tasks --> Protocol
   Tasks --> CRUD
+  Memory --> Protocol
+  Memory --> CRUD
   MCP --> Protocol
   Skills --> Protocol
 
@@ -86,6 +92,8 @@ The important rule is that `protocol` sits at the public edge while `gateway` is
 | How does a JSON-RPC method reach a handler? | `crates/gateway/src/message/dispatch.rs` |
 | How does `turn/start` become an agent run? | `crates/gateway/src/message/turn_handlers.rs`, then `crates/agent/src/manager.rs` and `crates/agent/src/agent_loop.rs` |
 | How is the LLM prompt compiled? | `crates/agent/src/chat/mod.rs`, then `crates/promt/src/compile/compiler.rs` |
+| How are turn lifecycle hooks registered and run? | `crates/hooks/src/runtime.rs`, `crates/hooks/src/registry.rs`, then `crates/agent/src/hooks.rs` |
+| How does agent memory recall and write durable facts? | `crates/agent/src/memory.rs`, `crates/gateway/src/memory_runtime.rs`, then `crates/memory/src/lib.rs` |
 | How is previous conversation context selected? | `crates/gateway/src/message/provider_handlers.rs` |
 | How are tools exposed to the model? | `crates/agent/src/chat/mod.rs`, `crates/tools/src/lib.rs` |
 | How are MCP servers installed and called? | `crates/gateway/src/message/mcp/mod.rs`, `crates/gateway/src/mcp_service.rs`, `crates/mcp/src/config.rs` |

@@ -25,6 +25,7 @@ The persistence layer gives these flows a consistent place to append durable eve
 | `crates/migration` | Schema migrations. |
 | `crates/sqlite` | SQLite-specific write coordination and helpers. |
 | `crates/crud` | Repository methods, typed records, turn projector, task projector, and materialization helpers. |
+| `crates/memory` | Service-owned memory write, recall, candidate policy, memvid backend coordination, and repair diagnostics. |
 | `crates/keystore` | `db-keystore` facade, stable secret ids, metadata, permission hardening, and test memory store. |
 
 Business logic should not call SeaORM entities directly from the gateway. The normal boundary is `CrudStore`.
@@ -71,6 +72,7 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | Skills | installations, workspace policy, turn bindings, audit events, dependency snapshots, upload sessions |
 | MCP | server installations, catalog snapshots, audit events, turn MCP bindings |
 | Tasks | tasks, triggers, runs, events, dependencies, agent specs, deliveries, write locks |
+| Agent memory | memory records, memory candidates, policy decisions, tombstones, provenance, repair diagnostics, memvid capsule refs |
 | Recovery | recovery jobs and provider failure metadata |
 
 ## Read-Model Repair
@@ -95,9 +97,12 @@ Add new user-visible state through protocol types first, then storage records, t
 
 Do not store raw secrets in ordinary domain tables or `gateway-settings.toml`. Provider keys, MCP secrets, desktop gateway bearer tokens, and JWT signing material belong in the keystore. Database records should contain redacted config or secret refs.
 
+Memory has an additional persistence rule: `gateway.db` is the control plane and remains authoritative even when the memvid capsule backend returns stale payloads. Memory records, statuses, scopes, candidates, tombstones, and policy decisions must be checked by `MemoryService` before a search hit becomes visible.
+
 ## Related Pages
 
 - [Protocol Layer](/architecture/protocol) describes the public types that often drive storage changes.
 - [Gateway](/architecture/gateway) explains request handling and durable event persistence.
 - [Prompt And Context](/architecture/prompt) explains prompt manifests and retained LLM context.
+- [Memory Architecture](/architecture/memory) explains memory records, candidates, tombstones, and memvid capsule storage.
 - [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the domain-specific records stored here.

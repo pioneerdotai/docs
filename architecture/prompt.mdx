@@ -7,7 +7,7 @@ Prompt construction is split across two layers:
 
 The gateway decides which previous conversation messages should be included. The agent compiles the system prompt and current turn runtime context. The provider adapter then maps the common `ChatRequest` into the provider-specific API shape.
 
-This split is deliberate. Conversation history is durable thread state, so the gateway owns loading, summarizing, and truncating it. Runtime instructions are turn-scoped, so the agent owns skills, retry instructions, task orchestration policy, and runtime facts. Provider adapters should only translate the already-built request into API-specific payloads.
+This split is deliberate. Conversation history is durable thread state, so the gateway owns loading, summarizing, and truncating it. Runtime instructions are turn-scoped, so the agent owns skills, memory prompt context, retry instructions, task orchestration policy, and runtime facts. Provider adapters should only translate the already-built request into API-specific payloads.
 
 <Tip>
   If you are debugging "why did the model say that?", start here, then inspect the turn's `PromptManifest`, the thread history, and the provider request shape described in [Provider System](/architecture/providers).
@@ -59,7 +59,7 @@ The system prompt compiler lives in `crates/promt`. The crate name is intentiona
 | `include_tool_recovery_policy` | Adds stable tool failure recovery instructions. |
 | `include_task_orchestration_policy` | Adds task/subagent orchestration guidance when task tools are available. |
 | `continue_generation_hint` | Adds continuation guidance during recovery. |
-| `dynamic_context` | Reserved dynamic context hook. Currently passed as `None` by the main agent flow. |
+| `dynamic_context` | Dynamic context contributed by hook-driven domains and runtime systems. |
 | `extra_system` | Runtime facts such as local date/time and OS. |
 | `limits` | Character budgets for bootstrap files. |
 
@@ -76,6 +76,7 @@ The compiler builds ordered sections:
 | User Persona | Stable | `USER.md` if present. |
 | Tool Recovery Policy | Stable | Built-in policy when enabled. |
 | Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
+| Memory Recall | Dynamic | Memory prompt contract rendered from hook prompt context when memory policy allows it. |
 | Recovery Continuation | Dynamic | Built-in continuation hint when requested. |
 | Skills Runtime | Dynamic | Active skills prompt for the turn. |
 | Retry Instruction | Dynamic | Tool retry or final-answer instruction. |
@@ -125,6 +126,19 @@ Each file is budgeted with a maximum per-file character limit and a total charac
 
 Skills are resolved before prompt compilation. `pioneer-skills` builds a compact `[Skills]` section listing active skills, their exact `read_skill` slug, and their descriptions. When few skills are active and budget allows, explicitly mentioned or path-matched skills can include full skill bodies. If the prompt budget is tight, the section includes a `read_skill` hint so the model can load exact skill instructions on demand.
 
+## Memory Prompt
+
+Memory prompt content is contributed through hooks, not hard-coded in the compiler. In agent mode, memory hooks can:
+
+- classify the turn memory policy;
+- recall deterministic and active memory context;
+- expose memory tools when policy allows them;
+- render the `Memory Recall` section before prompt compilation.
+
+The rendered memory section tells the model how to use memory proactively, when to search, when to write, when to forget, and what not to store. Recalled facts are marked as context rather than instructions. Current user instructions override recalled memories.
+
+The post-turn extractor uses a separate prompt renderer. It is not the main assistant prompt and does not include model-facing memory tools. Its job is to return strict JSON facts for the memory service after a completed turn.
+
 ## Tool Definitions Are Separate
 
 Tool definitions are not embedded as prompt prose. The agent passes model-visible tool definitions in `ChatRequest.tools`. The prompt can explain recovery or task orchestration policy, but the callable JSON schema for tools goes through the provider tool-calling interface.
@@ -147,12 +161,15 @@ When model behavior looks wrong, check these in order:
 2. Was history compressed or truncated by the gateway?
 3. Which prompt sections appear in the `PromptManifest`?
 4. Were relevant skills resolved, disabled, or non-implicit? See [Skills Architecture](/architecture/skills).
-5. Which tools were model-visible for that provider round? See [Tools System](/architecture/tools).
-6. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
+5. Did memory hooks contribute recall context or memory tools? See [Memory Architecture](/architecture/memory).
+6. Which tools were model-visible for that provider round? See [Tools System](/architecture/tools).
+7. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
 
 ## Related Pages
 
 - [Gateway](/architecture/gateway) explains where history loading is triggered.
 - [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.
+- [Hook Runtime](/architecture/hooks) explains how hook contributions become prompt context and prompt sections.
+- [Memory Architecture](/architecture/memory) explains the memory prompt contract and post-turn extractor prompt.
 - [Skills Architecture](/architecture/skills) explains the skills prompt.
 - [Tasks And Subagents](/architecture/tasks) explains why task orchestration can add prompt policy.

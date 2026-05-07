@@ -9,6 +9,8 @@ The gateway does not call the provider directly for normal turns. It delegates t
 
 The agent loop is where Pioneer stops being a chat wrapper. It decides when to call the model, which tools the model may see, how tool results return to the model, when a failed tool deserves a retry, when a child task must be waited on, and when the final answer is allowed to close the turn.
 
+Domain side work is attached through the hook runtime. The loop dispatches lifecycle phases such as `turn.pre_policy`, `turn.pre_prompt_context`, `turn.pre_tool_materialization`, `turn.pre_prompt_compile`, and `turn.post_turn`; hooks contribute typed policy, context, prompt sections, tool bundles, and diagnostics. The loop should not contain domain-specific branches for memory extraction, recall policy, or similar future subsystems.
+
 <Note>
   The agent loop does not persist directly to SQLite. It emits durable events. The gateway persists those events and publishes committed notifications. See [Gateway](/architecture/gateway) and [Persistence Layer](/architecture/persistence).
 </Note>
@@ -44,13 +46,18 @@ Chat mode exists for direct model conversations where tool access would be unnec
 sequenceDiagram
   participant Gateway
   participant Agent
+  participant Hooks
   participant Prompt
   participant Provider
   participant Tools
   participant Store
 
   Gateway->>Agent: StartTurn(history, input, model, provider)
+  Agent->>Hooks: turn.pre_policy
+  Agent->>Hooks: turn.pre_prompt_context
   Agent->>Agent: resolve skills, MCP, task tools
+  Agent->>Hooks: turn.pre_tool_materialization
+  Agent->>Hooks: turn.pre_prompt_compile
   Agent->>Prompt: compile system prompt bundle
   Agent-->>Gateway: PromptManifestCompiled
   loop provider/tool rounds
@@ -60,6 +67,7 @@ sequenceDiagram
     Tools-->>Agent: model-visible tool results
     Agent-->>Gateway: item started/completed/progress events
   end
+  Agent->>Hooks: turn.post_turn
   Agent-->>Gateway: TurnCompleted or TurnFailed
   Gateway->>Store: persist durable events and read models
 ```
@@ -71,15 +79,18 @@ The model request is assembled in layers:
 1. The gateway supplies historical `ChatMessage` values from completed turns.
 2. The agent builds the current user message from `UserInput`.
 3. The agent resolves active skills and builds a skills prompt.
-4. The agent materializes task tools if task orchestration is available.
-5. The agent compiles the prompt bundle through `pioneer-promt`.
-6. The agent materializes MCP tools and dynamic skill tools.
-7. The tool router exposes only model-visible tool definitions for the current round.
-8. Recovered tool context is appended as assistant tool-call and tool-result messages when a turn is being recovered.
+4. The agent dispatches pre-prompt-context hooks, such as deterministic and active memory recall.
+5. The agent materializes task tools if task orchestration is available.
+6. The agent dispatches pre-tool-materialization hooks, such as memory tool-bundle contribution.
+7. The agent dispatches pre-prompt-compile hooks, such as memory prompt contract rendering.
+8. The agent compiles the prompt bundle through `pioneer-promt`.
+9. The agent materializes MCP tools and dynamic skill tools.
+10. The tool router exposes only model-visible tool definitions for the current round.
+11. Recovered tool context is appended as assistant tool-call and tool-result messages when a turn is being recovered.
 
 The provider receives a `ChatRequest` containing `messages`, optional `tools`, `parallel_tool_calls`, and `compiled_prompt`. Provider adapters are responsible for mapping that common request into provider-specific API payloads.
 
-The ordering is intentional. History comes from the gateway because it is persisted thread state. Skills, MCP tools, and task tools are resolved inside the agent because they are turn-scoped capabilities. The prompt is compiled after those decisions because skills and task orchestration can add dynamic prompt sections.
+The ordering is intentional. History comes from the gateway because it is persisted thread state. Skills, MCP tools, task tools, and hook contributions are resolved inside the agent because they are turn-scoped capabilities. The prompt is compiled after those decisions because skills, task orchestration, memory, retries, and future domains can add dynamic prompt sections or context.
 
 For the exact prompt sections and history compression rules, see [Prompt And Context](/architecture/prompt).
 
@@ -105,6 +116,20 @@ The agent emits durable events such as:
 
 The gateway listener persists these events through `CrudStore` before publishing committed notifications to clients. This keeps UI state and database state aligned.
 
+## Hook Dispatch
+
+Hooks let domains attach to the turn lifecycle without expanding the agent loop itself. Memory is the primary example today:
+
+| Phase | Memory hook |
+| --- | --- |
+| `turn.pre_policy` | Classifies memory policy for the current turn. |
+| `turn.pre_prompt_context` | Runs deterministic recall and active recall. |
+| `turn.pre_tool_materialization` | Contributes `memory_search`, `memory_get`, `memory_remember`, and `memory_forget` when policy allows. |
+| `turn.pre_prompt_compile` | Renders the `Memory Recall` prompt section from typed prompt context. |
+| `turn.post_turn` | Runs post-turn durable fact extraction through service-owned semantic writes. |
+
+The loop sees lifecycle phases and typed contribution sets. Memory-specific rules stay in memory hooks and `MemoryService`. See [Hook Runtime](/architecture/hooks) and [Memory Architecture](/architecture/memory).
+
 ## Recovery Context
 
 Some tool outputs are retained in `turn_llm_context` while the turn is active. If a provider failure or recovery attempt needs to reconstruct the LLM-visible state, the agent can reinsert those retained tool-result messages in sequence order. After the turn reaches a terminal state, the gateway deletes retained LLM context rows for that turn.
@@ -120,6 +145,8 @@ That is the reason tool output policies live below the agent loop. The agent nee
 ## Related Pages
 
 - [Prompt And Context](/architecture/prompt) explains how `compiled_prompt` and `messages` are built.
+- [Hook Runtime](/architecture/hooks) explains lifecycle phases, subscriptions, execution policy, and typed contributions.
+- [Memory Architecture](/architecture/memory) explains the memory hooks and service-owned write pipeline.
 - [Provider System](/architecture/providers) explains how `ChatRequest` reaches OpenAI, Anthropic, Gemini, Ollama, Bedrock, CLI providers, and compatible endpoints.
 - [Tasks And Subagents](/architecture/tasks) explains the task tools and child-thread execution path.
 - [Tools System](/architecture/tools) explains routing, output projection, and retry classification.
