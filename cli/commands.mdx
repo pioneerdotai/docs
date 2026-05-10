@@ -44,12 +44,20 @@ pioneer update --source local --asset ./asset.gz --checksums ./SHA256SUMS --forc
 
 ## `pioneer start`
 
-Start the persistent gateway service.
+Start the current-user gateway service.
 
 ```bash
 pioneer start
 pioneer start --json
 ```
+
+On Linux, `pioneer start` validates that a `systemd --user` service can survive logout. If systemd linger is disabled and cannot be enabled by the current user, the command fails with `linux_linger_required` in JSON install failures and tells you to run:
+
+```bash
+sudo loginctl enable-linger "$USER"
+```
+
+On macOS and Windows, `pioneer start --json` can return warnings for direct script/manual installs because the current service modes start at user login, not before login.
 
 ## `pioneer status`
 
@@ -128,7 +136,7 @@ Rotation does not print signing material or bearer tokens. If material already e
 
 ## `pioneer stop`
 
-Stop and unregister the persistent gateway service.
+Stop and unregister the current-user gateway service.
 
 ```bash
 pioneer stop
@@ -184,3 +192,5 @@ The native installer flow:
 7. Optionally starts the service.
 8. Checks gateway health.
 9. Rolls back on failure.
+
+When `--json` is used, install/start output can include `warnings`. Treat these as service lifecycle caveats that did not prevent the gateway from starting. Linux headless persistence failures are blocking for script/manual installs because a `systemd --user` service without linger will stop when the login session ends.

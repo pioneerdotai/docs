@@ -72,11 +72,17 @@ Development uses separate config, service name, runtime home, install paths, and
 
 ## Service behavior
 
-`pioneer start` registers and starts a persistent user-level service.
+`pioneer start` registers and starts a current-user service.
 
 `pioneer stop` stops and unregisters the service.
 
 The service runs as the current OS user.
+
+| Platform | Service mode | Notes |
+| --- | --- | --- |
+| Linux | `systemd --user` service | Server/headless installs require systemd linger. If automatic setup is denied, run `sudo loginctl enable-linger "$USER"` and start again. |
+| macOS | per-user LaunchAgent | Starts after user login. It is not a boot-time LaunchDaemon. |
+| Windows | current-user Scheduled Task | Starts at user logon. It is not a boot-time Windows Service. |
 
 <Warning>
   Tool runs execute as the user account running the gateway service.

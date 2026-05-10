@@ -69,7 +69,21 @@ On Windows CMD:
 curl -fsSL https://getpioneer.dev/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
-The installer downloads the gateway release, verifies checksums, installs the `pioneer` CLI, and registers a user-level gateway service.
+The installer downloads the gateway release, verifies checksums, installs the `pioneer` CLI, and registers a current-user gateway service.
+
+### Service lifecycle by OS
+
+| Platform | Service mode | Persistence behavior |
+| --- | --- | --- |
+| Linux | `systemd --user` service | Requires systemd linger so the gateway survives logout and starts after reboot |
+| macOS | per-user LaunchAgent | Starts after the user logs in; not available as a boot-time LaunchDaemon before login |
+| Windows | current-user Scheduled Task | Starts at user logon; not available as a boot-time Windows Service before login |
+
+On Linux server or headless installs, the installer validates and tries to enable systemd lingering for the current user. If your OS policy denies that operation, run this once on the gateway machine and then rerun the installer:
+
+```bash
+sudo loginctl enable-linger "$USER"
+```
 
 You can choose a channel or exact version when release assets exist for your platform:
 
@@ -167,7 +181,7 @@ You can also update from a specific release channel:
 pioneer update --source release --channel stable
 ```
 
-Stop and unregister the user-level service with:
+Stop and unregister the current-user service with:
 
 ```bash
 pioneer stop
