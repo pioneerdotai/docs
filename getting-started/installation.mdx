@@ -57,10 +57,22 @@ On macOS or Linux:
 curl -fsSL https://getpioneer.dev/install.sh | bash
 ```
 
+To install the native computer-use gateway variant without installing the desktop app:
+
+```bash
+curl -fsSL https://getpioneer.dev/install.sh | bash -s -- --computer-use
+```
+
 On Windows PowerShell:
 
 ```powershell
 iwr -useb https://getpioneer.dev/install.ps1 | iex
+```
+
+To install the native computer-use gateway variant from PowerShell:
+
+```powershell
+$env:PIONEER_INSTALL_COMPUTER_USE="1"; iwr -useb https://getpioneer.dev/install.ps1 | iex
 ```
 
 On Windows CMD:
@@ -90,9 +102,13 @@ You can choose a channel or exact version when release assets exist for your pla
 ```bash
 --channel stable|beta|canary
 --version x.y.z
+--computer-use
+--headless
 --no-start
 --force-start
 ```
+
+Channel, version, and gateway variant selection depend on matching release assets being published for the target platform. The default gateway asset is headless. The `computer-use` variant includes native desktop-control dependencies and uses release assets with a `-computer-use` suffix.
 
 ## Check That It Runs
 
@@ -180,6 +196,8 @@ You can also update from a specific release channel:
 ```bash
 pioneer update --source release --channel stable
 ```
+
+Release-based updates preserve the installed gateway variant. A headless gateway updates from the standard asset name; a computer-use gateway updates from the `-computer-use` asset name.
 
 Stop and unregister the current-user service with:
 

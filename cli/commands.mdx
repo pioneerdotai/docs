@@ -21,7 +21,7 @@ pioneer install --source local --asset ./asset.gz --checksums ./SHA256SUMS --no-
 ```
 
 <Note>
-  Release install requires published gateway assets and a matching `SHA256SUMS` file for your OS and architecture.
+  Release install requires published gateway assets and a matching `SHA256SUMS` file for your OS, architecture, and gateway variant.
 </Note>
 
 ## `pioneer update`
@@ -41,6 +41,8 @@ pioneer update
 pioneer update --source release --channel stable
 pioneer update --source local --asset ./asset.gz --checksums ./SHA256SUMS --force-start
 ```
+
+Release updates preserve the installed gateway variant. A headless gateway uses the standard release asset name; a computer-use gateway uses the `-computer-use` asset name.
 
 ## `pioneer start`
 
@@ -178,6 +180,8 @@ pioneer -h
 | `--checksums <path>` | Local `SHA256SUMS` path |
 | `--channel stable|beta|canary` | Release channel |
 | `--version x.y.z` | Pin a release version |
+
+Release asset names include the OS, architecture, and optional gateway variant suffix. Standard headless assets use names like `pioneer-gateway-linux-x86_64.gz`; computer-use assets use names like `pioneer-gateway-linux-x86_64-computer-use.gz`.
 
 ## Install behavior
 
