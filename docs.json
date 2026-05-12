@@ -29,6 +29,7 @@
               "desktop/overview",
               "desktop/workspace",
               "desktop/threads",
+              "desktop/agents-md",
               "desktop/artifacts"
             ]
           },
@@ -91,7 +92,8 @@
               "architecture/memory",
               "architecture/persistence",
               "architecture/secrets",
-              "architecture/prompt"
+              "architecture/prompt",
+              "architecture/agents-md"
             ]
           },
           {
@@ -112,6 +114,7 @@
             "pages": [
               "protocol/workspace",
               "protocol/threads",
+              "protocol/agents-md",
               "protocol/turns"
             ]
           },

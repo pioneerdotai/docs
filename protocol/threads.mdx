@@ -83,7 +83,7 @@ Use `thread/get` when opening a thread by id or reconciling after a notification
 
 ## Workspace Tree
 
-`thread/tree` is the primary method for a sidebar or thread picker. It returns three related collections: threads, folders, and placements. Do not sort threads by timestamps and call it a tree; folder placement is stored separately.
+`thread/tree` is the primary method for a sidebar or thread picker. It returns related collections: threads, folders, placements, and AGENTS.md summaries. Do not sort threads by timestamps and call it a tree; folder placement is stored separately.
 
 ```json
 {
@@ -103,11 +103,14 @@ Response shape:
   "workspace_id": "ws_000000000000000001",
   "threads": [],
   "folders": [],
-  "placements": []
+  "placements": [],
+  "agents_docs": []
 }
 ```
 
-Placements let the gateway preserve UI structure across clients. If another client moves a thread, your client should refresh the tree after `thread/tree/changed`.
+Placements let the gateway preserve UI structure across clients. `agents_docs` contains content-free summaries for root and folder `AGENTS.md` files. If another client moves a thread or changes an AGENTS.md file, your client should refresh the tree after `thread/tree/changed`.
+
+See [AGENTS.md API](/protocol/agents-md) for reading and editing full file content.
 
 ## Moving Threads And Folders
 
@@ -169,5 +172,6 @@ Use this when a client closes a thread view but keeps the WebSocket connection o
 | `thread/updated` | Thread metadata changed. |
 | `thread/closed` | Thread was closed. |
 | `thread/tree/changed` | The workspace thread tree changed and should be reloaded. |
+| `thread/agents_doc/changed` | A root or folder AGENTS.md file changed and affected tree summaries or effective instructions. |
 
 Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, or `turn/timeline` as needed.

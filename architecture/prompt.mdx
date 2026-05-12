@@ -77,6 +77,7 @@ The compiler builds ordered sections:
 | Tool Recovery Policy | Stable | Built-in policy when enabled. |
 | Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
 | Memory Recall | Dynamic | Memory prompt contract rendered from hook prompt context when memory policy allows it. |
+| AGENTS.md | Dynamic | Effective thread-tree AGENTS.md rendered by the AGENTS.md prompt hook when an active file exists. |
 | Recovery Continuation | Dynamic | Built-in continuation hint when requested. |
 | Skills Runtime | Dynamic | Active skills prompt for the turn. |
 | Retry Instruction | Dynamic | Tool retry or final-answer instruction. |
@@ -139,6 +140,12 @@ The rendered memory section tells the model how to use memory proactively, when 
 
 The post-turn extractor uses a separate prompt renderer. It is not the main assistant prompt and does not include model-facing memory tools. Its job is to return strict JSON facts for the memory service after a completed turn.
 
+## AGENTS.md Prompt
+
+AGENTS.md prompt content is also contributed through hooks. The gateway installs an internal hook package that resolves the effective active `AGENTS.md` for the current thread at `turn.pre_prompt_compile`.
+
+If no active file exists in the thread's folder ancestry, the hook contributes nothing. If a file exists, it becomes a dynamic `AGENTS.md` prompt section with hook source metadata in the prompt manifest. See [AGENTS.md Architecture](/architecture/agents-md) for the full storage, inheritance, and protocol model.
+
 ## Tool Definitions Are Separate
 
 Tool definitions are not embedded as prompt prose. The agent passes model-visible tool definitions in `ChatRequest.tools`. The prompt can explain recovery or task orchestration policy, but the callable JSON schema for tools goes through the provider tool-calling interface.
@@ -171,5 +178,6 @@ When model behavior looks wrong, check these in order:
 - [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.
 - [Hook Runtime](/architecture/hooks) explains how hook contributions become prompt context and prompt sections.
 - [Memory Architecture](/architecture/memory) explains the memory prompt contract and post-turn extractor prompt.
+- [AGENTS.md Architecture](/architecture/agents-md) explains the thread-tree instruction hook.
 - [Skills Architecture](/architecture/skills) explains the skills prompt.
 - [Tasks And Subagents](/architecture/tasks) explains why task orchestration can add prompt policy.

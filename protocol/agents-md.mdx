@@ -1,0 +1,401 @@
+---
+title: "AGENTS.md API"
+description: "Reading, saving, deleting, resolving, and observing thread-tree scoped AGENTS.md instruction files."
+---
+
+The AGENTS.md API manages persistent instruction files attached to the thread tree. A file can exist at the workspace root or inside a thread folder. Threads use the nearest active file from their folder ancestry.
+
+The methods live under `thread/agents_doc/*` because AGENTS.md is part of the workspace thread tree, not the artifact store. Payloads use `snake_case` field names.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `thread/agents_doc/get` | `ThreadAgentsDocGetParams` | `ThreadAgentsDocGetResponse` | Load the explicit file for one root/folder scope and the effective inherited file. |
+| `thread/agents_doc/save` | `ThreadAgentsDocSaveParams` | `ThreadAgentsDocSaveResponse` | Create or update the explicit file for one root/folder scope. |
+| `thread/agents_doc/archive` | `ThreadAgentsDocArchiveParams` | `ThreadAgentsDocArchiveResponse` | Archive the explicit file for one root/folder scope. |
+| `thread/agents_doc/resolve_for_thread` | `ThreadAgentsDocResolveForThreadParams` | `ThreadAgentsDocResolveForThreadResponse` | Resolve the effective file for one concrete thread. |
+
+`thread/tree` also returns an `agents_docs` array containing `ThreadAgentsDocSummary` items. Summaries never include full file content.
+
+## Status And Save Reason
+
+| Type | Values |
+|---|---|
+| `ThreadAgentsDocStatus` | `draft`, `active`, `archived` |
+| `ThreadAgentsDocSaveReason` | `autosave`, `manual` |
+
+`draft` means the explicit document exists but is empty. Drafts are visible to clients but are not effective prompt sources. `active` means non-empty content and participates in inheritance. `archived` means deleted from the user-facing tree.
+
+## Payloads
+
+`ThreadAgentsDocPayload` includes full content:
+
+```json
+{
+  "id": "agd_000000000000000001",
+  "workspace_id": "ws_000000000000000001",
+  "folder_id": "fld_000000000000000001",
+  "status": "active",
+  "title": "AGENTS.md",
+  "content": "# Backend instructions\n\n- Run cargo check.\n",
+  "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+  "version": 3,
+  "created_at": 1777900000,
+  "updated_at": 1777900300
+}
+```
+
+For a root file, `folder_id` is omitted or `null`.
+
+`ThreadAgentsDocSummary` is the content-free tree shape:
+
+```json
+{
+  "id": "agd_000000000000000001",
+  "workspace_id": "ws_000000000000000001",
+  "folder_id": "fld_000000000000000001",
+  "status": "active",
+  "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+  "version": 3,
+  "char_count": 42,
+  "updated_at": 1777900300
+}
+```
+
+`ThreadAgentsDocResolvedPayload` describes the effective active file for a requested scope or thread:
+
+```json
+{
+  "doc": {
+    "id": "agd_000000000000000001",
+    "workspace_id": "ws_000000000000000001",
+    "status": "active",
+    "title": "AGENTS.md",
+    "content": "# Root instructions\n",
+    "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+    "version": 1,
+    "created_at": 1777900000,
+    "updated_at": 1777900000
+  },
+  "source_path": [],
+  "inherited": true,
+  "resolved_for_folder_id": "fld_000000000000000001",
+  "resolved_at": 1777900400
+}
+```
+
+`source_folder_id` is omitted for a root source. `source_path` is an array of folder names from the thread tree root to the source folder.
+
+## Reading A Scope
+
+Call `thread/agents_doc/get` when opening an AGENTS.md editor for root or folder scope.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "thread/agents_doc/get",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "folder_id": "fld_000000000000000001"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "explicit": {
+    "id": "agd_000000000000000002",
+    "workspace_id": "ws_000000000000000001",
+    "folder_id": "fld_000000000000000001",
+    "status": "draft",
+    "title": "AGENTS.md",
+    "content": "",
+    "content_sha256": "e3b0c44298fc1c149afbf4c8996fb924...",
+    "version": 1,
+    "created_at": 1777900000,
+    "updated_at": 1777900000
+  },
+  "effective": {
+    "doc": {
+      "id": "agd_000000000000000001",
+      "workspace_id": "ws_000000000000000001",
+      "status": "active",
+      "title": "AGENTS.md",
+      "content": "# Root instructions\n",
+      "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+      "version": 1,
+      "created_at": 1777900000,
+      "updated_at": 1777900000
+    },
+    "source_path": [],
+    "inherited": true,
+    "resolved_for_folder_id": "fld_000000000000000001",
+    "resolved_at": 1777900400
+  }
+}
+```
+
+`explicit` can be absent when the requested scope has no local file. `effective` can be absent when no active file exists in the scope ancestry.
+
+For the root scope, omit `folder_id`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "thread/agents_doc/get",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+## Saving
+
+Clients save the explicit file for one scope. The gateway normalizes line endings and computes `content_sha256`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "thread/agents_doc/save",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "folder_id": "fld_000000000000000001",
+    "content": "# Backend instructions\n\n- Run cargo check.\n",
+    "expected_version": 2,
+    "save_reason": "autosave"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "doc": {
+    "id": "agd_000000000000000001",
+    "workspace_id": "ws_000000000000000001",
+    "folder_id": "fld_000000000000000001",
+    "status": "active",
+    "title": "AGENTS.md",
+    "content": "# Backend instructions\n\n- Run cargo check.\n",
+    "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+    "version": 3,
+    "created_at": 1777900000,
+    "updated_at": 1777900300
+  }
+}
+```
+
+If `content` is empty or whitespace-only after normalization, the saved document status is `draft`. Drafts are not injected into prompts.
+
+`expected_version` is optional but recommended for any editor with autosave. If the current server version differs, the gateway returns a JSON-RPC error with code `-32600` and a message containing the expected and actual versions.
+
+`content` is limited to 65536 characters.
+
+## Archiving
+
+Archive removes the explicit file from the visible tree and allows inherited parent files to become effective again.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "thread/agents_doc/archive",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "folder_id": "fld_000000000000000001",
+    "expected_version": 3
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "archived": true,
+  "effective": {
+    "doc": {
+      "id": "agd_000000000000000010",
+      "workspace_id": "ws_000000000000000001",
+      "status": "active",
+      "title": "AGENTS.md",
+      "content": "# Root instructions\n",
+      "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+      "version": 1,
+      "created_at": 1777900000,
+      "updated_at": 1777900000
+    },
+    "source_path": [],
+    "inherited": true,
+    "resolved_for_folder_id": "fld_000000000000000001",
+    "resolved_at": 1777900500
+  }
+}
+```
+
+If there was no explicit file for the scope, `archived` is `false`.
+
+## Resolving For A Thread
+
+Use this method when a client needs to inspect the effective file for a specific thread.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
+  "method": "thread/agents_doc/resolve_for_thread",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "effective": {
+    "doc": {
+      "id": "agd_000000000000000001",
+      "workspace_id": "ws_000000000000000001",
+      "folder_id": "fld_000000000000000001",
+      "status": "active",
+      "title": "AGENTS.md",
+      "content": "# Backend instructions\n",
+      "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+      "version": 3,
+      "created_at": 1777900000,
+      "updated_at": 1777900300
+    },
+    "source_folder_id": "fld_000000000000000001",
+    "source_path": ["Backend"],
+    "inherited": false,
+    "resolved_for_folder_id": "fld_000000000000000001",
+    "resolved_at": 1777900600
+  }
+}
+```
+
+If the thread has no placement, the gateway resolves against the root scope.
+
+## Thread Tree Summaries
+
+`thread/tree` includes AGENTS.md summaries:
+
+```json
+{
+  "workspace_id": "ws_000000000000000001",
+  "threads": [],
+  "folders": [],
+  "placements": [],
+  "agents_docs": [
+    {
+      "id": "agd_000000000000000001",
+      "workspace_id": "ws_000000000000000001",
+      "folder_id": "fld_000000000000000001",
+      "status": "active",
+      "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+      "version": 3,
+      "char_count": 42,
+      "updated_at": 1777900300
+    }
+  ]
+}
+```
+
+Clients should use these summaries to render sidebar file rows and call `thread/agents_doc/get` only when opening the editor.
+
+## Notifications
+
+The gateway sends `thread/agents_doc/changed` after save or archive:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "thread/agents_doc/changed",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "folder_id": "fld_000000000000000001",
+    "doc": {
+      "id": "agd_000000000000000001",
+      "workspace_id": "ws_000000000000000001",
+      "folder_id": "fld_000000000000000001",
+      "status": "active",
+      "title": "AGENTS.md",
+      "content": "# Backend instructions\n",
+      "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+      "version": 3,
+      "created_at": 1777900000,
+      "updated_at": 1777900300
+    },
+    "effective": {
+      "doc": {
+        "id": "agd_000000000000000001",
+        "workspace_id": "ws_000000000000000001",
+        "folder_id": "fld_000000000000000001",
+        "status": "active",
+        "title": "AGENTS.md",
+        "content": "# Backend instructions\n",
+        "content_sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+        "version": 3,
+        "created_at": 1777900000,
+        "updated_at": 1777900300
+      },
+      "source_folder_id": "fld_000000000000000001",
+      "source_path": ["Backend"],
+      "inherited": false,
+      "resolved_for_folder_id": "fld_000000000000000001",
+      "resolved_at": 1777900600
+    },
+    "effective_changed": true
+  }
+}
+```
+
+The gateway also sends `thread/tree/changed` so tree-based clients can refresh summaries. Treat notifications as invalidation hints; reload the affected scope or tree before rendering stale state as authoritative.
+
+## Errors
+
+Common validation errors use standard JSON-RPC codes:
+
+| Condition | Code |
+|---|---:|
+| Unknown workspace | `-32602` |
+| Empty `folder_id` | `-32602` |
+| Folder does not exist in the workspace | `-32602` |
+| Content over 65536 characters | `-32602` |
+| Version conflict | `-32600` |
+| Database or internal processing failure | `-32600` |
+
+## Schemas
+
+Generated schemas include:
+
+- `/schemas/thread_agents_doc_status.json`
+- `/schemas/thread_agents_doc_save_reason.json`
+- `/schemas/thread_agents_doc_payload.json`
+- `/schemas/thread_agents_doc_summary.json`
+- `/schemas/thread_agents_doc_resolved_payload.json`
+- `/schemas/thread_agents_doc_get_params.json`
+- `/schemas/thread_agents_doc_get_response.json`
+- `/schemas/thread_agents_doc_save_params.json`
+- `/schemas/thread_agents_doc_save_response.json`
+- `/schemas/thread_agents_doc_archive_params.json`
+- `/schemas/thread_agents_doc_archive_response.json`
+- `/schemas/thread_agents_doc_resolve_for_thread_params.json`
+- `/schemas/thread_agents_doc_resolve_for_thread_response.json`
+- `/schemas/thread_agents_doc_changed_notification.json`
+
+## Related Pages
+
+- [AGENTS.md User Guide](/desktop/agents-md) explains the desktop workflow.
+- [AGENTS.md Architecture](/architecture/agents-md) explains persistence, inheritance, and prompt hook injection.
+- [Threads API](/protocol/threads) documents thread tree and folder APIs.
