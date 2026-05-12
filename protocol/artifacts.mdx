@@ -1,0 +1,497 @@
+---
+title: "Artifacts API"
+description: "Listing, reading, uploading, downloading, binding, deleting, and observing workspace artifacts."
+---
+
+Artifacts are workspace-scoped files owned by the gateway. The protocol exposes metadata through JSON-RPC and moves large file bytes through WebSocket binary frames.
+
+Use this API whenever a client needs to upload a local file to a gateway, list files attached to a thread, preview a generated file, download a remote artifact to the client machine, or bind an existing artifact to a new turn.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `artifact/capabilities` | `ArtifactCapabilitiesParams` | `ArtifactCapabilitiesResponse` | Read upload/download limits and chunk sizes for a workspace. |
+| `artifact/list` | `ArtifactListParams` | `ArtifactListResponse` | List workspace artifacts with optional scope filters. |
+| `artifact/list/thread` | `ArtifactListForThreadParams` | `ArtifactListResponse` | List artifacts for one materialized thread. Requires `thread_id`. |
+| `artifact/list/turn` | `ArtifactListForTurnParams` | `ArtifactListResponse` | List artifacts for one turn. Requires `turn_id`. |
+| `artifact/list/message` | `ArtifactListForMessageParams` | `ArtifactListResponse` | List artifacts for one message. Requires `message_id`. |
+| `artifact/get` | `ArtifactGetParams` | `ArtifactGetResponse` | Load one artifact summary. |
+| `artifact/read` | `ArtifactReadParams` | `ArtifactReadResponse` | Read a small range of an artifact or projection as base64 JSON. |
+| `artifact/bind` | `ArtifactBindParams` | `ArtifactBindResponse` | Attach an existing artifact/version to thread, turn, message, item, tool, or task lineage. |
+| `artifact/delete` | `ArtifactDeleteParams` | `ArtifactDeleteResponse` | Soft-delete an artifact. |
+| `artifact/restore` | `ArtifactRestoreParams` | `ArtifactRestoreResponse` | Restore a soft-deleted artifact. |
+| `artifact/upload/start` | `ArtifactUploadStartParams` | `ArtifactUploadStartResponse` | Start a client-to-gateway upload session. |
+| `artifact/upload/finish` | `ArtifactUploadFinishParams` | `ArtifactUploadFinishResponse` | Validate and persist a completed upload. |
+| `artifact/upload/abort` | `ArtifactUploadAbortParams` | `ArtifactUploadAbortResponse` | Abort an upload session and remove temp bytes. |
+| `artifact/download/start` | `ArtifactDownloadStartParams` | `ArtifactDownloadStartResponse` | Start a gateway-to-client download session. |
+| `artifact/download/chunk` | `ArtifactDownloadChunkParams` | `ArtifactDownloadChunkResponse` | Request a binary download chunk. |
+| `artifact/download/finish` | `ArtifactDownloadFinishParams` | `ArtifactDownloadFinishResponse` | Finish a download session. |
+| `artifact/download/abort` | `ArtifactDownloadAbortParams` | `ArtifactDownloadAbortResponse` | Abort a download session. |
+
+Artifact payloads use `snake_case` field names.
+
+## Artifact Summary
+
+Most list and get responses return `ArtifactSummary`.
+
+```json
+{
+  "artifact": {
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "display_name": "screenshot.png",
+    "kind": "image",
+    "mime_type": "image/png",
+    "size_bytes": 73422,
+    "sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+    "status": "ready",
+    "preview": {
+      "projection_kind": "thumbnail",
+      "status": "ready",
+      "artifact_id": "art_000000000000000001",
+      "version_id": "av_000000000000000001",
+      "blob_id": "abl_000000000000000001",
+      "mime_type": "image/png",
+      "size_bytes": 12345,
+      "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3..."
+    }
+  },
+  "workspace_id": "ws_000000000000000001",
+  "primary_thread_id": "thr_000000000000000001",
+  "created_by_kind": "user",
+  "created_at": 1777900000,
+  "updated_at": 1777900000,
+  "bindings": [
+    {
+      "binding_id": "abn_000000000000000001",
+      "workspace_id": "ws_000000000000000001",
+      "thread_id": "thr_000000000000000001",
+      "turn_id": "trn_000000000000000001",
+      "message_id": "msg_000000000000000001",
+      "binding_kind": "user_input",
+      "direction": "input",
+      "role": "user",
+      "created_at": 1777900000
+    }
+  ],
+  "metadata": {}
+}
+```
+
+Important enum values:
+
+| Type | Values |
+|---|---|
+| `ArtifactKind` | `file`, `text`, `image`, `audio`, `video`, `pdf`, `spreadsheet`, `archive`, `json`, `generated_image`, `screenshot`, `workspace_file`, `directory_manifest`, `unknown` |
+| `ArtifactStatus` | `ready`, `pending`, `quarantined`, `deleted`, `missing_external_source`, `failed` |
+| `ArtifactCreatedByKind` | `user`, `agent`, `tool`, `task`, `system`, `import`, `external_agent` |
+| `ArtifactBindingKind` | `user_input`, `agent_output`, `tool_output`, `task_result`, `context_attachment`, `derived_from`, `preview`, `system_capture`, `manual_attach`, `draft_upload` |
+| `ArtifactBindingDirection` | `input`, `output`, `context`, `derived` |
+| `ArtifactProjectionKind` | `plain_text`, `thumbnail`, `json_summary`, `pdf_text` |
+| `ArtifactProjectionStatus` | `pending`, `ready`, `failed`, `stale` |
+
+## Capabilities
+
+Ask the gateway for limits before starting upload or download UI.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "artifact/capabilities",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "upload": {
+    "required_for_local_paths": true,
+    "recommended_chunk_size_bytes": 262144,
+    "max_chunk_size_bytes": 1048576,
+    "max_file_size_bytes": 52428800,
+    "max_files_per_turn": 32
+  },
+  "download": {
+    "recommended_chunk_size_bytes": 262144,
+    "max_chunk_size_bytes": 1048576,
+    "max_concurrent_downloads": 2
+  }
+}
+```
+
+`required_for_local_paths` means clients should upload local files to the gateway before referring to them in a turn. This is required for remote gateways and is the safe default for local gateways too.
+
+## Listing Artifacts
+
+Use `artifact/list/thread` for the thread artifacts panel.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "artifact/list/thread",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001",
+    "include_deleted": false,
+    "limit": 100
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "artifact": {
+        "artifact_id": "art_000000000000000001",
+        "version_id": "av_000000000000000001",
+        "display_name": "report.pdf",
+        "kind": "pdf",
+        "mime_type": "application/pdf",
+        "size_bytes": 922337,
+        "status": "ready"
+      },
+      "workspace_id": "ws_000000000000000001",
+      "primary_thread_id": "thr_000000000000000001",
+      "created_by_kind": "agent",
+      "created_at": 1777900000,
+      "updated_at": 1777900000,
+      "bindings": []
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+Do not call `artifact/list/thread` for a draft thread that has not been materialized. The gateway validates that the thread exists and belongs to the workspace.
+
+## Reading Small Content
+
+`artifact/read` is for previews, small text, and ranged reads. It returns base64 inside a JSON response and is capped by the gateway's JSON read limit.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "artifact/read",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "projection_kind": "thumbnail",
+    "offset": 0,
+    "max_bytes": 524288
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "artifact": {
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "display_name": "screenshot.png",
+    "kind": "image",
+    "mime_type": "image/png",
+    "size_bytes": 73422,
+    "sha256": "9f86d081884c7d659a2feaa0c55ad015...",
+    "status": "ready"
+  },
+  "offset": 0,
+  "len": 12345,
+  "total_size_bytes": 12345,
+  "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3...",
+  "content_base64": "iVBORw0KGgoAAAANSUhEUg...",
+  "truncated": false
+}
+```
+
+For full-size files, use the download flow.
+
+## Upload Flow
+
+Start an upload session:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "artifact/upload/start",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001",
+    "planned_turn_id": "trn_000000000000000001",
+    "client_attachment_id": "client-file-1",
+    "file_name": "photo.webp",
+    "mime_type": "image/webp",
+    "size_bytes": 68211,
+    "sha256": "b770ac0a8cc7b54e090de88a8c6e5b73...",
+    "source_kind": "user_composer"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "upload_id": "upl_000000000000000001",
+  "recommended_chunk_size_bytes": 262144,
+  "max_chunk_size_bytes": 1048576,
+  "max_size_bytes": 52428800,
+  "expires_at_unix": 1777903600
+}
+```
+
+After `artifact/upload/start`, send chunks as binary WebSocket frames on the same authenticated connection.
+
+### Upload Binary Chunk Frame
+
+| Bytes | Content |
+|---|---|
+| `0..4` | Magic bytes: `ARTU` |
+| `4..8` | Big-endian `u32` header length. |
+| next `header_len` | UTF-8 JSON `ArtifactUploadChunkHeader`. |
+| remaining bytes | Raw file chunk bytes. |
+
+Header:
+
+```json
+{
+  "workspace_id": "ws_000000000000000001",
+  "upload_id": "upl_000000000000000001",
+  "offset": 0,
+  "len": 68211,
+  "chunk_sha256": "optional-lower-hex-chunk-sha256"
+}
+```
+
+The gateway acknowledges accepted chunks with `artifact/upload/chunk_ack`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "artifact/upload/chunk_ack",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "upload_id": "upl_000000000000000001",
+    "offset": 0,
+    "len": 68211,
+    "received_bytes": 68211,
+    "next_offset": 68211
+  }
+}
+```
+
+Use `next_offset` as the authoritative resume point.
+
+Finish the upload:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
+  "method": "artifact/upload/finish",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "upload_id": "upl_000000000000000001"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "upload_id": "upl_000000000000000001",
+  "artifact": {
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "display_name": "photo.webp",
+    "kind": "image",
+    "mime_type": "image/webp",
+    "size_bytes": 68211,
+    "sha256": "b770ac0a8cc7b54e090de88a8c6e5b73...",
+    "status": "ready"
+  }
+}
+```
+
+If the user cancels, call `artifact/upload/abort`.
+
+## Download Flow
+
+Start a download session:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "fffffffffffffffffffff",
+  "method": "artifact/download/start",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "preferred_chunk_size_bytes": 262144
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "download_id": "dwn_000000000000000001",
+  "artifact": {
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "display_name": "photo.webp",
+    "kind": "image",
+    "mime_type": "image/webp",
+    "size_bytes": 68211,
+    "sha256": "b770ac0a8cc7b54e090de88a8c6e5b73...",
+    "status": "ready"
+  },
+  "file_name": "photo.webp",
+  "size_bytes": 68211,
+  "sha256": "b770ac0a8cc7b54e090de88a8c6e5b73...",
+  "recommended_chunk_size_bytes": 262144,
+  "max_chunk_size_bytes": 1048576,
+  "expires_at_unix": 1777903600
+}
+```
+
+Request a chunk:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ggggggggggggggggggggg",
+  "method": "artifact/download/chunk",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "download_id": "dwn_000000000000000001",
+    "offset": 0,
+    "len": 68211
+  }
+}
+```
+
+The JSON response confirms the request:
+
+```json
+{
+  "download_id": "dwn_000000000000000001",
+  "offset": 0,
+  "len": 68211,
+  "queued": true
+}
+```
+
+The bytes arrive as a binary WebSocket frame.
+
+### Download Binary Chunk Frame
+
+| Bytes | Content |
+|---|---|
+| `0..4` | Magic bytes: `ARTD` |
+| `4..8` | Big-endian `u32` header length. |
+| next `header_len` | UTF-8 JSON `ArtifactDownloadChunkHeader`. |
+| remaining bytes | Raw file chunk bytes. |
+
+Header:
+
+```json
+{
+  "workspace_id": "ws_000000000000000001",
+  "download_id": "dwn_000000000000000001",
+  "artifact_id": "art_000000000000000001",
+  "version_id": "av_000000000000000001",
+  "offset": 0,
+  "len": 68211,
+  "total_size_bytes": 68211,
+  "chunk_sha256": "lower-hex-chunk-sha256",
+  "final_chunk": true
+}
+```
+
+After all chunks have been verified and written locally, call `artifact/download/finish`. If the user cancels, call `artifact/download/abort`.
+
+## Binding Existing Artifacts
+
+Use `artifact/bind` when a client or gateway flow needs to associate an existing artifact with a new message, turn, tool call, or task result.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "hhhhhhhhhhhhhhhhhhhhh",
+  "method": "artifact/bind",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "artifact_id": "art_000000000000000001",
+    "version_id": "av_000000000000000001",
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "message_id": "msg_000000000000000001",
+    "binding_kind": "manual_attach",
+    "direction": "input",
+    "role": "user",
+    "item_index": 0
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "binding": {
+    "binding_id": "abn_000000000000000001",
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "message_id": "msg_000000000000000001",
+    "binding_kind": "manual_attach",
+    "direction": "input",
+    "item_index": 0,
+    "role": "user",
+    "created_at": 1777900000
+  }
+}
+```
+
+## Notifications
+
+| Event | Params | Meaning |
+|---|---|---|
+| `artifact/created` | `ArtifactCreatedNotification` | An artifact was created and is ready to display. |
+| `artifact/updated` | `ArtifactUpdatedNotification` | Artifact metadata or current version changed. |
+| `artifact/deleted` | `ArtifactDeletedNotification` | Artifact was soft-deleted. |
+| `thread/artifacts/changed` | `ThreadArtifactsChangedNotification` | A thread-level artifacts list should be refreshed. |
+| `artifact/projection/updated` | `ArtifactProjectionUpdatedNotification` | A projection, such as a thumbnail, changed state. |
+| `artifact/upload/chunk_ack` | `ArtifactUploadChunkAckNotification` | A binary upload chunk was accepted. |
+| `artifact/upload/progress` | `ArtifactUploadProgressNotification` | Optional aggregate upload progress notification. |
+| `artifact/download/progress` | `ArtifactDownloadProgressNotification` | Optional aggregate download progress notification. |
+
+Clients should refresh thread artifact lists on `thread/artifacts/changed`, not only on `artifact/created`, because one artifact may gain new bindings or metadata without creating a new artifact id.
+
+## Client Rules
+
+- Always include `workspace_id`.
+- Do not list artifacts for draft threads that have not been created on the gateway.
+- Use `artifact/read` only for small ranges or projections; use download sessions for full files.
+- Verify `sha256` for completed uploads, download chunks, and final downloaded files.
+- Treat desktop paths and gateway paths as different machines unless you know the gateway is local.
+- Store local preview/download caches as disposable client state.
+- Use generated schemas from `/schemas` for exact validation.

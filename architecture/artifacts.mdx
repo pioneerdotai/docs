@@ -1,0 +1,149 @@
+---
+title: "Artifact Store"
+description: "Workspace-scoped file storage, metadata, bindings, previews, uploads, downloads, and provider attachment reuse."
+---
+
+Artifacts are Pioneer's durable file layer. They keep file bytes out of transient chat UI state and give the gateway a stable way to store, list, preview, download, and reuse files that are uploaded by users or produced by agents.
+
+The core rule is simple: artifacts are workspace scoped and gateway owned. The desktop app may cache previews or downloaded copies, but the gateway is the source of truth for artifact bytes and metadata.
+
+## Responsibilities
+
+| Layer | Responsibility |
+|---|---|
+| `crates/protocol` | Public DTOs, method constants, notifications, and JSON Schema export. |
+| `crates/artifacts` | `ArtifactService`, blob store abstraction, local blob store, ingestion, path validation, quotas, GC planning, projections, and provider artifact resolution. |
+| `crates/crud` | All artifact database reads and writes through `CrudStore`; no gateway handler should bypass this layer. |
+| `crates/entity` | SeaORM entities for artifact tables. |
+| `crates/migration` | Artifact schema creation and rollback. |
+| `crates/gateway` | JSON-RPC handlers, WebSocket upload/download sessions, tool/file/task capture, notifications, and provider attachment normalization. |
+| `crates/desktop` | Thread artifacts panel, timeline chips, preview cache, local download/open/reveal actions, and composer reuse. |
+| `crates/config` | Capture policy and quota defaults under `gateway.artifacts`. |
+
+## Storage Layout
+
+`LocalArtifactBlobStore` stores bytes under the gateway runtime home:
+
+```text
+<runtime_home>/artifacts/workspaces/<workspace_id>/blobs/sha256/<aa>/<bb>/<sha256>
+```
+
+Temporary upload payloads are connection-bound and written under:
+
+```text
+<runtime_home>/artifacts/upload_sessions/<workspace_id>/<upload_id>/payload.bin
+```
+
+The storage key is derived from the SHA-256 digest. The physical store deduplicates identical blobs inside the same workspace and validates existing blobs before reusing them.
+
+Desktop preview files are separate. The desktop writes derived preview variants under its own runtime home at `previews/artifacts` and prunes that cache when it exceeds 512 MB. Those files are not authoritative and can be deleted without losing artifacts.
+
+## Database Model
+
+Artifact metadata lives in `gateway.db`.
+
+| Table | Purpose |
+|---|---|
+| `artifact_blob` | One stored blob: workspace, SHA-256, size, MIME type, storage backend, storage key, verification metadata. |
+| `artifact` | User-facing artifact identity: display name, kind, status, current version, creator, primary thread, soft-delete state. |
+| `artifact_version` | Immutable version metadata pointing to a blob, plus creation lineage such as turn, message, tool call, task, or task run. |
+| `artifact_binding` | Links an artifact/version to a thread, turn, message, turn item, tool call, task, or task run with direction and role. |
+| `artifact_projection` | Derived views such as plain text and thumbnails. A projection can store text inline or point at another artifact blob. |
+| `artifact_external_ref` | Provider-specific upload refs so the same artifact can be reused with a model provider without re-uploading every time. |
+| `artifact_upload_session` | Schema support for upload session bookkeeping. The active WebSocket chunk path also keeps connection-bound session state in the gateway. |
+
+The binding table is what makes list-by-thread, list-by-turn, and list-by-message fast and explicit. Do not infer artifact membership from file paths.
+
+## Identity And Versions
+
+An `artifact_id` identifies the logical file. A `version_id` identifies a concrete blob-backed version. Most UI operations can use the current version, but protocol clients should pass `version_id` when they need an exact immutable file.
+
+Artifacts can be soft deleted and restored. Deleting an artifact changes its status; blob GC is separate and must respect grace periods and active references.
+
+## Ingestion
+
+All ingestion flows go through `ArtifactService`.
+
+User uploads:
+
+1. The client calls `artifact/upload/start` with workspace, optional thread/planned turn, file name, MIME type, size, SHA-256, and source kind.
+2. The client sends binary chunk frames on the same WebSocket connection.
+3. The gateway validates offsets, chunk hashes, declared size, session owner, and final SHA-256.
+4. `artifact/upload/finish` persists the temp file through `ArtifactService::ingest_temp_file`.
+5. The service writes the blob, creates metadata through `CrudStore`, creates projections when supported, and returns an `ArtifactRef`.
+
+Agent and tool capture:
+
+1. The turn runtime starts a file capture session with workspace roots and capture policy.
+2. Completed items can emit explicit candidates, such as URL downloads, `apply_patch` add-file paths, generated images, or computer-use screenshots.
+3. At turn completion, fallback scanning can capture new workspace files and, if enabled, modified workspace files.
+4. Captured artifacts are bound back to the thread/turn/item that produced them and `artifact/created` plus `thread/artifacts/changed` notifications are sent.
+
+Task result capture follows the same artifact service path and binds files to task and task-run lineage.
+
+## Projections And Previews
+
+Projections are derived data for display and indexing. Current projection kinds are:
+
+| Projection | Stored as | Notes |
+|---|---|---|
+| `plain_text` | Inline text in `artifact_projection.text_content` | Created for supported small text-like files up to 256 KB. |
+| `thumbnail` | A PNG blob referenced by `artifact_projection.blob_id` | Created for image-like artifacts when the source is up to 64 MB. |
+| `json_summary` | Reserved protocol kind | For future structured summaries. |
+| `pdf_text` | Reserved protocol kind | For future document extraction. |
+
+Clients should treat projection state independently from artifact state. An artifact can be `ready` while its thumbnail is `pending` or `failed`.
+
+## Remote Gateway Boundary
+
+The desktop app never reads the gateway filesystem directly. This is required for remote gateways.
+
+For uploads, the desktop streams local bytes to the gateway and the gateway persists them as artifacts. For downloads and open/reveal actions, the desktop uses `artifact/download/*` to copy bytes from the gateway into a local cache or user-selected folder.
+
+Any new desktop artifact feature must use protocol methods. Do not add direct file-store access in the desktop layer.
+
+## Provider Attachment Reuse
+
+Model providers often require their own file upload step before an attachment can be used in a request. Pioneer keeps that provider-specific state in `artifact_external_ref`.
+
+The cache key includes workspace, artifact, optional version, provider, optional model family, and transport kind. Expired refs are pruned and ignored. This keeps provider attachment reuse workspace scoped and replaces the previous standalone provider attachment cache.
+
+## Capture And Quota Defaults
+
+Gateway artifact defaults are conservative:
+
+| Setting | Default |
+|---|---:|
+| Capture user uploads | `true` |
+| Capture new workspace files | `true` |
+| Capture modified workspace files | `false` |
+| Capture generated media | `true` |
+| Capture tool outputs | `true` |
+| Capture task results | `true` |
+| Max files per turn | `32` |
+| Max bytes per captured file | `50 MB` |
+| Max total captured bytes per turn | `128 MB` |
+| Max artifact file bytes | `512 MB` |
+| Max workspace artifact bytes | `10 GB` |
+| Max files per workspace | `100000` |
+| Quota warning threshold | `80%` |
+
+Ignored paths include `.git`, `target`, `node_modules`, `dist`, `build`, `.next`, `.cache`, `.DS_Store`, `*.tmp`, `*.swp`, and `*~`.
+
+## Developer Rules
+
+- Keep artifact DB access inside `crates/crud` and expose it through `CrudStore`.
+- Keep bytes behind `ArtifactBlobStore`; do not hard-code local filesystem paths outside the blob-store implementation.
+- Always validate `workspace_id` before listing, reading, uploading, downloading, binding, deleting, or restoring artifacts.
+- Bind artifacts at the narrowest known scope: message when known, otherwise turn/item/task lineage, and always workspace.
+- Do not query artifacts for draft threads that are not materialized.
+- Do not assume a desktop path exists on the gateway or a gateway path exists on the desktop.
+- Send `thread/artifacts/changed` when a thread-level artifact set or binding changes.
+- Add protocol schemas when adding public fields, methods, events, statuses, kinds, or projections.
+
+## Related Pages
+
+- [Artifacts User Guide](/desktop/artifacts) explains the desktop workflow.
+- [Artifacts API](/protocol/artifacts) documents JSON-RPC methods, binary chunk frames, and notifications.
+- [Persistence Layer](/architecture/persistence) explains the broader database and `CrudStore` boundary.
+- [Provider Architecture](/architecture/providers) explains provider normalization and attachments.

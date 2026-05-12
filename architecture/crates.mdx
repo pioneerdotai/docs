@@ -3,7 +3,7 @@ title: "Crate Map"
 description: "The Rust workspace layout and how the crates depend on each other."
 ---
 
-Pioneer is a Cargo workspace with nineteen Rust crates. The split is intentionally direct: public protocol, gateway orchestration, agent execution, hook runtime, provider adapters, tools, tasks, MCP, skills, prompt compilation, agent memory, secret storage, and durable storage are separate layers.
+Pioneer is a Cargo workspace with twenty Rust crates. The split is intentionally direct: public protocol, gateway orchestration, agent execution, hook runtime, provider adapters, tools, artifacts, tasks, MCP, skills, prompt compilation, agent memory, secret storage, and durable storage are separate layers.
 
 This page is a map, not the architecture itself. Use it when you need to know where a responsibility lives before reading the deeper page for that layer.
 
@@ -23,6 +23,7 @@ That shape keeps changes smaller. Adding a provider should mostly touch `provide
 | `crates/protocol` | library | Public JSON-RPC contract, request/response types, notification types, domain DTOs, method constants, and schema export. |
 | `crates/agent` | library | Per-thread agent runtime, turn execution, provider loop, tool loop, lifecycle hook wiring, MCP/tool/task materialization, skill resolution, recovery handling. |
 | `crates/hooks` | library | Typed lifecycle hook runtime, hook subscriptions, phase requests, contribution sets, execution/failure policy, dependencies, diagnostics, and hook-run summaries. |
+| `crates/artifacts` | library | Workspace-scoped artifact service, blob store abstraction, ingestion, path validation, quotas, GC planning, projections, and provider artifact resolution. |
 | `crates/memory` | library | Durable agent memory service, memvid backend integration, recall ranking, semantic writes, canonical keys, candidate policy, tombstones, and repair diagnostics. |
 | `crates/keystore` | library | Secret storage facade backed by `db-keystore`, stable secret ids, metadata, permission hardening, and an in-memory test store. |
 | `crates/promt` | library | Prompt compiler. Builds stable and dynamic system prompt sections, reads bootstrap files, applies prompt budgets, emits prompt manifests and fingerprints. |
@@ -31,11 +32,11 @@ That shape keeps changes smaller. Adding a provider should mostly touch `provide
 | `crates/tasks` | library | Durable task service, scheduler, trigger calculator, executor registry, event bus, projectors, retries, deliveries, write locks, startup reconciliation. |
 | `crates/mcp` | library | MCP install config parser, validation, secret redaction/materialization, stdio and streamable HTTP clients, runtime connector, catalog snapshots, retry policy. |
 | `crates/skills` | library | Agent Skills-compatible contract parser, installer, validation, security scanning, dependency preflight, policy merge, catalog loading, runtime tool declarations, prompt building. |
-| `crates/crud` | library | SeaORM-backed repository layer and projectors for turns, items, threads, tasks, skills, MCP, recovery jobs, attachments, prompt manifests, and LLM context retention. |
+| `crates/crud` | library | SeaORM-backed repository layer and projectors for turns, items, threads, artifacts, tasks, skills, MCP, recovery jobs, prompt manifests, and LLM context retention. |
 | `crates/entity` | library | SeaORM entity definitions generated/maintained for the SQLite schema. |
 | `crates/migration` | library | SeaORM migrations for database schema evolution. |
 | `crates/sqlite` | library | SQLite-specific helpers, especially write coordination for concurrent async access. |
-| `crates/config` | library | Layered configuration loader for default config, user config, gateway config, install paths, tools, provider attachments, skills, database, and auth. |
+| `crates/config` | library | Layered configuration loader for default config, user config, gateway config, install paths, tools, artifacts, provider attachments, skills, database, and auth. |
 
 ## Dependency Direction
 
@@ -53,6 +54,7 @@ flowchart TB
   Gateway --> Provider["provider"]
   Gateway --> Tools["tools"]
   Gateway --> Tasks["tasks"]
+  Gateway --> Artifacts["artifacts"]
   Gateway --> MCP["mcp"]
   Gateway --> Skills["skills"]
   Gateway --> CRUD["crud"]
@@ -72,6 +74,9 @@ flowchart TB
   Tools --> MCP
   Tasks --> Protocol
   Tasks --> CRUD
+  Artifacts --> Protocol
+  Artifacts --> CRUD
+  Artifacts --> Provider
   Memory --> Protocol
   Memory --> CRUD
   MCP --> Protocol

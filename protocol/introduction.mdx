@@ -131,6 +131,7 @@ memory/search
 skills/upload/start
 mcp/server/restart
 task/create
+artifact/list/thread
 ```
 
 Payload field casing is mostly inherited from Rust serde attributes. Many request/response structs use snake_case fields, while task and timeline models often use camelCase. Do not infer casing from method names; use the schema or examples for the exact payload.
@@ -169,5 +170,8 @@ When implementing a client, use this reference for behavior and the generated sc
   </Card>
   <Card title="Tasks" href="/protocol/tasks">
     Durable task creation, scheduling, subagents, task trees, waiting, deliveries, and task events.
+  </Card>
+  <Card title="Artifacts" href="/protocol/artifacts">
+    Workspace file upload, listing, preview reads, downloads, bindings, and artifact notifications.
   </Card>
 </CardGroup>

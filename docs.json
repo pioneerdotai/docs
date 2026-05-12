@@ -28,7 +28,8 @@
             "pages": [
               "desktop/overview",
               "desktop/workspace",
-              "desktop/threads"
+              "desktop/threads",
+              "desktop/artifacts"
             ]
           },
           {
@@ -85,6 +86,7 @@
               "architecture/providers",
               "architecture/skills",
               "architecture/tasks",
+              "architecture/artifacts",
               "architecture/mcp",
               "architecture/memory",
               "architecture/persistence",
@@ -117,6 +119,7 @@
             "group": "Features",
             "pages": [
               "protocol/tasks",
+              "protocol/artifacts",
               "protocol/providers",
               "protocol/skills",
               "protocol/memory",

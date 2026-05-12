@@ -34,7 +34,7 @@ That boundary keeps schema details from leaking upward. If a handler wants threa
 
 ## CrudStore
 
-`CrudStore` holds a `DatabaseConnection`, `TurnProjector`, `TaskProjector`, and `SqliteWriteCoordinator`. It exposes typed methods for threads, turns, items, skills, MCP, tasks, recovery jobs, attachment upload registry, prompt manifests, and retained LLM context.
+`CrudStore` holds a `DatabaseConnection`, `TurnProjector`, `TaskProjector`, and `SqliteWriteCoordinator`. It exposes typed methods for threads, turns, items, skills, MCP, tasks, recovery jobs, artifacts, artifact external refs, prompt manifests, and retained LLM context.
 
 The write coordinator is important because the gateway is async and can have concurrent request handlers, background workers, MCP runtime tasks, and task scheduler work touching SQLite.
 
@@ -67,7 +67,7 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | Workspaces and threads | workspace rows, thread rows, folder placement, thread lineage, sandbox policy, summaries |
 | Turns | turn rows, turn input, turn items, turn item attempts, status history, timeline events |
 | Prompt/context | prompt manifests, retained `turn_llm_context` rows during active recovery windows |
-| Providers/attachments | attachment upload registry for provider file reuse |
+| Artifacts/providers | artifact metadata, versions, bindings, projections, upload session rows, and provider external refs for attachment reuse |
 | Secrets | no raw values; domain rows store refs or redacted data only |
 | Skills | installations, workspace policy, turn bindings, audit events, dependency snapshots, upload sessions |
 | MCP | server installations, catalog snapshots, audit events, turn MCP bindings |
@@ -103,6 +103,7 @@ Memory has an additional persistence rule: `gateway.db` is the control plane and
 
 - [Protocol Layer](/architecture/protocol) describes the public types that often drive storage changes.
 - [Gateway](/architecture/gateway) explains request handling and durable event persistence.
+- [Artifact Store](/architecture/artifacts) explains workspace-scoped file storage, bindings, previews, and provider attachment reuse.
 - [Prompt And Context](/architecture/prompt) explains prompt manifests and retained LLM context.
 - [Memory Architecture](/architecture/memory) explains memory records, candidates, tombstones, and memvid capsule storage.
 - [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the domain-specific records stored here.

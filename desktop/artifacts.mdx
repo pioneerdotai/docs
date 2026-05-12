@@ -1,0 +1,77 @@
+---
+title: "Artifacts"
+description: "Upload, inspect, preview, download, and reuse files in Pioneer threads."
+icon: "file"
+---
+
+Artifacts are files that belong to a Pioneer workspace. They can come from you, from an agent, from a tool call, or from a task. The gateway stores the files and links them to the thread, turn, and message where they were used or created.
+
+This matters most when you connect to a remote gateway. A file path shown in a tool call may belong to the remote machine, but an artifact can be downloaded to your desktop and opened locally.
+
+## Where Artifacts Appear
+
+In a thread, open the artifacts panel from the bottom bar. The panel is only shown on the thread screen and is hidden by default.
+
+The panel lets you:
+
+- list all artifacts for the current thread;
+- filter by uploaded files, generated files, task outputs, images, and documents;
+- select an artifact and read its metadata;
+- preview images when a thumbnail is available;
+- download the file to your computer;
+- open a downloaded copy;
+- reveal a downloaded copy in the file manager;
+- attach an existing artifact back into the composer.
+
+Clicking an attachment chip in the timeline selects that artifact. If the artifacts panel is closed, Pioneer opens it first and then shows the selected file.
+
+## Upload Files
+
+Attach files in the composer when they are part of the prompt: screenshots, logs, small datasets, text files, or documents. Pioneer uploads those bytes to the gateway before the turn starts.
+
+On a local gateway, this usually feels like a normal local file attachment. On a remote gateway, the same operation copies the file from your computer to the remote gateway. The model provider receives the gateway-owned artifact, not an inaccessible path from your desktop.
+
+<Warning>
+  Do not rely on desktop-only paths in a remote gateway thread. Upload the file as an artifact if the agent or model needs to read it.
+</Warning>
+
+## Agent-Created Files
+
+When an agent creates a file in the workspace, Pioneer can capture it as an artifact. Captured files are linked back to the turn and appear in the artifacts panel. Tool outputs such as downloads, generated images, screenshots, task results, and new workspace files can also become artifacts depending on gateway capture settings.
+
+Artifact capture is scoped to the workspace. Pioneer does not treat arbitrary files elsewhere on the gateway as thread artifacts.
+
+## Preview And Metadata
+
+Artifacts show the display name, type, size, source, creation time, and SHA-256 digest. Images can have thumbnails. If a thumbnail is still pending, the file itself may already be ready; the preview is a derived projection and can finish later.
+
+The desktop app caches preview images locally under its runtime directory. The preview cache is pruned automatically when it exceeds 512 MB. Clearing that cache does not delete gateway artifacts.
+
+## Download, Open, Reveal
+
+`Download` copies the artifact from the gateway to a folder you choose on your computer.
+
+`Open` downloads a verified copy into the desktop cache if needed, then asks the operating system to open that local copy.
+
+`Reveal` opens the folder for a local downloaded copy. It is disabled until Pioneer has a local path to reveal.
+
+For remote gateways, these actions move bytes over the gateway connection. They do not require direct filesystem access to the remote host.
+
+## Reuse Artifacts
+
+Use the attach action in the artifact detail panel when you want to send an existing thread artifact again. Pioneer adds the artifact to the composer without asking you to find the original local file.
+
+This is useful when:
+
+- the original file was uploaded from another computer;
+- the artifact was created by an agent on a remote gateway;
+- you want to ask a follow-up question about a generated file;
+- you want a task or subagent to receive a file from the parent thread.
+
+## Troubleshooting
+
+If the artifacts panel says the thread was not found, the thread may still be a draft. Pioneer only loads artifacts for materialized threads.
+
+If a preview is missing but the file is ready, open or download the artifact. The preview path is separate from the original file.
+
+If a file cannot be opened, download it first and check that the destination exists on your desktop. In a remote gateway setup, revealing a gateway path directly is not possible; Pioneer can only reveal local cached or downloaded files.
