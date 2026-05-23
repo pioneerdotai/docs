@@ -25,6 +25,8 @@ Clients use the Tasks API for two different experiences: user-facing automation 
 | `task/agenda` | `TaskAgendaParams` | `TaskAgendaResponse` | Query upcoming/recent task schedule view. |
 | `task/deliveries` | `TaskDeliveriesParams` | `TaskDeliveriesResponse` | Query task result delivery records and attempts. |
 
+`crates/protocol` also defines `TaskUpdateParams`, `TaskUpdateResponse`, and a `task/update` method constant for task-service update contracts. The current gateway JSON-RPC dispatcher does not expose `task/update` as a client-callable method. Task updates can still happen through the model-facing `task_update` tool and task service, and clients observe them through `task/updated` plus `task/tree/changed`.
+
 ## Creating An Agent Task
 
 `task/create` uses mostly `camelCase` payload fields. The gateway creates the task, stores the trigger, and may also create a run immediately depending on the trigger.
@@ -113,7 +115,7 @@ Response:
     "ownerKind": "thread",
     "ownerId": "thr_000000000000000001",
     "executorKind": "agent",
-    "status": "Queued",
+    "status": "queued",
     "title": "Review the protocol docs",
     "goal": "Check the protocol reference for missing methods and incorrect examples.",
     "priority": 0,
@@ -160,7 +162,7 @@ Response:
 }
 ```
 
-`TaskStatus` values currently serialize as PascalCase: `Draft`, `Scheduled`, `Queued`, `Running`, `Waiting`, `Completed`, `Failed`, `Cancelled`. Many supporting enums use `snake_case`, so clients should follow the generated schema rather than guessing casing.
+`TaskStatus` values serialize as `snake_case`: `draft`, `scheduled`, `queued`, `running`, `waiting`, `completed`, `failed`, `cancelled`. Many task payloads use `camelCase` field names while enum values use `snake_case`, so clients should follow the generated schema rather than guessing casing.
 
 ## Trigger Specs
 
@@ -286,7 +288,7 @@ Use `task/list` for a workspace list:
     "workspaceId": "ws_000000000000000001",
     "ownerKind": "thread",
     "ownerId": "thr_000000000000000001",
-    "status": "Running",
+    "status": "running",
     "limit": 50
   }
 }
@@ -321,7 +323,7 @@ Use `task/list` for a workspace list:
 }
 ```
 
-Each event has `eventType`, `payload`, `createdAt`, optional `runId`, optional `threadId`, and optional `turnId`. The payload is tagged by `kind`, with variants for task creation, trigger creation, run start/completion/failure, retries, cancellation, delivery, child thread linking, depth limits, and write-lock state.
+Each event has `eventType`, `payload`, `createdAt`, optional `runId`, optional `threadId`, and optional `turnId`. The payload is tagged by `kind`, with variants for task creation, trigger creation, task updates, run start/completion/failure, retries, cancellation, delivery, child thread linking, depth limits, and write-lock state.
 
 Use `afterSequence` for incremental polling after reconnect. Live clients should also listen to task notifications.
 
@@ -442,7 +444,7 @@ Task notifications use the same event names as durable task events:
 | `task/run/completed`, `task/run/failed`, `task/run/cancelled` | Run terminal updates. |
 | `task/run/retry_scheduled`, `task/run/retry_exhausted` | Retry lifecycle updates. |
 | `task/completed`, `task/failed`, `task/cancelled` | Task terminal updates. |
-| `task/detached`, `task/rescheduled`, `task/paused`, `task/resumed` | Manual lifecycle changes. |
+| `task/detached`, `task/updated`, `task/rescheduled`, `task/paused`, `task/resumed` | Manual lifecycle and editable task contract changes. |
 | `task/tree/changed` | Parent/child structure, dependencies, or child thread linkage changed. |
 | `task/recovered` | Runtime recovered task state. |
 | `task/delivery/queued`, `task/delivery/started`, `task/delivery/delivered`, `task/delivery/failed`, `task/delivery/cancelled` | Result delivery lifecycle. |

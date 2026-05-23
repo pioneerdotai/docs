@@ -29,10 +29,13 @@ Pioneer uses JSON-RPC 2.0 over WebSocket. Requests have a method name from `pion
 | Threads | `thread/start`, `thread/get`, `thread/history`, `thread/tree`, folder operations |
 | Turns | `turn/start`, `turn/cancel`, `turn/get`, `turn/items`, `turn/timeline` |
 | Providers | `provider/list`, `provider/models/list`, `provider/set_api_key`, `provider/delete_api_key` |
+| Settings | `settings/get`, `settings/update` |
 | Skills | `skills/list`, `skills/install`, `skills/update`, `skills/uninstall`, `skills/health`, upload and policy methods |
 | Memory | `memory/search`, `memory/get`, `memory/remember`, `memory/forget`, candidate review methods |
 | MCP | `mcp/list`, `mcp/install`, `mcp/policy/set`, `mcp/server/restart`, `mcp/uninstall`, `mcp/server/details` |
 | Tasks | `task/create`, `task/get`, `task/list`, `task/tree`, `task/events`, `task/wait`, `task/cancel`, `task/reschedule`, `task/detach`, `task/pause`, `task/resume`, `task/agenda`, `task/deliveries` |
+
+`crates/protocol` also exports `TaskUpdateParams`, `TaskUpdateResponse`, and the `task/update` method constant for task update contracts used by the task service and model-facing `task_update` tool. The gateway JSON-RPC dispatcher does not currently route `task/update` as a client method.
 
 ## Notification Groups
 

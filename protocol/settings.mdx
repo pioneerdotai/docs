@@ -1,0 +1,141 @@
+---
+title: "Settings API"
+description: "Gateway-scoped settings read and update methods for general and memory behavior."
+---
+
+Settings methods expose the gateway-owned runtime settings that clients can read and update over JSON-RPC. These settings are gateway-scoped, not workspace-scoped. Provider API keys, MCP secrets, skills, tasks, and artifacts remain separate workspace-owned surfaces.
+
+The gateway loads settings from its runtime settings file, overlays app config defaults, and returns the effective snapshot. Updates are persisted to the same gateway settings file. Memory updates also rebuild the memory hook runtime so active recall and background extraction reflect the new values without restarting the gateway.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+|---|---|---|---|
+| `settings/get` | `GatewaySettingsGetParams` | `GatewaySettingsGetResponse` | Return the effective gateway settings snapshot. |
+| `settings/update` | `GatewaySettingsUpdateParams` | `GatewaySettingsUpdateResponse` | Persist gateway settings overrides and return the new effective snapshot. |
+
+## Snapshot Shape
+
+The response contains a `settings` object with `general` and `memory` sections.
+
+| Section | Fields |
+|---|---|
+| `general` | `keepawake`, `preflight_model` |
+| `memory` | `enabled`, `deterministic_recall_enabled`, `active_recall_enabled`, `tools_enabled`, `proactive_writes_enabled`, `background_extraction_enabled`, `proactive_writes_model`, `debug_trace_enabled`, `strict_diagnostics_enabled` |
+
+Model selection objects use:
+
+| Field | Meaning |
+|---|---|
+| `source` | `thread` to inherit the thread model, or `custom` to use an explicit provider and model. |
+| `model_provider` | Required for effective custom model overrides. |
+| `model` | Required for effective custom model overrides. |
+
+## Reading Settings
+
+`settings/get` accepts an empty params object.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "settings/get",
+  "params": {}
+}
+```
+
+Response:
+
+```json
+{
+  "settings": {
+    "general": {
+      "keepawake": false,
+      "preflight_model": {
+        "source": "thread"
+      }
+    },
+    "memory": {
+      "enabled": true,
+      "deterministic_recall_enabled": true,
+      "active_recall_enabled": true,
+      "tools_enabled": true,
+      "proactive_writes_enabled": true,
+      "background_extraction_enabled": true,
+      "proactive_writes_model": {
+        "source": "thread"
+      },
+      "debug_trace_enabled": false,
+      "strict_diagnostics_enabled": false
+    }
+  }
+}
+```
+
+## Updating Settings
+
+`settings/update` takes an `update` object. `general` is a patch: omitted fields keep their current effective value. `memory` is a complete memory settings object when present.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "settings/update",
+  "params": {
+    "update": {
+      "general": {
+        "keepawake": true,
+        "preflight_model": {
+          "source": "custom",
+          "model_provider": "openai",
+          "model": "gpt-5.1"
+        }
+      }
+    }
+  }
+}
+```
+
+To update memory settings, send the full `memory` section:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "settings/update",
+  "params": {
+    "update": {
+      "memory": {
+        "enabled": true,
+        "deterministic_recall_enabled": true,
+        "active_recall_enabled": false,
+        "tools_enabled": true,
+        "proactive_writes_enabled": false,
+        "background_extraction_enabled": true,
+        "proactive_writes_model": {
+          "source": "thread"
+        },
+        "debug_trace_enabled": false,
+        "strict_diagnostics_enabled": false
+      }
+    }
+  }
+}
+```
+
+The response shape is the same as `settings/get` and contains the new effective snapshot.
+
+## Schemas
+
+Generated schemas include:
+
+- `/schemas/gateway_settings_get_params.json`
+- `/schemas/gateway_settings_get_response.json`
+- `/schemas/gateway_settings_update_params.json`
+- `/schemas/gateway_settings_update_response.json`
+- `/schemas/gateway_settings_snapshot.json`
+- `/schemas/gateway_general_settings.json`
+- `/schemas/gateway_general_settings_update.json`
+- `/schemas/gateway_memory_settings.json`
+- `/schemas/gateway_memory_model_selection.json`
+- `/schemas/gateway_memory_model_selection_source.json`

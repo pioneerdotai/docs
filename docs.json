@@ -125,6 +125,7 @@
               "protocol/tasks",
               "protocol/artifacts",
               "protocol/providers",
+              "protocol/settings",
               "protocol/skills",
               "protocol/memory",
               "protocol/mcp"
