@@ -124,7 +124,7 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 
   <Accordion title="Recalling and writing memory">
-    Memory hooks classify the turn, recall relevant durable facts, expose memory tools when policy allows, render the memory prompt contract, and run post-turn extraction after successful turns. The memory service owns scopes, ranking, canonical keys, dedupe, candidate scoring, tombstones, and memvid-backed storage.
+    Memory hooks classify the turn, recall relevant durable facts, register memory tools when policy allows, render the memory prompt contract, and run post-turn extraction after successful turns. Preflight or `request_tools` decides which registered memory tools are visible to the model. The memory service owns scopes, ranking, canonical keys, dedupe, candidate scoring, tombstones, and memvid-backed storage.
   </Accordion>
 
   <Accordion title="Loading MCP and skills">
@@ -144,7 +144,7 @@ For details, read [Persistence Layer](/architecture/persistence) after this over
 
 ## Current Important Limitations
 
-Pioneer is early-stage software. Some protocol and storage shapes are ahead of the desktop UI. For example, the protocol and database model support workspaces, but the current desktop flow creates one default workspace automatically and does not yet expose full workspace creation and switching.
+Pioneer is early-stage software. Some protocol and storage shapes are still ahead of the desktop UI. Workspace creation, switching, and renaming are exposed, but workspace deletion, archival, and cross-workspace thread moves are not part of the current desktop workflow.
 
 Tool runs are not sandboxed yet. Built-in tools and dynamic tools currently execute with the privileges of the OS user running the gateway. This is an architectural fact developers must keep in mind when working on tools, MCP, skills, and remote gateway deployment.
 

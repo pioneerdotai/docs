@@ -68,7 +68,7 @@ Clients use the Tasks API for two different experiences: user-facing automation 
         "includeArtifacts": true
       },
       "toolPolicy": {
-        "allowedTools": ["grep", "file_read"],
+        "allowedTools": ["grep_files", "read_file"],
         "deniedTools": [],
         "writeMode": "read_only",
         "allowedPaths": ["/Users/alexander/Code/pioneer"],
@@ -209,7 +209,7 @@ Subagents are represented by `agentSpec`. They are not just a UI affordance; the
 
 Context policy modes are `inherit_parent`, `last_n_turns`, `summary_only`, `empty`, and `custom`. Write modes are `read_only`, `workspace_write`, `scoped_write`, and `full_access`. Result formats are `text`, `markdown`, `json`, and `artifact`.
 
-When a task creates a child thread, task events include child thread lineage. Clients can then show the subagent's work in the parent task tree and can load the child conversation through [Threads API](/protocol/threads) and [Turns API](/protocol/turns).
+When a task creates a child thread, task events include child thread lineage. The child thread is hidden from the normal sidebar, but clients can show the subagent's work in the parent task tree and can load the child conversation through [Threads API](/protocol/threads) and [Turns API](/protocol/turns).
 
 ## Policies
 

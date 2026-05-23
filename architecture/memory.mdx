@@ -15,8 +15,9 @@ The user-facing behavior is: Pioneer can remember stable facts, recall them when
 | Memory service | `crates/memory` | Recall, ranking, semantic write pipeline, candidate policy, tombstones, memvid integration. |
 | Control plane | `crates/crud` and `gateway.db` | Memory records, candidates, policy decisions, scopes, provenance, repair jobs. |
 | Capsule backend | `memvid-core` through `MemvidMemoryBackend` | Searchable payload storage split by scope capsules. |
-| Gateway runtime | `crates/gateway/src/memory_runtime.rs` | Enables/disables memory, resolves runtime config, wires service and operation context. |
-| Agent hooks | `crates/agent/src/memory.rs` | Memory policy, recall, tool materialization, prompt contract, post-turn extraction. |
+| Gateway runtime | `crates/gateway/src/memory_runtime.rs` and `crates/gateway/src/lib.rs` | Enables/disables memory, resolves runtime config, wires service, hook package config, and operation context. |
+| Memory hooks | `crates/memory/src/hooks` | Memory policy, deterministic recall, active recall, tool materialization, prompt contract, and post-turn extraction. |
+| Agent hook bridge | `crates/agent/src/hooks.rs` and `crates/agent/src/chat/mod.rs` | Dispatches lifecycle phases and consumes typed contributions without owning memory-domain rules. |
 | Prompt contracts | `crates/promt` | Memory recall prompt and post-turn extractor prompt. |
 
 ## Storage Model
@@ -61,9 +62,52 @@ enabled = true
 capsules_dir = "memory/capsules"
 allow_global_user_by_default = true
 allow_global_agent_by_default = false
+deterministic_recall_enabled = true
+active_recall_enabled = true
+tools_enabled = true
+proactive_writes_enabled = true
+background_extraction_enabled = true
+debug_trace_enabled = false
+strict_diagnostics_enabled = false
 ```
 
 The capsule directory is resolved under runtime home. Absolute paths, empty paths, `..`, and unsafe runtime escapes are rejected.
+
+## Configuration Flow
+
+Configuration flows through typed boundaries:
+
+```mermaid
+flowchart TD
+  Config["gateway.memory\ncrates/config/src/lib.rs"]
+  Desktop["desktop-settings.toml\ncrates/desktop/src/settings.rs"]
+  Gateway["Gateway startup\ncrates/gateway/src/lib.rs"]
+  Preflight["Turn preflight\ncrates/agent/src/chat/preflight.rs"]
+  Loop["MemoryLoopConfig\ncrates/memory/src/hooks/config.rs"]
+  Package["memory_hook_package\ncrates/memory/src/hooks/package.rs"]
+  Hooks["Memory hooks\ncrates/memory/src/hooks/handlers"]
+  Service["MemoryRuntime / MemoryService\ncrates/gateway/src/memory_runtime.rs\ncrates/memory/src/service.rs"]
+
+  Config --> Gateway
+  Desktop --> Gateway
+  Gateway --> Loop
+  Gateway --> Preflight
+  Loop --> Package
+  Package --> Hooks
+  Gateway --> Service
+```
+
+The desktop settings are a product control surface for the same memory switches. They should not create a second memory policy language. If a setting is exposed to users, it must map to a real gateway/hook behavior or stay hidden.
+
+The hook package is the boundary where product switches decide which hooks are registered:
+
+- deterministic recall: `HookPhase::TurnPrePromptContext`;
+- active recall: `HookPhase::TurnPostPreflightPromptContext`;
+- tool bundle: `HookPhase::TurnPreToolMaterialization`;
+- prompt contract: `HookPhase::TurnPrePromptCompile`;
+- post-turn extraction: `HookPhase::TurnPostTurn`.
+
+The agent loop should dispatch lifecycle phases and consume typed contributions. The narrow preflight bridge can pass memory-owned active recall input and fallback state through preflight, but memory rules still live in memory hooks and `MemoryService`.
 
 ## Recall Flow
 
@@ -79,10 +123,13 @@ sequenceDiagram
   Hooks-->>Agent: memory turn policy
   Agent->>Hooks: turn.pre_prompt_context
   Hooks->>Memory: deterministic recall
-  Hooks->>Memory: active recall if useful
   Hooks-->>Agent: prompt context contributions
   Agent->>Hooks: turn.pre_tool_materialization
   Hooks-->>Agent: memory tool bundle if policy allows
+  Agent->>Model: internal preflight JSON request
+  Model-->>Agent: tools.visibleTools + memory.activeRecall
+  Agent->>Hooks: turn.post_preflight_prompt_context
+  Hooks->>Memory: active recall from preflight plan or memory fallback
   Agent->>Hooks: turn.pre_prompt_compile
   Hooks->>Prompt: render Memory Recall section
   Agent->>Model: prompt + messages + tools
@@ -100,12 +147,13 @@ In agent mode, memory can expose:
 
 | Tool | Purpose |
 | --- | --- |
-| `memory_search` | Search durable memory in active scopes. |
-| `memory_get` | Fetch exact details by memory id or scoped key. |
+| `memory_search` | Search durable memory in active scopes and return compact hits with snippets and ids. |
+| `memory_list` | List durable memory inventory in active scopes without semantic search. |
+| `memory_get` | Fetch the exact full record by memory id or scoped key. |
 | `memory_remember` | Store durable memory when policy allows. |
 | `memory_forget` | Tombstone/suppress memory by id or scoped key. |
 
-Tool exposure is controlled by the memory policy hook and tool-bundle hook. Chat mode does not expose memory tools.
+The memory tool bundle registers these tools, but agent turn visibility is still lazy. Preflight may reveal concrete memory tools for the first main model round; later in the same turn the model can call `request_tools` with the `memory` domain to reveal all registered memory tools. Chat mode keeps memory-domain tools unavailable.
 
 ## Semantic Write Pipeline
 
@@ -170,8 +218,29 @@ Memory behavior is observable through several layers:
 - hook-run persistence records hook lifecycle, latency, failures, timeouts, and safe diagnostics;
 - memory policy decisions and candidate policy outputs are stored in the control plane;
 - memory notifications tell clients when active memory changes or is forgotten.
+- memory debug APIs summarize recall diagnostics, hook runs, candidate decisions, and missing data without exposing raw secrets.
 
 Diagnostics must avoid raw secrets, long transcripts, or raw provider output.
+
+## Troubleshooting
+
+When memory was not saved:
+
+1. Check `gateway.memory.enabled` and `gateway.memory.proactive_writes_enabled`.
+2. Check the desktop Memory settings if the desktop is the control surface.
+3. Inspect the `TurnPostTurn` hook run for timeout, failure, or skipped status.
+4. Inspect post-turn extraction diagnostics. Provider failures should not block the user turn.
+5. Inspect candidate policy output. Low-quality, transient, sensitive, duplicate, contradictory, thread/task-owned, or review-disabled middle-confidence facts may be rejected or suppressed.
+6. Confirm the source turn succeeded. Failed, interrupted, provider-failed, system-only, tool-only, and task-runtime-owned sources are not ordinary durable-memory writes.
+
+When memory was not recalled:
+
+1. Check `gateway.memory.enabled`, `gateway.memory.deterministic_recall_enabled`, and `gateway.memory.active_recall_enabled`.
+2. Confirm the record is active, in scope, not expired, not deleted, not superseded, and not blocked by sensitivity policy.
+3. Check whether the turn had a workspace id. Workspace-scoped memory should not leak into unrelated workspaces.
+4. Inspect `TurnPrePromptContext` and `TurnPostPreflightPromptContext` hook runs, plus preflight diagnostics.
+5. Confirm the prompt section was rendered by `MemoryPromptContractHook`.
+6. If the expected context lives only in raw thread history, it will not be recalled until the episodic/thread transcript system exists.
 
 ## Safety Invariants
 
@@ -184,10 +253,13 @@ Keep these invariants when changing memory:
 - No-save/no-memory policies must disable inferred writes.
 - Prompt context is context, not an instruction that overrides the user.
 - Sensitive and secret-like facts must not leak through diagnostics.
+- The classifier is advisory, not authority. Fallbacks must not disable memory by default.
+- The quality gate owns write safety.
+- Hook runtime carries lifecycle phases and typed contributions; domain logic belongs in memory hooks and service code.
 
 ## Related Pages
 
-- [Agent Memory](/memory/overview) explains the user-facing behavior.
+- [Desktop Memory](/desktop/memory) explains the user-facing behavior.
 - [Hook Runtime](/architecture/hooks) explains lifecycle phases and typed contributions.
 - [Prompt And Context](/architecture/prompt) explains memory prompt injection.
 - [Memory Protocol](/protocol/memory) documents JSON-RPC methods and notifications.

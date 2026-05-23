@@ -3,7 +3,7 @@ title: "Workspace & Threads API"
 description: "JSON-RPC methods for workspace lookup, thread lifecycle, folders, thread history, and thread notifications."
 ---
 
-Workspaces group threads, skills, MCP policy, tasks, and settings. The protocol already exposes workspace methods, but the current desktop app creates one default workspace automatically and does not yet expose full workspace switching.
+Workspaces group threads, provider configuration, skills, MCP policy, tasks, artifacts, and settings. Clients can list workspaces, create new ones, select the active workspace for a connection, persist the current workspace, and rename existing workspaces.
 
 Threads are the primary conversation container. A thread has a workspace, mode (`Chat` or `Agent`), model, model provider, optional name, sidebar visibility, and turn history.
 
@@ -14,10 +14,50 @@ Threads are the primary conversation container. A thread has a workspace, mode (
 | `workspace/list` | `WorkspaceListParams` | `WorkspaceListResponse` | Return known workspaces. |
 | `workspace/default` | `WorkspaceDefaultParams` | `WorkspaceDefaultResponse` | Return or create the default workspace. |
 | `workspace/create` | `WorkspaceCreateParams` | `WorkspaceCreateResponse` | Create a workspace by caller-provided `workspace_id`. |
+| `workspace/select` | `WorkspaceSelectParams` | `WorkspaceSelectResponse` | Select a workspace for the current connection and optionally make it current. |
+| `workspace/update` | `WorkspaceUpdateParams` | `WorkspaceUpdateResponse` | Update workspace metadata such as the display name. |
+
+## Workspace Shape
+
+| Field | Meaning |
+|---|---|
+| `id` | Stable workspace id. |
+| `name` | Display name. |
+| `is_active` | Whether the workspace can be selected. |
+| `is_current` | Whether the workspace is the persisted current workspace for the gateway. |
+| `created_at`, `updated_at` | Unix timestamps. |
+
+## Listing Workspaces
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "workspace/list",
+  "params": {}
+}
+```
+
+Response:
+
+```json
+{
+  "workspaces": [
+    {
+      "id": "ws_000000000000000001",
+      "name": "Default Workspace",
+      "is_active": true,
+      "is_current": true,
+      "created_at": 1760000000,
+      "updated_at": 1760000000
+    }
+  ]
+}
+```
 
 ### `workspace/default`
 
-Use this first when a client needs a workspace id.
+Use this when a client needs a workspace id and wants the gateway to ensure the default workspace exists.
 
 ```json
 {
@@ -43,6 +83,76 @@ Response:
 }
 ```
 
+## Creating A Workspace
+
+The client generates the `workspace_id`. `name` is optional; if omitted, the gateway assigns a default display name. Set `make_current` when the new workspace should become the persisted current workspace.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "method": "workspace/create",
+  "params": {
+    "workspace_id": "ws_000000000000000002",
+    "name": "Client A",
+    "make_current": true
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "workspace": {
+    "id": "ws_000000000000000002",
+    "name": "Client A",
+    "is_active": true,
+    "is_current": true,
+    "created_at": 1760000100,
+    "updated_at": 1760000100
+  }
+}
+```
+
+## Selecting A Workspace
+
+`workspace/select` associates the current WebSocket connection with a workspace. Set `make_current` when the selection should also be persisted as the gateway's current workspace.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ccccccccccccccccccccc",
+  "method": "workspace/select",
+  "params": {
+    "workspace_id": "ws_000000000000000002",
+    "make_current": true
+  }
+}
+```
+
+After selecting a workspace, clients should reload workspace-scoped views such as the thread tree, providers, MCP servers, skills, tasks, and artifacts.
+
+## Updating A Workspace
+
+Use `workspace/update` to rename a workspace.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "workspace/update",
+  "params": {
+    "workspace_id": "ws_000000000000000002",
+    "name": "Client A Research"
+  }
+}
+```
+
+## Workspace Notifications
+
+The gateway sends `workspace/changed` when a workspace is created, updated, or when the current workspace changes. The notification payload has `kind` (`created`, `updated`, or `current_changed`) and `workspace`.
+
 ## Thread Methods
 
 | Method | Params | Result | Purpose |
@@ -62,7 +172,7 @@ Response:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "bbbbbbbbbbbbbbbbbbbbb",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
   "method": "thread/start",
   "params": {
     "thread_id": "thr_000000000000000001",

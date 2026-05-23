@@ -20,11 +20,11 @@ A local MCP server might expose developer tools on your machine. A remote MCP se
 
 The practical question is simple: should this capability belong to the gateway and be available across threads or tasks? If yes, MCP is probably a better fit than pasting instructions into one thread.
 
-## Gateway And Workspace Scope
+## Workspace Scope
 
-MCP connections belong to a gateway and become available through the current workspace.
+MCP connections are installed for the current workspace on the gateway.
 
-This keeps environments clean. A work gateway can connect to work systems. A home gateway can connect to personal tools. A sandbox gateway can test new MCP servers before they touch anything important.
+This keeps environments clean. A work workspace can connect to work systems. A personal workspace can connect to personal tools. A sandbox workspace can test new MCP servers before they touch anything important. Use a separate gateway when the MCP server must run on a different machine or security boundary.
 
 MCP secrets are scoped the same way. Redacted install data and secret refs live in the gateway database, while actual secret values from `env` and `headers` live in that gateway's keystore.
 

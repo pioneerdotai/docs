@@ -8,7 +8,7 @@ Pioneer needs a model provider before it can answer in threads or run model-back
 
 Provider setup is intentionally the same shape everywhere. Connect the desktop app to the gateway you want to configure, click the providers icon in the bottom bar to open **Providers**, choose the provider type, enter the required credential or endpoint details, save, and select a model in a thread.
 
-The important detail is where the provider is saved. Provider configuration belongs to the gateway, not to the desktop app. Secret API keys and tokens are stored in that gateway's `keystore.db`. If you configure a provider on `Local` and then switch to `Work Gateway`, the work gateway needs its own provider configuration and credentials.
+The important detail is where the provider is saved. Provider configuration belongs to the current workspace on the gateway, not to the desktop app. Secret API keys and tokens are stored in that gateway's `keystore.db` under workspace-scoped secret ids. If you configure a provider in `Default Workspace` and then switch to `Client A`, `Client A` needs its own provider configuration and credentials. If you switch to another gateway, configure providers there too.
 
 <Note>
   Provider requests are made by the gateway host. A remote gateway needs network access to the provider even if your desktop computer already has access.
@@ -19,8 +19,8 @@ The important detail is where the provider is saved. Provider configuration belo
 Use this flow for any supported provider:
 
 <Steps>
-  <Step title="Choose the gateway">
-    Connect the desktop app to the gateway that should own this provider configuration.
+  <Step title="Choose the gateway and workspace">
+    Connect the desktop app to the gateway and switch to the workspace that should own this provider configuration.
   </Step>
   <Step title="Open Providers">
     Click the providers icon in the bottom bar to open **Providers**.
@@ -28,8 +28,8 @@ Use this flow for any supported provider:
   <Step title="Add the provider">
     Choose the provider type and enter the required key, endpoint, region, deployment, or local runtime address.
   </Step>
-  <Step title="Save on the gateway">
-    Save the provider configuration and confirm it appears for the current gateway.
+  <Step title="Save in the workspace">
+    Save the provider configuration and confirm it appears for the current workspace.
   </Step>
   <Step title="Test with a thread">
     Create a thread, select the provider and model, and send a short test message.
@@ -59,7 +59,7 @@ Do not assume every model behaves the same way. Before using a model for tool-he
 
 <AccordionGroup>
   <Accordion title="The provider does not appear in a thread">
-    Make sure you configured it on the same gateway you are currently using.
+    Make sure you configured it in the same workspace and gateway you are currently using.
   </Accordion>
   <Accordion title="Model listing fails">
     Try entering a model ID manually. Some providers do not expose model listing in a way Pioneer can use.

@@ -77,6 +77,7 @@ The compiler builds ordered sections:
 | Tool Recovery Policy | Stable | Built-in policy when enabled. |
 | Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
 | Memory Recall | Dynamic | Memory prompt contract rendered from hook prompt context when memory policy allows it. |
+| Hidden Tool Domains | Dynamic | Compact `request_tools` catalog listing hidden domain names and exact tools when tool calling is enabled. |
 | AGENTS.md | Dynamic | Effective thread-tree AGENTS.md rendered by the AGENTS.md prompt hook when an active file exists. |
 | Recovery Continuation | Dynamic | Built-in continuation hint when requested. |
 | Skills Runtime | Dynamic | Active skills prompt for the turn. |
@@ -133,7 +134,7 @@ Memory prompt content is contributed through hooks, not hard-coded in the compil
 
 - classify the turn memory policy;
 - recall deterministic and active memory context;
-- expose memory tools when policy allows them;
+- register memory tools when policy allows them; visibility is selected separately by preflight or `request_tools`;
 - render the `Memory Recall` section before prompt compilation.
 
 The rendered memory section tells the model how to use memory proactively, when to search, when to write, when to forget, and what not to store. Recalled facts are marked as context rather than instructions. Current user instructions override recalled memories.
@@ -151,6 +152,8 @@ If no active file exists in the thread's folder ancestry, the hook contributes n
 Tool definitions are not embedded as prompt prose. The agent passes model-visible tool definitions in `ChatRequest.tools`. The prompt can explain recovery or task orchestration policy, but the callable JSON schema for tools goes through the provider tool-calling interface.
 
 This distinction prevents two common bugs. First, a tool should not become callable just because its name appears in prompt text. Second, removing a tool from the model-visible tool list should actually remove the capability, not merely change an instruction sentence. Tool availability is enforced by the tool router described in [Tools System](/architecture/tools).
+
+The `Hidden Tool Domains` prompt section is only a compact catalog for `request_tools`. It lists domains such as `memory`, `task`, `artifact`, and `computer_use` with their exact tool names so the model knows which domain to request if a needed hidden tool is not currently visible. It does not include JSON schemas and does not make those tools callable by itself.
 
 ## Prompt Manifest
 

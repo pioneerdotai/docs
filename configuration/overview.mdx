@@ -89,13 +89,13 @@ On startup, the gateway creates missing `SOUL.md` and `IDENTITY.md` files in run
 
 ## Provider credentials
 
-Provider keys are stored in the gateway keystore.
+Provider keys are stored in the gateway keystore and scoped to a workspace.
 
 This means:
 
-- each gateway has its own provider credentials
+- each workspace has its own provider credentials
 - remote gateways need their own provider setup
-- switching gateways also switches provider settings
+- switching workspace or gateway also switches provider settings
 
 Operational details for `keystore.db` are covered in [Secret Storage](/architecture/secrets).
 

@@ -1,31 +1,33 @@
 ---
 title: "Providers API"
-description: "Listing providers, listing provider models, and managing API keys through the gateway."
+description: "Listing workspace providers, listing provider models, and managing workspace-scoped API keys through the gateway."
 ---
 
-Provider methods are deliberately small. The gateway owns provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. A desktop app, CLI, mobile app, or custom client should not talk directly to every model provider just to build a model picker.
+Provider methods are deliberately small. The gateway owns provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. Provider configuration is workspace-scoped: every provider method takes `workspace_id`, and API keys are stored under workspace-specific secret ids. A desktop app, CLI, mobile app, or custom client should not talk directly to every model provider just to build a model picker.
 
-Use these methods when a client needs to show available providers, fetch their model catalogs, or update the API key used by the gateway.
+Use these methods when a client needs to show available providers for a workspace, fetch model catalogs, or update the API key used by that workspace.
 
 ## Methods
 
 | Method | Params | Result | Purpose |
 |---|---|---|---|
-| `provider/list` | `ProviderListParams` | `ProviderListResponse` | Return configured provider adapters. |
-| `provider/models/list` | `ProviderListModelsParams` | `ProviderListModelsResponse` | Return models known for one provider. |
-| `provider/set_api_key` | `ProviderSetApiKeyParams` | `ProviderSetApiKeyResponse` | Store or replace a provider API key. |
-| `provider/delete_api_key` | `ProviderDeleteApiKeyParams` | `ProviderDeleteApiKeyResponse` | Remove a provider API key. |
+| `provider/list` | `ProviderListParams` | `ProviderListResponse` | Return configured provider adapters for a workspace. |
+| `provider/models/list` | `ProviderListModelsParams` | `ProviderListModelsResponse` | Return models known for one provider in a workspace. |
+| `provider/set_api_key` | `ProviderSetApiKeyParams` | `ProviderSetApiKeyResponse` | Store or replace a workspace provider API key. |
+| `provider/delete_api_key` | `ProviderDeleteApiKeyParams` | `ProviderDeleteApiKeyResponse` | Remove a workspace provider API key. |
 
 ## Listing Providers
 
-`provider/list` does not require a workspace id. Provider configuration belongs to the gateway, so the same provider setup can be used by every workspace on that gateway.
+`provider/list` requires the workspace id because provider configuration belongs to a workspace on the gateway.
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": "aaaaaaaaaaaaaaaaaaaaa",
   "method": "provider/list",
-  "params": {}
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
 }
 ```
 
@@ -54,6 +56,7 @@ Use `provider/models/list` after the user selects a provider. The gateway return
   "id": "bbbbbbbbbbbbbbbbbbbbb",
   "method": "provider/models/list",
   "params": {
+    "workspace_id": "ws_000000000000000001",
     "provider": "openai"
   }
 }
@@ -121,7 +124,7 @@ The important client rule is simple: choose by `id`, display by `name` when pres
 
 ## Setting An API Key
 
-API keys are stored in the gateway keystore. If the desktop app connects to a remote gateway, the key is stored on that remote gateway, not in the desktop process.
+API keys are stored in the gateway keystore under the workspace id and provider name. If the desktop app connects to a remote gateway, the key is stored on that remote gateway, not in the desktop process.
 
 ```json
 {
@@ -129,6 +132,7 @@ API keys are stored in the gateway keystore. If the desktop app connects to a re
   "id": "ccccccccccccccccccccc",
   "method": "provider/set_api_key",
   "params": {
+    "workspace_id": "ws_000000000000000001",
     "provider": "anthropic",
     "api_key": "sk-ant-..."
   }
@@ -154,6 +158,7 @@ After updating a key, clients usually refresh `provider/models/list` for that pr
   "id": "ddddddddddddddddddddd",
   "method": "provider/delete_api_key",
   "params": {
+    "workspace_id": "ws_000000000000000001",
     "provider": "anthropic"
   }
 }
@@ -168,10 +173,10 @@ Response:
 }
 ```
 
-Deleting a key does not delete threads or turns that already used that provider. It only affects future provider calls and model discovery.
+Deleting a key does not delete threads or turns that already used that provider. It only affects future provider calls and model discovery in that workspace.
 
 ## Client Behavior
 
-Provider setup is gateway-local. A client connected to three gateways should show provider status for the selected gateway, because each gateway may have different keys, local Ollama availability, and provider access.
+Provider setup is workspace-local inside a gateway. A client connected to three gateways should show provider status for the selected workspace on the selected gateway, because each workspace may have different keys and each gateway may have different local runtime availability and network access.
 
 For thread creation and turn execution, pass the selected provider id through `model_provider` and the selected model id through `model`. See [Threads API](/protocol/threads) and [Turns API](/protocol/turns).

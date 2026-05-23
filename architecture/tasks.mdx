@@ -55,15 +55,17 @@ Subagents are task-backed child turns. When a task has `TaskAgentSpec`, `TaskAge
 
 Context policy controls what the child receives from the parent: empty context, custom context, recent parent context, summary-style context, or inherited context depending on the spec. The child result is reconciled back to the parent task when the child turn completes, fails, or is interrupted.
 
-Lineage is stored through `ThreadLineage`, so parent task trees can show where child work happened and recover it after a restart.
+Lineage is stored through `ThreadLineage`, including child thread id, child turn id, parent thread/turn, task id, task run id, root thread id, depth, and creation time. Hidden child threads use `ThreadSidebarVisibility::Hidden`, so they do not become normal sidebar conversations while still being loadable through lineage and task trees.
 
 This is why subagents are not just "spawn another chat." They are task runs with durable lineage. The child thread gives the agent a normal execution environment, while the task run gives the parent system progress, retries, cancellation, and result reconciliation.
 
 ## Task Tools In The Agent Loop
 
-When task orchestration is available, the agent materializes task tools into the normal tool router. The prompt compiler also includes the task orchestration policy. The model can create attached tasks, wait for task sets, cancel tasks, detach tasks, and observe results.
+When task orchestration is available, the agent materializes task tools into the normal tool router. The task domain is lazy-visible: preflight may reveal concrete task tools before the first main round, or the model can call `request_tools` with the `task` domain to reveal them for the next round. The prompt compiler includes the task orchestration policy when task tools are materialized. The model can create attached tasks, wait for task sets, cancel tasks, detach tasks, and observe results.
 
 The parent turn is not allowed to silently finish while attached tasks created by that turn are still active. The agent loop injects a system observation telling the model to call exactly one of wait, cancel, or detach.
+
+Child agent turns run through the same agent loop as foreground agent turns, including turn preflight before the child main provider request. They receive a task runtime hook context so memory policy and post-turn extraction can distinguish task-owned context from ordinary user-thread context.
 
 ## Retries, Locks, And Deliveries
 

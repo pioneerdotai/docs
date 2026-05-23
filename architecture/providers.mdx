@@ -34,7 +34,9 @@ The agent chooses streaming when `capabilities().streaming` is true and the turn
 
 ## Provider Registry
 
-The gateway creates a `ProviderRegistry` with a key resolver backed by `GatewaySecrets` and `pioneer-keystore`. The registry lazily creates provider instances and caches them by provider name. When a provider key changes, the gateway invalidates the cached provider so the next turn uses fresh credentials.
+The gateway creates a `ProviderRegistry` with a workspace-aware key resolver backed by `GatewaySecrets` and `pioneer-keystore`. The registry lazily creates provider instances and caches them by workspace id plus provider name. When a provider key changes, the gateway invalidates cached instances for that provider so the next turn uses fresh credentials.
+
+Provider API keys are workspace-scoped. The same gateway can have one OpenAI key in a work workspace and another OpenAI key in a personal workspace. Raw key values still live in the gateway keystore; the workspace id is part of the secret id.
 
 Provider construction is centralized in `create_provider`. That function maps provider aliases to concrete adapters. It also includes a large set of OpenAI-compatible endpoints where the only difference is base URL and auth style.
 

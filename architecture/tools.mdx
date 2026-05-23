@@ -32,7 +32,30 @@ At the same time, Pioneer needs consistent behavior after execution: timeline ev
 
 ## Built-In Tools
 
-The built-ins include shell command sessions, file reads, directory listing, grep, patch application, web search, web fetch, URL downloads, computer use, tool discovery, and tool suggestion.
+The core built-ins are intentionally small and always eligible for agent turns when tool calling is available:
+
+- `exec_command`
+- `write_stdin`
+- `read_file`
+- `list_dir`
+- `grep_files`
+- `apply_patch`
+- `web_search`
+- `web_fetch`
+- `download_url`
+- `read_skill`
+- `request_tools`
+
+Large domain tools are registered in the same router but hidden until turn preflight or an explicit `request_tools` call makes them visible.
+
+| Domain | Tools |
+| --- | --- |
+| `memory` | `memory_search`, `memory_list`, `memory_get`, `memory_remember`, `memory_forget` |
+| `task` | `task_create`, `task_wait`, `task_cancel`, `task_update`, `task_detach`, `task_list`, `task_get`, `task_reschedule`, `task_pause`, `task_resume` |
+| `artifact` | `artifact_prepare`, `artifact_register` |
+| `computer_use` | `computer_use` |
+
+Artifact tools are lazy-domain tools. `artifact_prepare` gives the model a safe turn-scoped staging path for a user-visible output file. `artifact_register` imports a completed regular file into the workspace artifact store and binds it to the current turn. Tool authors should not invent filesystem scanning or tool-specific discovery paths; all agent-created user results use this explicit registration contract.
 
 Shell execution uses unified sessions. `exec_command` can start a process and return either final output or a session id. `write_stdin` can continue an existing session. Active sessions are bounded and buffered so long-running commands do not grow memory without limit.
 
@@ -40,7 +63,24 @@ Filesystem tools are intentionally direct: read files, list directories, search 
 
 Web tools are optional at runtime and controlled by gateway configuration. They can search, fetch, and download with limits.
 
-Computer use tools use native automation/screenshot dependencies where available. They are part of the same tool router, not a special client-side channel.
+Computer use uses native automation/screenshot dependencies where available. It is part of the same tool router, not a special client-side channel, but the `computer_use` schema is hidden until preflight or `request_tools` reveals the `computer_use` domain.
+
+## Lazy Visibility
+
+The router stores all specs for a turn, but the model only receives the currently visible subset.
+
+Turn preflight is the first visibility selector. It receives a compact `PreflightToolIndex`: `coreTools` plus concrete hidden-domain `candidateTools` with name, domain, short summary, and mutation flag. It does not receive full JSON schemas. The preflight output `tools.visibleTools` must be exact tool names from `candidateTools`, never domain names.
+
+`request_tools` is the in-turn expansion path. Its schema accepts:
+
+```json
+{
+  "domains": ["task", "artifact"],
+  "reason": "Need to delegate work and register generated files."
+}
+```
+
+`domains` is an enum: `memory`, `task`, `artifact`, or `computer_use`. The handler expands each requested domain to every registered and available tool in that domain, reports already-visible and unavailable tools, and returns a compact result without embedding hidden schemas. The agent loop applies the result before the next provider round and keeps visibility monotonic for the rest of the turn.
 
 ## Dynamic Tools
 
@@ -53,6 +93,8 @@ Skill tools are declared by installed skills and validated by the skills runtime
 Task tools are injected when task orchestration is available. They let an agent create attached tasks, wait for them, cancel them, detach them, and observe terminal child task results.
 
 The important architectural choice is that dynamic tools do not bypass the router. They are added to the same runtime, use the same output projection path, and emit the same kind of tool events. This is what lets the agent loop treat a built-in shell command, an MCP call, and a skill-provided function as variations of the same execution contract.
+
+Dynamic extension tools that are not in the built-in domain map are independent of preflight domain selection and `request_tools`. If an MCP server or skill contributes a turn-specific tool, the final visibility pass keeps it available as a dynamic extension when it is registered and has a handler.
 
 ## Output Projection
 

@@ -37,9 +37,11 @@ On a local gateway, this usually feels like a normal local file attachment. On a
 
 ## Agent-Created Files
 
-When an agent creates a file in the workspace, Pioneer can capture it as an artifact. Captured files are linked back to the turn and appear in the artifacts panel. Tool outputs such as downloads, generated images, screenshots, task results, and new workspace files can also become artifacts depending on gateway capture settings.
+When an agent creates a file as a result for you, it must register that file with the artifact store before the final response. Registered files are linked back to the turn and appear in the artifacts panel.
 
-Artifact capture is scoped to the workspace. Pioneer does not treat arbitrary files elsewhere on the gateway as thread artifacts.
+The agent is instructed to use a managed output directory and the `artifact_prepare` / `artifact_register` tools for user-visible files. The managed path is temporary staging on the gateway. The durable artifact is the registered file in the gateway artifact store.
+
+Pioneer does not scan arbitrary gateway folders to guess which files should become artifacts. If an agent mentions that it created a file but the file does not appear in the artifacts panel, ask it to register the file as an artifact. If you explicitly asked the agent to write to a specific path, that path may still be a normal gateway file; it is only shown in the artifact panel after registration.
 
 ## Preview And Metadata
 

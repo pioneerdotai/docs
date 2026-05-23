@@ -29,6 +29,7 @@
               "desktop/overview",
               "desktop/workspace",
               "desktop/threads",
+              "desktop/memory",
               "desktop/agents-md",
               "desktop/artifacts"
             ]

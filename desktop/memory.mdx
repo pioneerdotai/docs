@@ -1,0 +1,80 @@
+---
+title: "Memory"
+description: "How Pioneer remembers useful durable context and how you can control it."
+---
+
+Pioneer has durable agent memory for facts and preferences that are useful beyond the current turn. It is designed for stable information such as your name, long-lived preferences, recurring instructions, communication style, and project decisions.
+
+Memory is enabled by default. You can control it from **Settings > Memory** in the desktop app.
+
+## What Memory Does
+
+When memory is enabled, Pioneer can:
+
+- recall saved facts when they are relevant to the current request;
+- include a compact memory section in the model prompt;
+- register memory tools in agent mode when the selected model/provider supports tools, with actual visibility selected by preflight or `request_tools`;
+- proactively extract high-confidence durable facts after a successful turn;
+- forget memory when explicitly asked.
+
+Memory is not a complete transcript search system. Pioneer does not currently promise full recall of every past thread message. Thread-history and transcript recall are separate future systems.
+
+## Recall
+
+Pioneer uses two recall paths:
+
+| Recall path | What it does |
+| --- | --- |
+| Deterministic recall | Runs a bounded search for relevant saved memories before the prompt is compiled. |
+| Active recall | Adds extra read-only planning for context-heavy turns when enabled. It still reads through the memory service and does not write memory. |
+
+The recalled results are treated as context, not as instructions. Your current message wins if it conflicts with memory.
+
+## Proactive Writes
+
+After a successful agent turn, Pioneer may run a post-turn extractor. The extractor can propose durable facts, but the memory service still decides what becomes active memory.
+
+High-confidence durable facts can be stored automatically. Extremely weak, transient, secret-like, or low-quality facts are rejected or suppressed. Medium-confidence facts are currently rejected or suppressed until a user review experience exists.
+
+Pioneer does not rely on fixed phrases or one language to decide what can become memory. The extractor and quality gate use structured semantic fields, local validation, scoring, dedupe, and policy checks.
+
+## What Is Not Stored
+
+Pioneer should not store:
+
+- passwords, API keys, tokens, credentials, or raw secrets;
+- one-off commands;
+- temporary debugging state;
+- raw logs;
+- guesses or uncertain claims;
+- facts that only belong to a single short-lived task;
+- sensitive regulated information unless explicitly allowed and policy permits it.
+
+## Opt Out
+
+You can disable memory from **Settings > Memory**.
+
+The main controls are:
+
+| Setting | Effect |
+| --- | --- |
+| Memory | Disables the durable memory runtime when off. |
+| Active recall | Disables extra active recall planning while leaving basic deterministic recall available when memory is on. |
+| Proactive writes | Stops post-turn extraction from writing durable facts. |
+| Proactive writes model | Selects the model for post-turn extraction, or uses the current thread model by default. |
+| Debug traces | Shows memory hook diagnostics in local debug surfaces. |
+
+The Preflight model selector lives in **Settings > General** because preflight is system-wide. It is used by turn preflight, including active recall planning when memory asks preflight for a provider decision.
+
+You can also tell Pioneer not to use or save memory for a specific turn. Per-turn opt-out is handled by memory policy; it should disable inferred writes and recall use for that turn except when the request is explicitly to forget memory.
+
+## Limits
+
+Memory improves continuity, but it is not perfect:
+
+- not every useful fact is guaranteed to be saved;
+- not every saved fact is guaranteed to be recalled on every relevant turn;
+- full thread-history recall is not part of the current durable memory surface;
+- candidate review APIs exist, but there is no default user-facing review queue yet.
+
+Use memory for durable context, not as the only record of important work.

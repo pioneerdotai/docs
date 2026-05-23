@@ -18,7 +18,7 @@ That rule matters because tools run on the gateway host. If the gateway is on yo
 
 ## Desktop App And Other Clients
 
-The desktop app is the main Pioneer client today. It gives you the UI for gateway connections, the default workspace, threads, providers, skills, MCP servers, tasks, and settings. It can also start and manage a local gateway when you use Pioneer on one computer.
+The desktop app is the main Pioneer client today. It gives you the UI for gateway connections, workspaces, threads, providers, skills, MCP servers, tasks, and settings. It can also start and manage a local gateway when you use Pioneer on one computer.
 
 Pioneer is not limited to the desktop app. The gateway exposes a protocol that other clients can use too. That means custom clients can be built on top of Pioneer, and mobile clients can connect to gateways in the same product model.
 
@@ -26,9 +26,11 @@ Pioneer is not limited to the desktop app. The gateway exposes a protocol that o
 
 A gateway is the larger environment. A workspace is the container where your threads, skills, MCP servers, tasks, and settings come together.
 
-Use separate gateways when the execution environment should be different: different machine, different filesystem, different network, different accounts, or different security boundary.
+The desktop app creates a default workspace on first launch. You can also create additional workspaces, switch between them, and rename them from the workspace selector in the main thread sidebar.
 
-In the current desktop app, one workspace is created automatically when the app first starts. Creating and switching between multiple workspaces is not exposed yet. If you need practical separation today, create or connect separate gateways.
+Use separate workspaces when the work should be organized separately inside the same gateway: different projects, clients, experiments, provider keys, MCP servers, skills, task schedules, or artifacts.
+
+Use separate gateways when the execution environment should be different: different machine, different filesystem, different network, different accounts, or different security boundary.
 
 ## Threads
 
@@ -42,7 +44,7 @@ Each thread has a timeline. The timeline shows messages, model output, tool call
 
 Agent memory is durable context that can be useful beyond the current thread. Pioneer can remember stable facts, preferences, recurring instructions, communication style, and project decisions, then recall them in later agent-mode turns.
 
-Memory is different from thread history. Thread history is the conversation transcript. Memory is a smaller set of durable facts stored by the gateway and searched through the memory service. Agent mode can expose memory tools and add a `Memory Recall` prompt section; chat mode does not mutate memory.
+Memory is different from thread history. Thread history is the conversation transcript. Memory is a smaller set of durable facts stored by the gateway and searched through the memory service. Agent mode can register memory tools and add a `Memory Recall` prompt section; preflight or `request_tools` decides which memory tools are visible in a given turn. Chat mode does not mutate memory.
 
 If you ask Pioneer to forget something, memory creates a tombstone so stale search payloads are suppressed later.
 

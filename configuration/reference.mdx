@@ -32,13 +32,17 @@ Most users should not change install settings.
 | `gateway.service_name` | `com.pioneer.gateway` | OS service name |
 | `gateway.listen_addr` | `0.0.0.0:17878` | Gateway bind address |
 | `gateway.outbound_queue_capacity` | `128` | Outbound event queue capacity |
+| `gateway.preflight_model` | `thread` | Provider/model used for the internal turn preflight planner. `thread` means the current thread model. |
 
 Local-only example:
 
 ```toml
 [gateway]
 listen_addr = "127.0.0.1:17878"
+preflight_model = "thread"
 ```
+
+The desktop app exposes this as **Settings > General > Preflight model**. Use `gateway.preflight_model` for new configuration. Legacy memory active-recall model settings are migrated to this general preflight model setting when no explicit preflight model is present.
 
 ## Agent memory settings
 
@@ -48,6 +52,13 @@ listen_addr = "127.0.0.1:17878"
 | `gateway.memory.capsules_dir` | `memory/capsules` | Memvid capsule directory under runtime home. |
 | `gateway.memory.allow_global_user_by_default` | `true` | Include global user memories in ordinary turn scopes. |
 | `gateway.memory.allow_global_agent_by_default` | `false` | Include global agent memories by default. |
+| `gateway.memory.deterministic_recall_enabled` | `true` | Enable bounded deterministic pre-turn recall. |
+| `gateway.memory.active_recall_enabled` | `true` | Enable extra read-only active recall planning for context-heavy turns. |
+| `gateway.memory.tools_enabled` | `true` | Register memory tools for capable agent-mode providers when policy allows; actual visibility is selected by preflight or `request_tools`. |
+| `gateway.memory.proactive_writes_enabled` | `true` | Allow post-turn extraction to write high-confidence durable facts through the quality gate. |
+| `gateway.memory.background_extraction_enabled` | `true` | Run post-turn extraction through background hook execution instead of blocking the user turn. |
+| `gateway.memory.debug_trace_enabled` | `false` | Enable memory debug traces in local diagnostic surfaces. |
+| `gateway.memory.strict_diagnostics_enabled` | `false` | Enable stricter developer diagnostics without bypassing memory policy or quality gates. |
 
 Example:
 
@@ -57,9 +68,18 @@ enabled = true
 capsules_dir = "memory/capsules"
 allow_global_user_by_default = true
 allow_global_agent_by_default = false
+deterministic_recall_enabled = true
+active_recall_enabled = true
+tools_enabled = true
+proactive_writes_enabled = true
+background_extraction_enabled = true
+debug_trace_enabled = false
+strict_diagnostics_enabled = false
 ```
 
 `capsules_dir` is resolved under runtime home. Pioneer rejects empty paths, absolute paths, `..`, and other unsafe runtime-home escapes.
+
+The desktop app also stores user-facing memory preferences in `desktop-settings.toml` under runtime home. Desktop settings map onto the same `gateway.memory` product switches when the desktop runtime loads config. They do not expose candidate review or transcript recall controls.
 
 ## Thread defaults
 

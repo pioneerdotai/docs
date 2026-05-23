@@ -1,12 +1,12 @@
 ---
 title: "Desktop App Overview"
-description: "Use the Pioneer desktop app to connect gateways, use the default workspace, and run conversations."
+description: "Use the Pioneer desktop app to connect gateways, manage workspaces, and run conversations."
 icon: "desktop"
 ---
 
 The desktop app is where most people will use Pioneer.
 
-It is a native app, not a web shell. You use it to connect gateways, work in the default workspace, talk to models, inspect tool runs, configure providers, manage skills and MCP servers, and keep an eye on tasks.
+It is a native app, not a web shell. You use it to connect gateways, manage workspaces, talk to models, inspect tool runs, configure providers, manage skills and MCP servers, and keep an eye on tasks.
 
 The important thing to remember is that the desktop app is a client. It gives you control, but the gateway owns the work. Provider calls, tool execution, task runs, skills, MCP servers, and stored Pioneer state belong to the gateway you are connected to.
 
@@ -34,13 +34,13 @@ Most daily work happens in three places.
 
 The gateway switcher tells you which environment you are using. Check it before running tool-heavy prompts.
 
-The current workspace is created automatically on first launch. For now, use threads to keep context clean inside that workspace, and use separate gateways when environments need to be separated.
+The workspace selector at the top of the main thread sidebar shows the active workspace. Use it to create workspaces, switch between them, or rename them. Switching workspaces reloads the thread tree and workspace-scoped configuration for the connected gateway.
 
 Threads are where conversations happen. The thread timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When an agent changes something or a tool fails, the timeline is the first place to inspect.
 
 ## Settings
 
-Settings are split between app-level preferences and gateway-owned configuration. Provider credentials, skills, MCP servers, and tasks belong to the gateway. If you connect to another gateway, configure them again there.
+Settings are split between app-level preferences, gateway-owned configuration, and workspace-scoped configuration. Provider credentials, skills, MCP servers, and tasks belong to a workspace on the connected gateway. If you switch workspace or connect to another gateway, configure them there too.
 
 That separation is intentional. It lets one desktop app control several independent Pioneer environments without mixing their state.
 
@@ -52,7 +52,7 @@ The desktop UI includes English, German, Spanish, French, Hindi, Japanese, Russi
 
 <Columns cols={2}>
   <Card title="Workspace" icon="folder-open" href="/desktop/workspace">
-    Understand the default workspace and organize work with gateways and threads.
+    Create, switch, and rename workspaces, and decide when to use gateways.
   </Card>
   <Card title="Threads" icon="messages" href="/desktop/threads">
     Read timelines, tool events, and conversation history.

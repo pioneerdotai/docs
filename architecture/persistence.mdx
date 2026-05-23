@@ -87,7 +87,7 @@ This repair path is not a substitute for correct projectors. It exists because a
 
 `gateway.db` stores domain state: threads, turns, tasks, skills, provider attachment metadata, MCP installations, MCP catalog snapshots, audit records, and secret refs.
 
-`keystore.db` stores raw secret values: provider API keys, MCP env/header secret values, superuser JWT signing material, and desktop gateway bearer tokens. It is created in the runtime home next to `gateway.db` for gateway use. The desktop app also uses the same keystore crate for saved gateway bearer tokens.
+`keystore.db` stores raw secret values: workspace-scoped provider API keys, MCP env/header secret values, superuser JWT signing material, and desktop gateway bearer tokens. It is created in the runtime home next to `gateway.db` for gateway use. The desktop app also uses the same keystore crate for saved gateway bearer tokens.
 
 Current keystore storage is unencrypted. Pioneer hardens runtime directory and SQLite file permissions, but any OS user or process that can read the runtime home can read the keystore file. See [Secret Storage](/architecture/secrets) for operational details.
 
@@ -95,7 +95,7 @@ Current keystore storage is unencrypted. Pioneer hardens runtime directory and S
 
 Add new user-visible state through protocol types first, then storage records, then projector/repository methods. For evented flows, persist the event and project the read model in one coordinated path. For runtime-only state, prefer explicit cleanup and recovery behavior over hidden global maps.
 
-Do not store raw secrets in ordinary domain tables or `gateway-settings.toml`. Provider keys, MCP secrets, desktop gateway bearer tokens, and JWT signing material belong in the keystore. Database records should contain redacted config or secret refs.
+Do not store raw secrets in ordinary domain tables or `gateway-settings.toml`. Workspace provider keys, MCP secrets, desktop gateway bearer tokens, and JWT signing material belong in the keystore. Database records should contain redacted config or secret refs.
 
 Memory has an additional persistence rule: `gateway.db` is the control plane and remains authoritative even when the memvid capsule backend returns stale payloads. Memory records, statuses, scopes, candidates, tombstones, and policy decisions must be checked by `MemoryService` before a search hit becomes visible.
 

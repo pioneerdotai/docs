@@ -9,7 +9,7 @@ The gateway does not call the provider directly for normal turns. It delegates t
 
 The agent loop is where Pioneer stops being a chat wrapper. It decides when to call the model, which tools the model may see, how tool results return to the model, when a failed tool deserves a retry, when a child task must be waited on, and when the final answer is allowed to close the turn.
 
-Domain side work is attached through the hook runtime. The loop dispatches lifecycle phases such as `turn.pre_policy`, `turn.pre_prompt_context`, `turn.pre_tool_materialization`, `turn.pre_prompt_compile`, and `turn.post_turn`; hooks contribute typed policy, context, prompt sections, tool bundles, and diagnostics. The loop should not contain domain-specific branches for memory extraction, recall policy, or similar future subsystems.
+Domain side work is attached through the hook runtime. The loop dispatches lifecycle phases such as `turn.pre_policy`, `turn.pre_prompt_context`, `turn.post_preflight_prompt_context`, `turn.pre_tool_materialization`, `turn.pre_prompt_compile`, and `turn.post_turn`; hooks contribute typed policy, context, prompt sections, tool bundles, and diagnostics. The loop should not contain domain-specific branches for memory extraction, recall policy, or similar future subsystems.
 
 <Note>
   The agent loop does not persist directly to SQLite. It emits durable events. The gateway persists those events and publishes committed notifications. See [Gateway](/architecture/gateway) and [Persistence Layer](/architecture/persistence).
@@ -55,8 +55,11 @@ sequenceDiagram
   Gateway->>Agent: StartTurn(history, input, model, provider)
   Agent->>Hooks: turn.pre_policy
   Agent->>Hooks: turn.pre_prompt_context
-  Agent->>Agent: resolve skills, MCP, task tools
+  Agent->>Agent: resolve skills, MCP, task/turn tools
   Agent->>Hooks: turn.pre_tool_materialization
+  Agent->>Provider: preflight JSON request (no tools)
+  Provider-->>Agent: visibleTools + memory.activeRecall plan
+  Agent->>Hooks: turn.post_preflight_prompt_context
   Agent->>Hooks: turn.pre_prompt_compile
   Agent->>Prompt: compile system prompt bundle
   Agent-->>Gateway: PromptManifestCompiled
@@ -78,21 +81,40 @@ The model request is assembled in layers:
 
 1. The gateway supplies historical `ChatMessage` values from completed turns.
 2. The agent builds the current user message from `UserInput`.
-3. The agent resolves active skills and builds a skills prompt.
-4. The agent dispatches pre-prompt-context hooks, such as deterministic and active memory recall.
-5. The agent materializes task tools if task orchestration is available.
-6. The agent dispatches pre-tool-materialization hooks, such as memory tool-bundle contribution.
-7. The agent dispatches pre-prompt-compile hooks, such as memory prompt contract rendering.
-8. The agent compiles the prompt bundle through `pioneer-promt`.
-9. The agent materializes MCP tools and dynamic skill tools.
-10. The tool router exposes only model-visible tool definitions for the current round.
-11. Recovered tool context is appended as assistant tool-call and tool-result messages when a turn is being recovered.
+3. The agent dispatches policy hooks, such as memory policy classification.
+4. The agent dispatches pre-prompt-context hooks, such as deterministic memory recall.
+5. The agent resolves active skills and builds a skills prompt.
+6. The agent materializes task, turn, MCP, and skill tool bundles when tool calling is available.
+7. The agent dispatches pre-tool-materialization hooks, such as memory tool-bundle contribution.
+8. The agent runs turn preflight before the first main model round.
+9. The agent dispatches post-preflight prompt-context hooks, such as active memory recall using the preflight plan.
+10. The agent dispatches pre-prompt-compile hooks, such as memory prompt contract rendering.
+11. The agent compiles the prompt bundle through `pioneer-promt`.
+12. The tool router exposes only model-visible tool definitions for the current round.
+13. Recovered tool context is appended as assistant tool-call and tool-result messages when a turn is being recovered.
 
 The provider receives a `ChatRequest` containing `messages`, optional `tools`, `parallel_tool_calls`, and `compiled_prompt`. Provider adapters are responsible for mapping that common request into provider-specific API payloads.
 
-The ordering is intentional. History comes from the gateway because it is persisted thread state. Skills, MCP tools, task tools, and hook contributions are resolved inside the agent because they are turn-scoped capabilities. The prompt is compiled after those decisions because skills, task orchestration, memory, retries, and future domains can add dynamic prompt sections or context.
+The ordering is intentional. History comes from the gateway because it is persisted thread state. Skills, MCP tools, task tools, and hook contributions are resolved inside the agent because they are turn-scoped capabilities. Preflight runs after tool materialization so it can see a compact index of registered hidden-domain tools, but before prompt compilation so post-preflight memory context can still become part of the prompt. The prompt is compiled after those decisions because skills, task orchestration, memory, retries, and future domains can add dynamic prompt sections or context.
 
 For the exact prompt sections and history compression rules, see [Prompt And Context](/architecture/prompt).
+
+## Turn Preflight
+
+Agent mode runs an internal preflight request before the first main provider round. This request is a normal provider JSON request with `tools: none`, `tool_choice: none`, no compiled prompt, disabled reasoning, and a bounded output budget. It is not a user-visible answer and cannot execute tools.
+
+Preflight receives structured input only:
+
+- turn facts such as thread mode, tool-calling support, and a bounded input preview;
+- `tools.coreTools`, the small always-visible tool list;
+- `tools.candidateTools`, compact descriptors for hidden built-in domain tools that are registered and have handlers for this turn;
+- memory deterministic recall summary and, when needed, the active recall planning input owned by the memory subsystem.
+
+The provider output is a strict JSON plan. `tools.visibleTools` is a list of exact hidden tool names to reveal before the first main model round. It is not a domain list. The runtime clamps the list to registered, available, policy-allowed tools before sending provider tool definitions.
+
+If the configured preflight model fails, the agent retries once through the current thread model when that endpoint differs. If both attempts fail, preflight falls back with no optional hidden built-in tools revealed. Core tools and dynamic extension tools remain available according to their own materialization rules. Memory active recall uses the memory-owned local fallback for its module.
+
+Inside the main turn, the model can still call `request_tools` to reveal a hidden built-in domain for the next provider round. That expansion is monotonic within the turn: newly added tools are appended to the visible set, and already visible tools are not removed mid-turn.
 
 ## Tool Loop Guard
 
@@ -123,8 +145,9 @@ Hooks let domains attach to the turn lifecycle without expanding the agent loop 
 | Phase | Memory hook |
 | --- | --- |
 | `turn.pre_policy` | Classifies memory policy for the current turn. |
-| `turn.pre_prompt_context` | Runs deterministic recall and active recall. |
-| `turn.pre_tool_materialization` | Contributes `memory_search`, `memory_get`, `memory_remember`, and `memory_forget` when policy allows. |
+| `turn.pre_prompt_context` | Runs deterministic recall. |
+| `turn.post_preflight_prompt_context` | Runs active recall from the preflight plan or memory-owned fallback. |
+| `turn.pre_tool_materialization` | Contributes `memory_search`, `memory_list`, `memory_get`, `memory_remember`, and `memory_forget` when policy allows. |
 | `turn.pre_prompt_compile` | Renders the `Memory Recall` prompt section from typed prompt context. |
 | `turn.post_turn` | Runs post-turn durable fact extraction through service-owned semantic writes. |
 

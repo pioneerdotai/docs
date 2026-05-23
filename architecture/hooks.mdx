@@ -24,7 +24,7 @@ Before hooks, this kind of logic tends to accumulate as direct branches in the a
 
 | Type | Role |
 | --- | --- |
-| `HookPhase` | Stable lifecycle phase such as `turn.pre_policy`, `turn.pre_prompt_context`, `turn.pre_tool_materialization`, `turn.pre_prompt_compile`, and `turn.post_turn`. |
+| `HookPhase` | Stable lifecycle phase such as `turn.pre_policy`, `turn.pre_prompt_context`, `turn.post_preflight_prompt_context`, `turn.pre_tool_materialization`, `turn.pre_prompt_compile`, and `turn.post_turn`. |
 | `HookHandler` | A domain implementation subscribed to one or more phases. |
 | `HookSubscription` | Registration that binds a handler to a phase with priority, dependencies, execution policy, failure policy, and visibility. |
 | `HookHandlerRequest` | Typed input plus effective policy and prompt context sets for the phase. |
@@ -41,6 +41,8 @@ flowchart TD
   PrePolicy["turn.pre_policy"]
   PrePromptContext["turn.pre_prompt_context"]
   PreTools["turn.pre_tool_materialization"]
+  Preflight["turn preflight\ninternal provider JSON"]
+  PostPreflightContext["turn.post_preflight_prompt_context"]
   PrePromptCompile["turn.pre_prompt_compile"]
   ProviderLoop["provider/tool loop"]
   PostTurn["turn.post_turn"]
@@ -49,7 +51,9 @@ flowchart TD
   Start --> PrePolicy
   PrePolicy --> PrePromptContext
   PrePromptContext --> PreTools
-  PreTools --> PrePromptCompile
+  PreTools --> Preflight
+  Preflight --> PostPreflightContext
+  PostPreflightContext --> PrePromptCompile
   PrePromptCompile --> ProviderLoop
   ProviderLoop --> PostTurn
   PostTurn --> Done
@@ -89,7 +93,7 @@ Failure policy is separate. Best-effort hooks can fail without failing the turn;
 
 Subscriptions are sorted by priority and id, but explicit dependencies are the important mechanism. A hook can say it must run after another subscription on the same phase. The runtime detects missing dependencies, disabled dependencies, and cycles.
 
-Memory uses this for active recall: active memory runs after deterministic recall so it can decide whether deterministic context was already sufficient.
+Memory uses phase ordering for recall: deterministic memory runs at `turn.pre_prompt_context`, then active memory runs at `turn.post_preflight_prompt_context` after the internal preflight plan has been built. The active hook receives typed prompt context plus the preflight-owned active recall plan or fallback.
 
 ## Persistence And Recovery
 
@@ -111,7 +115,8 @@ Domain hooks should not invent their own retry tables for ordinary hook executio
 Agent memory is the first heavy domain built on this runtime:
 
 - `MemoryPolicyClassifierHook` runs at `turn.pre_policy`.
-- `MemoryDeterministicRecallHook` and `ActiveMemoryRecallHook` run at `turn.pre_prompt_context`.
+- `MemoryDeterministicRecallHook` runs at `turn.pre_prompt_context`.
+- `ActiveMemoryRecallHook` runs at `turn.post_preflight_prompt_context`.
 - `MemoryToolBundleHook` runs at `turn.pre_tool_materialization`.
 - `MemoryPromptContractHook` runs at `turn.pre_prompt_compile`.
 - `MemoryPostTurnExtractorHook` runs at `turn.post_turn`.

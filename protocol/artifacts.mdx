@@ -86,7 +86,7 @@ Important enum values:
 | `ArtifactKind` | `file`, `text`, `image`, `audio`, `video`, `pdf`, `spreadsheet`, `archive`, `json`, `generated_image`, `screenshot`, `workspace_file`, `directory_manifest`, `unknown` |
 | `ArtifactStatus` | `ready`, `pending`, `quarantined`, `deleted`, `missing_external_source`, `failed` |
 | `ArtifactCreatedByKind` | `user`, `agent`, `tool`, `task`, `system`, `import`, `external_agent` |
-| `ArtifactBindingKind` | `user_input`, `agent_output`, `tool_output`, `task_result`, `context_attachment`, `derived_from`, `preview`, `system_capture`, `manual_attach`, `draft_upload` |
+| `ArtifactBindingKind` | `user_input`, `agent_output`, `tool_output`, `task_result`, `context_attachment`, `derived_from`, `preview`, `manual_attach`, `draft_upload` |
 | `ArtifactBindingDirection` | `input`, `output`, `context`, `derived` |
 | `ArtifactProjectionKind` | `plain_text`, `thumbnail`, `json_summary`, `pdf_text` |
 | `ArtifactProjectionStatus` | `pending`, `ready`, `failed`, `stale` |
@@ -126,6 +126,65 @@ Response:
 ```
 
 `required_for_local_paths` means clients should upload local files to the gateway before referring to them in a turn. This is required for remote gateways and is the safe default for local gateways too.
+
+## Agent Artifact Tools
+
+Agent-created user-visible files use model-facing tools, not client JSON-RPC methods. The tools are registered inside an agent turn when artifact registration is enabled, then made visible by turn preflight or by `request_tools` with the `artifact` domain.
+
+`artifact_prepare` reserves a safe staging path before the file exists. It does not create an artifact.
+
+```json
+{
+  "displayName": "report.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "description": "Final report for the user"
+}
+```
+
+Response:
+
+```json
+{
+  "outputPath": "/gateway/runtime/artifact-output/ws_.../thr_.../trn_.../report.pdf",
+  "outputDir": "/gateway/runtime/artifact-output/ws_.../thr_.../trn_...",
+  "expiresAt": "2026-05-17T12:00:00Z",
+  "displayName": "report.pdf"
+}
+```
+
+`outputPath` is inside `PIONEER_ARTIFACT_OUTPUT_DIR`. It is a temporary gateway path that can be passed to shell, browser, renderer, MCP, or skill tools. It is not a durable artifact id and must not be treated as a client-visible file location.
+
+`artifact_register` imports a completed regular file into the workspace artifact store and binds it to the current turn.
+
+```json
+{
+  "path": "/gateway/runtime/artifact-output/ws_.../thr_.../trn_.../report.pdf",
+  "displayName": "report.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "description": "Final report for the user",
+  "preparedOutputPath": "/gateway/runtime/artifact-output/ws_.../thr_.../trn_.../report.pdf"
+}
+```
+
+Response:
+
+```json
+{
+  "artifactId": "art_000000000000000001",
+  "versionId": "av_000000000000000001",
+  "displayName": "report.pdf",
+  "kind": "pdf",
+  "mimeType": "application/pdf",
+  "sizeBytes": 922337,
+  "sha256": "9f86d081884c7d659a2feaa0c55ad015..."
+}
+```
+
+Common `artifact_register` errors include: the file does not exist, the path is outside the allowed workspace or staging roots, the path escapes through a symlink, the path is not a regular file, the file is too large, the workspace quota would be exceeded, or the file was already removed from staging.
+
+If the final assistant message mentions `PIONEER_ARTIFACT_OUTPUT_DIR` or a private gateway path instead of a registered artifact, the gateway can ask the agent to retry registration once. If registration still does not happen, the turn fails instead of presenting a private path as the result.
 
 ## Listing Artifacts
 

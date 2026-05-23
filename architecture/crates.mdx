@@ -98,7 +98,7 @@ The important rule is that `protocol` sits at the public edge while `gateway` is
 | How does `turn/start` become an agent run? | `crates/gateway/src/message/turn_handlers.rs`, then `crates/agent/src/manager.rs` and `crates/agent/src/agent_loop.rs` |
 | How is the LLM prompt compiled? | `crates/agent/src/chat/mod.rs`, then `crates/promt/src/compile/compiler.rs` |
 | How are turn lifecycle hooks registered and run? | `crates/hooks/src/runtime.rs`, `crates/hooks/src/registry.rs`, then `crates/agent/src/hooks.rs` |
-| How does agent memory recall and write durable facts? | `crates/agent/src/memory.rs`, `crates/gateway/src/memory_runtime.rs`, then `crates/memory/src/lib.rs` |
+| How does agent memory recall and write durable facts? | `crates/memory/src/hooks`, `crates/gateway/src/memory_runtime.rs`, then `crates/memory/src/service.rs` |
 | How is previous conversation context selected? | `crates/gateway/src/message/provider_handlers.rs` |
 | How are tools exposed to the model? | `crates/agent/src/chat/mod.rs`, `crates/tools/src/lib.rs` |
 | How are MCP servers installed and called? | `crates/gateway/src/message/mcp/mod.rs`, `crates/gateway/src/mcp_service.rs`, `crates/mcp/src/config.rs` |

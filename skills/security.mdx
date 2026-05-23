@@ -16,7 +16,7 @@ That does not mean every skill is dangerous. It means the right habit is to insp
 
 A skill can influence how agents behave. If it exposes tools, those tools may be able to read files, write files, run commands, make network requests, or access environment variables available to the gateway process.
 
-This is why gateway separation matters. Test unfamiliar skills on a sandbox gateway without important files or credentials. Do not install random archives directly into your main work gateway.
+This is why workspace and gateway separation matter. Test unfamiliar skills in a sandbox workspace, and use a sandbox gateway when the skill should not share the same machine, files, or credentials. Do not install random archives directly into your main work workspace.
 
 ## What To Trust
 
@@ -42,4 +42,4 @@ Only after that should you run a harmless test prompt. If the behavior is predic
 
 ## Policy
 
-Keep skills on the gateway where they belong. A work-approved skill should live on the work gateway. A risky experimental skill should be tested on a sandbox gateway, not on every gateway you connect from the desktop app.
+Keep skills in the workspace where they belong. A work-approved skill should live in the work workspace. A risky experimental skill should be tested in a sandbox workspace or sandbox gateway, not in every workspace you use from the desktop app.

@@ -16,9 +16,9 @@ The core rule is simple: artifacts are workspace scoped and gateway owned. The d
 | `crates/crud` | All artifact database reads and writes through `CrudStore`; no gateway handler should bypass this layer. |
 | `crates/entity` | SeaORM entities for artifact tables. |
 | `crates/migration` | Artifact schema creation and rollback. |
-| `crates/gateway` | JSON-RPC handlers, WebSocket upload/download sessions, tool/file/task capture, notifications, and provider attachment normalization. |
+| `crates/gateway` | JSON-RPC handlers, WebSocket upload/download sessions, explicit agent artifact registration tools, notifications, and provider attachment normalization. |
 | `crates/desktop` | Thread artifacts panel, timeline chips, preview cache, local download/open/reveal actions, and composer reuse. |
-| `crates/config` | Capture policy and quota defaults under `gateway.artifacts`. |
+| `crates/config` | Artifact storage, staging, quota, upload, download, and projection defaults. |
 
 ## Storage Layout
 
@@ -33,6 +33,14 @@ Temporary upload payloads are connection-bound and written under:
 ```text
 <runtime_home>/artifacts/upload_sessions/<workspace_id>/<upload_id>/payload.bin
 ```
+
+Agent-created result files use a separate turn-scoped staging directory before they become durable artifacts:
+
+```text
+<runtime_home>/artifact-output/<workspace_id>/<thread_id>/<turn_id>/
+```
+
+The staging directory is exposed to the model and tools as `PIONEER_ARTIFACT_OUTPUT_DIR`. It is not durable storage and it is not a protocol identity. `artifact_prepare` allocates a safe path inside this directory, and `artifact_register` imports the completed regular file into the canonical blob store.
 
 The storage key is derived from the SHA-256 digest. The physical store deduplicates identical blobs inside the same workspace and validates existing blobs before reusing them.
 
@@ -72,14 +80,20 @@ User uploads:
 4. `artifact/upload/finish` persists the temp file through `ArtifactService::ingest_temp_file`.
 5. The service writes the blob, creates metadata through `CrudStore`, creates projections when supported, and returns an `ArtifactRef`.
 
-Agent and tool capture:
+Agent-created files:
 
-1. The turn runtime starts a file capture session with workspace roots and capture policy.
-2. Completed items can emit explicit candidates, such as URL downloads, `apply_patch` add-file paths, generated images, or computer-use screenshots.
-3. At turn completion, fallback scanning can capture new workspace files and, if enabled, modified workspace files.
-4. Captured artifacts are bound back to the thread/turn/item that produced them and `artifact/created` plus `thread/artifacts/changed` notifications are sent.
+1. The turn runtime creates `PIONEER_ARTIFACT_OUTPUT_DIR` before model/tool execution.
+2. The prompt contract tells the model that user-visible result files must be registered before the final response.
+3. The model calls `artifact_prepare` when it needs a safe path before writing the file.
+4. A shell command, MCP tool, browser tool, renderer, or other tool writes bytes to that prepared path.
+5. The model calls `artifact_register` with the completed file path.
+6. The gateway validates the path, rejects symlink escapes and non-regular files, sniffs/validates MIME when possible, checks size/quota limits, writes the blob, creates DB rows, and binds the artifact to workspace/thread/turn/message/tool lineage.
+7. The gateway sends `artifact/created` and `thread/artifacts/changed`. Projection workers may later send `artifact/projection/updated`.
+8. Staging files are removed after successful registration or by TTL/GC cleanup.
 
-Task result capture follows the same artifact service path and binds files to task and task-run lineage.
+Task result files follow the same artifact service path and bind files to task and task-run lineage.
+
+There is no turn-end filesystem scan. Pioneer does not infer artifacts from newly-created files in a workspace, process current directory, home directory, browser runtime directory, or tool cache. Any tool can create a file, but user-visible turn results enter the artifact graph only through explicit registration.
 
 ## Projections And Previews
 
@@ -108,32 +122,25 @@ Model providers often require their own file upload step before an attachment ca
 
 The cache key includes workspace, artifact, optional version, provider, optional model family, and transport kind. Expired refs are pruned and ignored. This keeps provider attachment reuse workspace scoped and replaces the previous standalone provider attachment cache.
 
-## Capture And Quota Defaults
+## Security And Lifecycle
 
-Gateway artifact defaults are conservative:
+The artifact boundary is designed for local and remote gateways:
 
-| Setting | Default |
-|---|---:|
-| Capture user uploads | `true` |
-| Capture new workspace files | `true` |
-| Capture modified workspace files | `false` |
-| Capture generated media | `true` |
-| Capture tool outputs | `true` |
-| Capture task results | `true` |
-| Max files per turn | `32` |
-| Max bytes per captured file | `50 MB` |
-| Max total captured bytes per turn | `128 MB` |
-| Max artifact file bytes | `512 MB` |
-| Max workspace artifact bytes | `10 GB` |
-| Max files per workspace | `100000` |
-| Quota warning threshold | `80%` |
-
-Ignored paths include `.git`, `target`, `node_modules`, `dist`, `build`, `.next`, `.cache`, `.DS_Store`, `*.tmp`, `*.swp`, and `*~`.
+- User uploads are normalized by streaming bytes from the client to the gateway; the desktop never sends an inaccessible desktop path as model context.
+- `artifact_register` accepts files only from allowed roots such as the workspace and turn-scoped artifact output directory, plus any explicit path the user allowed for that turn.
+- Symlink escapes are rejected after canonicalization.
+- Directories, device files, sockets, pipes, and other non-regular files are rejected.
+- MIME type and artifact kind are derived from declared data, sniffing, and file extension rather than trusted blindly from the model.
+- Per-file size limits, workspace byte quotas, and workspace file-count quotas are checked before a blob is committed.
+- Blob writes, metadata writes, version creation, and binding creation are transactional at the service/repository boundary. Failed registration cleans up partial temp state and does not create a misleading thread artifact.
+- Staging directories and upload session directories are temporary; GC may remove expired staging/output bytes after their TTL.
+- Blob GC is separate and must preserve any blob referenced by active artifact versions or projections.
 
 ## Developer Rules
 
 - Keep artifact DB access inside `crates/crud` and expose it through `CrudStore`.
 - Keep bytes behind `ArtifactBlobStore`; do not hard-code local filesystem paths outside the blob-store implementation.
+- Register agent-created user-visible files with `artifact_prepare` and `artifact_register`; do not add heuristic filesystem discovery.
 - Always validate `workspace_id` before listing, reading, uploading, downloading, binding, deleting, or restoring artifacts.
 - Bind artifacts at the narrowest known scope: message when known, otherwise turn/item/task lineage, and always workspace.
 - Do not query artifacts for draft threads that are not materialized.
