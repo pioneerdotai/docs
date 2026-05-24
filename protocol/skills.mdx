@@ -5,7 +5,7 @@ description: "Uploading, installing, listing, enabling, disabling, validating, a
 
 Skills are reusable capability packs that the gateway can expose to agents. Pioneer skills are compatible with the [Agent Skills](https://agentskills.io/home) specification, but installation and policy are managed by the gateway so every client connected to that gateway sees the same catalog.
 
-The skills protocol has three jobs: move a skill archive to the gateway, install/update/uninstall the skill, and control whether agents may use it explicitly or implicitly.
+The skills protocol has three jobs: move a skill archive to the gateway, install/update/uninstall the skill, and control whether agents may use it implicitly. Explicit per-turn use is represented through `turn/start.capabilities`.
 
 ## Methods
 
@@ -86,6 +86,8 @@ Skills have two separate policy switches:
 | `allow_implicit_invocation` | Whether the gateway may include the skill as an automatically available capability. When false, the skill can still be selected explicitly by the user or client flow. |
 
 This split matters for client UX. "Installed" is not the same as "available to agents", and "available explicitly" is not the same as "agent may decide to use it on its own".
+
+Newly installed skills default to enabled but not implicit unless policy is changed after install. Clients should make explicit use available through the composer or another `turn/start.capabilities` flow instead of flipping implicit invocation automatically.
 
 ## Upload Flow
 
@@ -230,6 +232,8 @@ Response:
 ```
 
 Use `skills/update` for replacing an existing skill. It accepts `slug`, `source_kind`, `source`, and optional `expected_previous_fingerprint` for optimistic concurrency.
+
+After install, use `skills/policy/set` only when changing policy. The default explicit-only state is enough for composer selection.
 
 ## Setting Policy
 

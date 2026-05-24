@@ -75,7 +75,7 @@ Every server config lives under `mcpServers` and uses the object key as the serv
 | `headers` | Optional HTTP headers for an HTTP server. |
 | `enabled` | Enables the server when `true`. |
 | `disabled` | Disables the server when `true`. Do not set both `enabled` and `disabled`. |
-| `allow_implicit_invocation` | Allows agents to consider the server automatically when `true`; keep it `false` for explicit-only use. |
+| `allow_implicit_invocation` | Allows agents to consider the server automatically when `true`. New installs default to `false`; keep it `false` for explicit-only use. |
 | `required` | Marks the server as required for the configured scope. |
 | `startup_timeout_sec` | Optional startup timeout. |
 | `tool_timeout_sec` | Optional timeout for MCP tool calls. |
@@ -92,7 +92,7 @@ When you update or uninstall an MCP server, Pioneer removes stale keystore refs 
 
 After saving a server, Pioneer should discover its tools, resources, templates, and prompts. If it fails, the most common causes are a missing command, invalid environment variable, auth failure, unreachable HTTP endpoint, or a server that starts but advertises no tools.
 
-Review the discovered tools before enabling them. Keep new MCP tools not implicit until you understand what they can read, write, or call.
+Review the discovered tools before enabling implicit invocation. Keep new MCP servers not implicit until you understand what their tools can read, write, or call.
 
 Use a read-only first prompt:
 
@@ -101,3 +101,9 @@ List the MCP tools available in this workspace and explain what each one can do.
 ```
 
 Then call one low-risk tool and inspect the timeline.
+
+## Use In A Thread
+
+To use an explicit-only MCP capability, open a thread, click the composer add button, and choose **Add MCP**. Select either the whole server or specific tools. Selecting the server exposes that server's allowed tools for the turn; selecting tools exposes only those raw MCP tools.
+
+The selection appears as attachment chips in the composer and in the sent user message. It is sent as turn capability metadata, not as message text. MCP tool schemas are passed through the provider tool interface, so they do not need an extra MCP prompt section.

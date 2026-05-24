@@ -108,11 +108,11 @@ The tradeoff is that developers must always ask "which host does this code run o
 
 <AccordionGroup>
   <Accordion title="Starting a turn">
-    A client calls `turn/start` with a `thread_id`, `turn_id`, selected mode, model, provider, sandbox mode, and user input. The gateway updates the thread manager, persists the turn start through `CrudStore::materialize_turn_start`, ensures an agent runtime exists for the thread, loads conversation history, loads workspace skill policy, and dispatches the turn into `AgentManager::start_turn`.
+    A client calls `turn/start` with a `thread_id`, `turn_id`, selected mode, model, provider, sandbox mode, user input, and optional turn capabilities for composer-selected skills or MCP. The gateway updates the thread manager, persists the turn start through `CrudStore::materialize_turn_start`, ensures an agent runtime exists for the thread, loads conversation history, loads workspace skill policy, and dispatches the turn into `AgentManager::start_turn`.
   </Accordion>
 
   <Accordion title="Building model input">
-    The gateway builds historical chat messages from completed turns. If history is close to the configured context budget, it compresses older turns into a summary with a provider call. The agent runs turn hooks for policy, prompt context, tool materialization, and prompt sections; compiles the system prompt with `pioneer-promt`; resolves skills; materializes MCP and task tools; builds the current user message; appends retained tool context for recovery when needed; and sends a `ChatRequest` through the selected provider.
+    The gateway builds historical chat messages from completed turns. If history is close to the configured context budget, it compresses older turns into a summary with a provider call. The agent runs turn hooks for policy, prompt context, tool materialization, and prompt sections; resolves skills and MCP capabilities; compiles the system prompt with `pioneer-promt`; materializes skill, MCP, and task tools; builds the current user message; appends retained tool context for recovery when needed; and sends a `ChatRequest` through the selected provider.
   </Accordion>
 
   <Accordion title="Executing tools">
@@ -128,7 +128,7 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 
   <Accordion title="Loading MCP and skills">
-    MCP servers and skills are installed per gateway and per workspace policy. At turn time, enabled and allowed items are resolved into prompt context and dynamic tools. Disabled or non-implicit items stay installed but are not automatically exposed to the model.
+    MCP servers and skills are installed per gateway and per workspace policy. At turn time, enabled and allowed items can be selected implicitly by policy or explicitly through turn capabilities from the composer. Skills contribute a compact skills prompt and optional dynamic tools; MCP contributes dynamic tools only. Disabled or non-implicit items stay installed but are not automatically exposed to the model.
   </Accordion>
 </AccordionGroup>
 

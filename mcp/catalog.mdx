@@ -37,11 +37,11 @@ For each server, review:
 
 ## Enable, Disable, Or Change Implicit Mode
 
-Disable MCP servers or tools until you understand what they expose. After they are trusted, decide whether they should be implicit.
+Keep MCP servers explicit-only until you understand what they expose. After they are trusted, decide whether they should be implicit.
 
-An **implicit** MCP tool can be picked up automatically when Pioneer decides it is relevant. A **not implicit** MCP tool stays available, but agents should use it only when you explicitly ask for that MCP capability.
+An **implicit** MCP server can have its tools picked up automatically when Pioneer decides they are relevant. A **not implicit** MCP server stays available, but agents should use its tools only when you select that server or one of its tools from the composer, or when you explicitly ask for that MCP capability.
 
-Use implicit mode for trusted read-heavy tools that are useful across many threads. Keep write-capable, sensitive, expensive, noisy, or production-facing MCP tools not implicit.
+Use implicit mode for trusted read-heavy servers that are useful across many threads. Keep write-capable, sensitive, expensive, noisy, or production-facing MCP servers not implicit.
 
 ## Tool review checklist
 
@@ -54,7 +54,7 @@ Before enabling an MCP server in real workflows, ask:
 - Does it modify production systems?
 - Does it have rate limits?
 - Does it return sensitive data?
-- Should it be implicit, or only used when explicitly requested?
+- Should it be implicit, or only used when explicitly selected?
 
 ## Server lifecycle
 
@@ -79,7 +79,7 @@ Available actions may depend on transport and server state.
     Some catalog items may have failed. Review diagnostics and restart after fixing dependencies.
   </Accordion>
   <Accordion title="Tools do not appear in a thread">
-    Confirm the MCP server is installed for the same gateway and that policy allows it in the current workspace.
+    Confirm the MCP server is installed for the same gateway, enabled in the current workspace, and either implicit or selected from the composer for that turn.
   </Accordion>
   <Accordion title="A tool call fails">
     Check server logs, gateway connectivity, credentials, input schema, and external service status.

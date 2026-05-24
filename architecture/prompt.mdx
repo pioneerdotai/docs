@@ -126,7 +126,9 @@ Each file is budgeted with a maximum per-file character limit and a total charac
 
 ## Skills Prompt
 
-Skills are resolved before prompt compilation. `pioneer-skills` builds a compact `[Skills]` section listing active skills, their exact `read_skill` slug, and their descriptions. When few skills are active and budget allows, explicitly mentioned or path-matched skills can include full skill bodies. If the prompt budget is tight, the section includes a `read_skill` hint so the model can load exact skill instructions on demand.
+Skills are resolved before prompt compilation. `pioneer-skills` builds a compact `[Skills]` section listing active skills, their exact `read_skill` slug, and their descriptions.
+
+Composer-selected skills stay compact. They do not expand the full `SKILL.md` body into the prompt; the model must call `read_skill` with the exact slug before following specialized instructions. Full skill bodies are only eligible for path-matched skills when few skills are active and the prompt budget allows it. If the prompt budget is tight, the section includes a `read_skill` hint so the model can load exact skill instructions on demand.
 
 ## Memory Prompt
 
@@ -154,6 +156,8 @@ Tool definitions are not embedded as prompt prose. The agent passes model-visibl
 This distinction prevents two common bugs. First, a tool should not become callable just because its name appears in prompt text. Second, removing a tool from the model-visible tool list should actually remove the capability, not merely change an instruction sentence. Tool availability is enforced by the tool router described in [Tools System](/architecture/tools).
 
 The `Hidden Tool Domains` prompt section is only a compact catalog for `request_tools`. It lists domains such as `memory`, `task`, `artifact`, and `computer_use` with their exact tool names so the model knows which domain to request if a needed hidden tool is not currently visible. It does not include JSON schemas and does not make those tools callable by itself.
+
+MCP follows the same boundary. Composer-selected MCP servers and tools do not create an MCP prompt section. They materialize as dynamic provider tools in `ChatRequest.tools` and are called through the gateway MCP service.
 
 ## Prompt Manifest
 

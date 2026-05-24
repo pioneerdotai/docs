@@ -30,9 +30,17 @@ That means your work workspace can have approved work skills, your personal work
 
 Installed skills can be enabled or disabled. A disabled skill stays installed on the gateway, but agents should not use it.
 
-Enabled skills can be **implicit** or **not implicit**. An implicit skill is available automatically when Pioneer decides it is relevant. A not implicit skill is available only when you explicitly ask for it, for example by naming the skill in your prompt.
+Enabled skills can be **implicit** or **not implicit**. An implicit skill is available automatically when Pioneer decides it is relevant. A not implicit skill is available only when you explicitly ask for it, either by selecting it in the composer or by naming it in your prompt.
 
-Use implicit mode for trusted, general-purpose behavior that should naturally apply in many threads. Use not implicit mode for specialized, risky, noisy, or rarely needed skills.
+Newly installed skills start not implicit by default. Use implicit mode only for trusted, general-purpose behavior that should naturally apply in many threads. Use not implicit mode for specialized, risky, noisy, or rarely needed skills.
+
+## Selecting Skills In A Thread
+
+In the desktop composer, use the add button and choose **Add skills** to attach one or more skills to the next turn. Selected skills appear as attachment chips above the input, not as inline text inside the message. After you send the turn, the same chips appear on the user message in the timeline.
+
+A selected skill is sent to the gateway as a turn capability. Pioneer resolves it as an explicit composer capability for that turn, applies normal policy and validation, and reports diagnostics if the skill is missing, disabled, blocked, or unavailable.
+
+Composer-selected skills do not paste the full `SKILL.md` body into the prompt. The prompt gets a compact skill entry with the exact `read_skill` slug and description; the full instructions remain available through `read_skill`.
 
 ## Using Skills Safely
 
@@ -46,7 +54,7 @@ Before trusting a skill, look at what it adds, what commands or services it expe
 
 ## Typical Flow
 
-Install the skill, review validation results, fix missing dependencies if needed, confirm it is enabled in the current workspace, choose whether it should be implicit, and try it in a thread. If it behaves well, use it in tasks too. If it is too broad or surprising, disable it or make it not implicit.
+Install the skill, review validation results, fix missing dependencies if needed, confirm it is enabled in the current workspace, keep it not implicit unless there is a reason to change that, and try it in a thread by selecting it from the composer. If it behaves well and is broadly useful, consider making it implicit. If it is too broad or surprising, disable it or keep it explicit-only.
 
 <Columns cols={3}>
   <Card title="Installing Skills" icon="download" href="/skills/installing">

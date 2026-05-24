@@ -52,7 +52,7 @@ sequenceDiagram
   participant Tools
   participant Store
 
-  Gateway->>Agent: StartTurn(history, input, model, provider)
+  Gateway->>Agent: StartTurn(history, input, capabilities, model, provider)
   Agent->>Hooks: turn.pre_policy
   Agent->>Hooks: turn.pre_prompt_context
   Agent->>Agent: resolve skills, MCP, task/turn tools
@@ -80,10 +80,10 @@ sequenceDiagram
 The model request is assembled in layers:
 
 1. The gateway supplies historical `ChatMessage` values from completed turns.
-2. The agent builds the current user message from `UserInput`.
+2. The agent builds the current user message from `UserInput` and turn capability summaries.
 3. The agent dispatches policy hooks, such as memory policy classification.
 4. The agent dispatches pre-prompt-context hooks, such as deterministic memory recall.
-5. The agent resolves active skills and builds a skills prompt.
+5. The agent resolves active skills from explicit capabilities, path matches, explicit references, and implicit policy, then builds a compact skills prompt.
 6. The agent materializes task, turn, MCP, and skill tool bundles when tool calling is available.
 7. The agent dispatches pre-tool-materialization hooks, such as memory tool-bundle contribution.
 8. The agent runs turn preflight before the first main model round.
@@ -95,7 +95,7 @@ The model request is assembled in layers:
 
 The provider receives a `ChatRequest` containing `messages`, optional `tools`, `parallel_tool_calls`, and `compiled_prompt`. Provider adapters are responsible for mapping that common request into provider-specific API payloads.
 
-The ordering is intentional. History comes from the gateway because it is persisted thread state. Skills, MCP tools, task tools, and hook contributions are resolved inside the agent because they are turn-scoped capabilities. Preflight runs after tool materialization so it can see a compact index of registered hidden-domain tools, but before prompt compilation so post-preflight memory context can still become part of the prompt. The prompt is compiled after those decisions because skills, task orchestration, memory, retries, and future domains can add dynamic prompt sections or context.
+The ordering is intentional. History comes from the gateway because it is persisted thread state. Composer-selected skills and MCP entries arrive as turn capabilities, not message text. Skills, MCP tools, task tools, and hook contributions are resolved inside the agent because they are turn-scoped capabilities. Preflight runs after tool materialization so it can see a compact index of registered hidden-domain tools, but before prompt compilation so post-preflight memory context can still become part of the prompt. The prompt is compiled after those decisions because skills, task orchestration, memory, retries, and future domains can add dynamic prompt sections or context.
 
 For the exact prompt sections and history compression rules, see [Prompt And Context](/architecture/prompt).
 

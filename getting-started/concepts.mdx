@@ -74,6 +74,8 @@ Use skills when you want behavior that should be reusable instead of pasted into
 
 Skills are controlled by the gateway and the current workspace, so the same desktop app can connect to different gateways with different skill sets.
 
+Installed skills are explicit-only by default. In a thread, attach a skill from the composer add button when you want it for the next turn; make a skill implicit only after you trust it and want Pioneer to consider it automatically.
+
 ## MCP Servers
 
 MCP servers connect Pioneer to external tools and resources through Model Context Protocol.
@@ -81,6 +83,8 @@ MCP servers connect Pioneer to external tools and resources through Model Contex
 Think of MCP as a way to bring an existing system into the gateway: a database, a company API, a project management tool, a filesystem helper, or a SaaS integration. Once connected, the gateway can expose those MCP tools to agents according to the current gateway and workspace configuration.
 
 MCP install rows keep redacted configuration and secret refs. The actual secret values from `env` and `headers` live in the gateway keystore.
+
+MCP servers are also explicit-only by default. In a thread, attach a server or specific tools from the composer add button when you want that capability for the next turn.
 
 ## Tasks And Subagents
 

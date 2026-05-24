@@ -91,7 +91,13 @@ Catalog changes publish `mcp/server/catalog_changed` and increment the gateway M
 
 MCP policy is per gateway and per workspace. A server can be installed but disabled. A server can also be installed and enabled without allowing implicit tool exposure.
 
-At turn time, the agent asks `AgentMcpToolProvider` for availability and materialized tools. `McpService` reloads the workspace, checks installation policy, checks runtime state, loads the catalog snapshot, and builds dynamic tool descriptors. Blocked servers produce diagnostics instead of breaking the turn.
+At turn time, the agent asks `AgentMcpToolProvider` for availability and materialized tools. The request includes implicit exposure state plus explicit composer selections from `TurnStartParams.capabilities`: selected servers and selected raw tools.
+
+`McpService` reloads the workspace, checks installation policy, checks runtime state, loads the catalog snapshot, and builds dynamic tool descriptors. A selected server exposes that server's allowed catalog tools for the turn. A selected tool exposes only that raw tool. If a server-level selection exists, individual tool selections for the same server are treated as duplicates at the UI/state boundary and the server selection wins.
+
+Blocked, missing, disabled, unavailable, unsupported, or catalog-missing selections produce rejected turn capability diagnostics instead of breaking the turn.
+
+MCP tools are not represented by prompt text. They materialize into `ChatRequest.tools` as dynamic extension tools. If the provider does not support tool calling, explicit MCP capabilities are rejected as provider-unsupported.
 
 When the model calls a materialized MCP tool, the tool runtime sends the call back to `McpService`. The service forwards it to the live server task, waits for `McpToolCallResult`, and records audit/binding data.
 

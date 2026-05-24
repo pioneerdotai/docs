@@ -58,8 +58,12 @@ If the error is unclear, retry with a smaller prompt. Ask the agent to inspect a
 
 ## Attachments
 
-If your build supports attachments, use them for screenshots, logs, text files, and documents that are directly relevant to the thread. Avoid dumping unrelated context into a thread just because it might help. Smaller, cleaner context usually produces better behavior.
+Use attachments for screenshots, logs, text files, and documents that are directly relevant to the thread. Avoid dumping unrelated context into a thread just because it might help. Smaller, cleaner context usually produces better behavior.
 
 Uploaded files and agent-created files are stored as workspace-scoped artifacts. See [Artifacts](/desktop/artifacts) for upload, preview, download, and reuse workflows.
+
+The composer add button can attach files or folders, skills, and MCP capabilities. Skill and MCP selections appear as chips above the input, just like file attachments, and are scoped to the next turn. They are not inserted into the message text.
+
+When a turn is sent, file, skill, and MCP chips are rendered on the user message in the timeline. For MCP, you can attach either a whole server or individual tools; selecting the whole server is the server-level choice for that turn.
 
 Use [AGENTS.md](/desktop/agents-md) when you want persistent instructions to apply automatically to threads in a folder or across the whole thread tree.

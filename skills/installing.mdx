@@ -18,7 +18,7 @@ Ask these questions:
 - Does it need local dependencies?
 - Should it be installed on this gateway or a sandbox gateway first?
 - Is it safe to use in the current workspace?
-- Should it be implicit, or should users name it explicitly?
+- Should it stay explicit-only, or is it trusted enough to make implicit later?
 
 <Warning>
   Tool runs are not sandboxed yet. A skill tool can run with the permissions of the gateway OS user.
@@ -45,8 +45,8 @@ Ask these questions:
   <Step title="Confirm availability">
     Confirm the skill is enabled in the current workspace before using it in real work.
   </Step>
-  <Step title="Choose implicit mode">
-    Decide whether the skill should be implicit or only used when explicitly requested.
+  <Step title="Review implicit mode">
+    New installs start not implicit. Keep that default unless the skill is trusted and broadly useful.
   </Step>
 </Steps>
 
@@ -87,7 +87,7 @@ This is intentional. It lets you keep different capabilities for:
 
 ## First test after install
 
-Use a safe prompt:
+Attach the skill in a thread with the composer add button, then use a safe prompt:
 
 ```text
 Read the installed skill and explain what it can do. Do not call any tools yet.

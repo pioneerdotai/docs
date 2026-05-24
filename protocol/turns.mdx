@@ -35,6 +35,27 @@ A turn is one unit of assistant execution inside a thread. The client creates a 
         "text": "Inspect the project and summarize the architecture.",
         "textElements": []
       }
+    ],
+    "capabilities": [
+      {
+        "id": "cap_docs",
+        "label": "Documents",
+        "kind": {
+          "type": "skill",
+          "slug": "workspace/documents",
+          "sourceKind": "workspace"
+        }
+      },
+      {
+        "id": "cap_resend_send_email",
+        "label": "resend / Send Email",
+        "kind": {
+          "type": "mcpTool",
+          "serverName": "resend",
+          "rawToolName": "send_email",
+          "scopeKind": "workspace"
+        }
+      }
     ]
   }
 }
@@ -46,7 +67,8 @@ Important fields:
 |---|---|
 | `thread_id` | Existing thread id. |
 | `turn_id` | Client-provided id for this turn. |
-| `input` | Array of `UserInput` items. Text, files, images, audio, video, skills, and mentions are represented here. |
+| `input` | Array of `UserInput` items. Text, files, images, audio, video, artifacts, and mentions are represented here. |
+| `capabilities` | Optional turn-scoped skills and MCP selections. Use this for composer-selected skills, MCP servers, and MCP tools. |
 | `model`, `model_provider` | Optional per-turn override. If omitted, the thread model/provider is used. |
 | `sandbox_policy` | Optional sandbox policy object. Current shape is `{ "mode": "FullAccess" }`. |
 | `mode` | Optional per-turn thread mode override, `Chat` or `Agent`. |
@@ -75,12 +97,55 @@ The response only means the gateway accepted the turn. Render progress from noti
   { "type": "localFile", "path": "/Users/alexander/Code/pioneer/README.md" },
   { "type": "localImage", "path": "/tmp/screenshot.png" },
   { "type": "image", "url": "https://example.com/image.png" },
-  { "type": "skill", "name": "Documents", "path": "workspace/documents" },
+  { "type": "artifact", "artifactId": "art_000000000000000001" },
   { "type": "mention", "name": "repo", "path": "app://github/repo" }
 ]
 ```
 
 Attachments are resolved by the gateway/provider pipeline. Local paths are evaluated on the gateway host, not on the client machine unless the gateway is local.
+
+## Turn Capabilities
+
+Skills and MCP selections are sent separately from `input`:
+
+```json
+[
+  {
+    "id": "cap_weather",
+    "label": "weather",
+    "kind": {
+      "type": "skill",
+      "slug": "workspace/weather",
+      "sourceKind": "workspace"
+    }
+  },
+  {
+    "id": "cap_resend",
+    "label": "resend",
+    "kind": {
+      "type": "mcpServer",
+      "name": "resend",
+      "scopeKind": "workspace"
+    }
+  },
+  {
+    "id": "cap_resend_add_contact",
+    "label": "resend / Add Contact",
+    "kind": {
+      "type": "mcpTool",
+      "serverName": "resend",
+      "rawToolName": "add_contact",
+      "scopeKind": "workspace"
+    }
+  }
+]
+```
+
+Capability ids are client-generated stable ids for the turn. `label` is optional display text for timeline chips.
+
+The gateway normalizes duplicate and invalid capability input before resolution. Accepted capabilities are reported with reason `explicit_composer_capability`; rejected capabilities include reasons such as `not_found`, `disabled_by_policy`, `validation_rejected`, `security_blocked`, `dependency_missing`, `catalog_missing`, `tool_missing`, or `provider_unsupported`.
+
+Composer-selected skills become compact skill prompt entries and optional skill dynamic tools. Composer-selected MCP servers and tools become dynamic provider tools; they do not add MCP prompt text.
 
 ## Cancelling A Turn
 
@@ -156,7 +221,7 @@ Use `turn/timeline` when rendering a task-aware conversation timeline. Use `turn
 
 | Variant | Meaning |
 |---|---|
-| `userMessage` | User text and attachments. |
+| `userMessage` | User text and attachments, including file/artifact chips and requested skill/MCP capability chips. |
 | `agentMessage` | Assistant visible answer text, optionally with Markdown AST. |
 | `reasoning` | Reasoning/thinking item. |
 | `systemEvent` | Informational/warning/error event. |

@@ -30,11 +30,11 @@ MCP secrets are scoped the same way. Redacted install data and secret refs live 
 
 ## Enabled And Implicit MCP
 
-MCP servers and their exposed tools can be enabled or disabled. A disabled server can stay configured on the gateway, but agents should not use its tools.
+MCP servers can be enabled or disabled. A disabled server can stay configured on the gateway, but agents should not use its tools.
 
-Enabled MCP tools can be **implicit** or **not implicit**. An implicit MCP tool can be considered automatically when Pioneer decides it is relevant. A not implicit MCP tool stays available, but agents should use it only when you explicitly ask for that MCP capability.
+Enabled MCP servers can be **implicit** or **not implicit**. An implicit MCP server can have its tools considered automatically when Pioneer decides they are relevant. A not implicit MCP server stays available, but agents should use its tools only when you explicitly select that MCP capability or ask for it.
 
-Use implicit mode for trusted tools that are safe and useful across many threads. Keep sensitive, destructive, noisy, or rarely needed MCP tools not implicit.
+Newly installed MCP servers start not implicit by default. Use implicit mode only for trusted servers whose tools are safe and useful across many threads. Keep sensitive, destructive, noisy, or rarely needed MCP servers not implicit.
 
 <Warning>
   MCP tools can affect whatever the MCP server can reach. Combined with the current lack of tool sandboxing, you should test new MCP servers carefully.
@@ -42,7 +42,11 @@ Use implicit mode for trusted tools that are safe and useful across many threads
 
 ## How It Feels In Use
 
-After you add a server, Pioneer starts or connects to it, reads its catalog, and shows the available tools, resources, templates, and prompts. You decide what should be enabled in the current workspace and whether tools should be implicit. After that, agents can call allowed tools from threads and tasks.
+After you add a server, Pioneer starts or connects to it, reads its catalog, and shows the available tools, resources, templates, and prompts. You decide what should be enabled in the current workspace and whether tools should be implicit.
+
+In a thread, use the composer add button and choose **Add MCP** to attach a whole server or specific tools to the next turn. Selected MCP capabilities appear as chips above the input and on the sent user message. If you select a whole server, Pioneer treats that as the server-level selection for the turn and suppresses duplicate individual tool selections for that server.
+
+MCP selections are not rendered as prompt prose. They materialize as model-visible tool definitions in the provider request, and calls still route through the gateway MCP service.
 
 For local processes, Pioneer uses stdio. For network services, it uses HTTP.
 

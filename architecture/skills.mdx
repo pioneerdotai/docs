@@ -50,21 +50,23 @@ enabled = true
 allow_implicit_invocation = false
 ```
 
-Gateway policy can override those values, and workspace policy can override gateway policy. A disabled skill remains installed but does not participate in turn resolution. A non-implicit skill can still be used when explicitly invoked, but it is not automatically selected just because its description or path rules might match.
+Gateway policy can override those values, and workspace policy can override gateway policy. A disabled skill remains installed but does not participate in turn resolution. A non-implicit skill can still be used when explicitly invoked, including through `TurnStartParams.capabilities`, but it is not automatically selected just because its description or path rules might match.
 
 This is the difference between "installed" and "active." Installed means Pioneer knows about the package. Active means this turn is allowed to use it. Implicit means Pioneer can select it automatically. Keeping those separate lets users keep powerful or experimental skills installed without letting the model discover and use them silently.
 
 ## Turn Resolution
 
-At turn time, the agent resolves skills using installed catalog data, workspace policy, explicit mentions, path matches, and implicit invocation rules. The result is persisted as turn skill bindings so a developer can later see which skill fingerprints were active and why they were selected.
+At turn time, the agent resolves skills using installed catalog data, workspace policy, explicit composer capabilities, path matches, explicit textual references, and implicit invocation rules. Composer-selected skills are normalized into explicit skill refs and resolved with reason `ExplicitCapability`, persisted as `explicit_composer_capability` in turn skill bindings.
 
-The dynamic skills prompt starts compactly: display name, exact `read_skill` slug, and "use when" description. Full bodies are included only for a small set of explicitly relevant skills when the prompt budget allows. Otherwise the model is told to call `read_skill` with the exact slug.
+The dynamic skills prompt starts compactly: display name, exact `read_skill` slug, and "use when" description. Composer-selected skills stay compact and do not inject full skill bodies. Full bodies are eligible only for path-matched skills when the prompt budget allows. Otherwise the model is told to call `read_skill` with the exact slug.
+
+Missing, disabled, dependency-blocked, validation-rejected, or security-blocked composer skills are reported as rejected turn capabilities. The user message can still show the requested chip for auditability, while capability diagnostics explain what was actually accepted or rejected.
 
 ## Runtime Tools
 
 Skills can declare runtime tools. Pioneer validates their declarations and output policies before exposing them. Runtime tools can be shell, HTTP, or function-proxy style tools. Trust policy can require higher trust for more dangerous runtime classes.
 
-When a skill tool is accepted, the agent materializes it into a `ToolExtensionBundle` and adds it to the same tool router as built-in, MCP, and task tools. If policy narrows an output declaration or excludes a tool, the agent logs diagnostics and continues the turn.
+When a skill tool is accepted, including from a composer-selected skill, the agent materializes it into a `ToolExtensionBundle` and adds it to the same tool router as built-in, MCP, and task tools. If policy narrows an output declaration or excludes a tool, the agent logs diagnostics and continues the turn.
 
 ## Audit And Health
 
