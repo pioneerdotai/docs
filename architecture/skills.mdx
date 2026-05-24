@@ -63,22 +63,22 @@ At parse time, `SKILL.md` must exist, the body must not be empty, and the skill 
 
 ### Supported Frontmatter
 
-| Field | Type | Semantics |
-|---|---|---|
-| `name` | string | Human-facing name. Native skills should set it in frontmatter. Imported compatibility packages can fall back to `_meta.json.displayName`, then `slug`, if missing. |
-| `slug` | string | Required for native skills. Normalized to lowercase hyphen form and stored with owner as `owner/slug`. Imported compatibility packages can provide `_meta.json.slug`. |
-| `owner` | string | Optional namespace. Native skills should set it here when they need a non-default owner. Imported compatibility packages can provide `_meta.json.owner` or `_meta.json.ownerId`, which takes precedence. |
-| `description` | string | Skill summary and trigger description. Falls back to the first non-empty body line if omitted, but strict conformance requires it. |
-| `license` | string | Optional license string. |
-| `compatibility` | string | Optional compatibility note. Strict profile requires 1..=500 characters when provided. |
-| `version` | string | Optional version hint. Native skills should set it here. Imported compatibility packages can provide `_meta.json.version` or `_meta.json.latest.version`, which takes precedence. |
-| `user-invocable` | boolean | Defaults to `true`. Controls whether the skill can be selected explicitly. |
-| `disable-model-invocation` | boolean | Defaults to `false`. Prevents automatic model-side invocation when set. |
-| `paths` | string or list of strings | Path match rules used by the resolver. |
-| `allowed-tools` | string or list of strings | Agent Skills tool allowlist hint. Pioneer accepts both forms, but the strict Agent Skills profile requires a space-separated string. |
-| `dependencies` | object | Dependency declarations for environment variables, binaries, commands, config keys, MCP servers, and API keys. |
-| `metadata` | object or JSON-object string | Raw metadata retained in the compiled definition. Pioneer recognizes `openclaw` and `clawdbot` namespaces. |
-| `runtime` | object | Dynamic runtime tool declarations. |
+| Field | Status | Type | Default / precedence | Semantics |
+|---|---|---|---|---|
+| `name` | Native required by convention; strict-required | string | `_meta.json.displayName`, then `slug` if frontmatter is missing | Human-facing name. Native skills should set it in frontmatter. |
+| `slug` | Required to parse | string | `_meta.json.slug` overrides frontmatter | Normalized to lowercase hyphen form and stored with owner as `owner/slug`. |
+| `owner` | Optional | string | `_meta.json.owner` or `_meta.json.ownerId`, then frontmatter, then nested source path, then `pioneer` | Namespace for the qualified slug. |
+| `description` | Native required by convention; strict-required | string | First non-empty body line if missing | Skill summary and trigger description. |
+| `license` | Optional | string | None | Optional license string. |
+| `compatibility` | Optional | string | None | Optional compatibility note. Strict profile requires 1..=500 characters when provided. |
+| `version` | Optional | string | `_meta.json.version`, then `_meta.json.latest.version`, then frontmatter | Version hint. Native skills should set it in frontmatter. |
+| `user-invocable` | Optional | boolean | `true` | Controls whether the skill can be selected explicitly. |
+| `disable-model-invocation` | Optional | boolean | `false` | Prevents automatic model-side invocation when set. |
+| `paths` | Optional | string or list of strings | Empty list | Path match rules used by the resolver. |
+| `allowed-tools` | Optional | string or list of strings | Empty list | Agent Skills tool allowlist hint. Pioneer accepts both forms, but strict Agent Skills requires a space-separated string. |
+| `dependencies` | Optional | object | Empty dependency set | Dependency checks for environment variables, binaries, commands, config keys, MCP servers, and API keys. |
+| `metadata` | Optional | object or JSON-object string | `{}` | Raw metadata retained in the compiled definition. Pioneer recognizes `openclaw` and `clawdbot` namespaces. |
+| `runtime` | Optional | object | No runtime tools | Dynamic runtime tool declarations. |
 
 Unknown frontmatter keys are ignored by the parser unless they are inside a typed section such as `runtime.tools.output_policy`, where serde validation rejects unknown policy fields.
 
@@ -86,16 +86,18 @@ Unknown frontmatter keys are ignored by the parser unless they are inside a type
 
 The `dependencies` object supports these lists:
 
-| Field | Meaning |
-|---|---|
-| `env` | Environment variables that must be set and non-empty. |
-| `api_keys` | API key environment variables that must be set and non-empty. |
-| `bins` | Executables that must be available in `PATH`. |
-| `commands` | Command dependencies that must be available in `PATH`. |
-| `mcp` | MCP server names that must be registered in the dependency check input. |
-| `config` | Config dependencies retained in the compiled definition. Current baseline dependency checks do not enforce this field directly. |
+| Field | Status | Type | Checked today | Meaning |
+|---|---|---|---|---|
+| `env` | Optional | string or string array | Yes | Environment variables that must be set and non-empty. |
+| `api_keys` | Optional | string or string array | Yes | API key environment variables that must be set and non-empty. |
+| `bins` | Optional | string or string array | Yes | Executables that must be available in `PATH`. |
+| `commands` | Optional | string or string array | Yes | Command dependencies that must be available in `PATH`. |
+| `mcp` | Optional | string or string array | Yes | MCP server names that must be registered in the dependency check input. |
+| `config` | Optional | string or string array | Stored, not baseline-enforced | Config dependencies retained in the compiled definition. |
 
 The compiler also merges known dependency metadata from `metadata.openclaw.requires` and `metadata.clawdbot.requires` into the normalized dependency set.
+
+Dependencies are readiness checks, not installation instructions. The dependency evaluator checks the current gateway environment and reports missing or blocked requirements; it does not install binaries or commands. If a skill body contains setup instructions that install a command, do not declare that command as a required dependency unless the command must already exist before the skill can be installed or used.
 
 ### Sidecar Metadata
 
@@ -139,15 +141,15 @@ runtime:
 
 Each tool has:
 
-| Field | Type | Semantics |
-|---|---|---|
-| `tool_slug` | string | Required. Normalized to lowercase hyphen form. Canonical name becomes `skill.<normalized-skill>.<normalized-tool>`. |
-| `description` | string | Tool description. Defaults to `Runtime tool '<tool_slug>'` when omitted. |
-| `kind` | `shell`, `http`, or `function_proxy` | Runtime class. |
-| `parameters` | JSON schema object | Function-call argument schema. Defaults to an open object. |
-| `execution_class` | `shared`, `exclusive`, or `session_scoped` | Scheduling hint for the tool router. Defaults to `shared`. |
-| `config` | object | Kind-specific configuration. Shell tools read `config.command`; HTTP tools read request defaults such as `url`, `method`, `headers`, and `timeout_ms`; function proxies require `config.target_tool`. |
-| `output_policy` | object | Optional dynamic output policy request. Host caps may narrow or reject it. |
+| Field | Status | Type | Default | Semantics |
+|---|---|---|---|---|
+| `tool_slug` | Required | string | None | Normalized to lowercase hyphen form. Canonical name becomes `skill.<normalized-skill>.<normalized-tool>`. |
+| `description` | Optional | string | `Runtime tool '<tool_slug>'` | Tool description. |
+| `kind` | Required | `shell`, `http`, or `function_proxy` | None | Runtime class. |
+| `parameters` | Optional | JSON schema object | Open object | Function-call argument schema. |
+| `execution_class` | Optional | `shared`, `exclusive`, or `session_scoped` | `shared` | Scheduling hint for the tool router. |
+| `config` | Optional | object | `{}` | Kind-specific configuration. Shell tools read `config.command`; HTTP tools read request defaults such as `url`, `method`, `headers`, and `timeout_ms`; function proxies require `config.target_tool`. |
+| `output_policy` | Optional | object | Host default | Dynamic output policy request. Host caps may narrow or reject it. |
 
 Runtime tool declarations are not enough to expose a tool. The runtime planner also checks dynamic-tool enablement, allowed tool kinds, trust thresholds, duplicate canonical names, max tools per skill, dependency health, and output policy constraints.
 
