@@ -37,7 +37,130 @@ The installer stages source before committing it. This lets Pioneer scan the ski
 
 ## Contract Shape
 
-A skill is defined by a `SKILL.md` file. Pioneer reads frontmatter fields such as name, owner, description, slug, license, compatibility, version hint, path matches, allowed tools, dependencies, and runtime tool declarations. The body becomes the skill instruction body.
+A skill source is a directory whose root contains `SKILL.md`. Uploaded archives must materialize to one top-level directory, and that directory must contain `SKILL.md`. The installer rejects absolute paths, parent traversal, duplicate archive paths, unsupported archive entries, symlinks in copied sources, and files that exceed configured size limits.
+
+`SKILL.md` has YAML frontmatter followed by a non-empty Markdown body:
+
+```md
+---
+name: repo-review
+slug: repo-review
+description: Review code using the team's checklist. Use when the user asks for a code review or release-readiness pass.
+allowed-tools: Read Bash(git:*)
+dependencies:
+  bins:
+    - git
+---
+
+# Repo Review
+
+Read `references/checklist.md` before reviewing code.
+```
+
+Pioneer parses an Agent Skills-compatible contract plus Pioneer runtime extensions. For native Pioneer skills, identity and behavior fields belong in `SKILL.md` YAML frontmatter. `_meta.json` is a compatibility sidecar for imported OpenClaw-style or registry-style packages, not the preferred native authoring format.
+
+At parse time, `SKILL.md` must exist, the body must not be empty, and the skill must have a `slug`. Native packages should provide that slug in frontmatter. Imported compatibility packages may provide it through `_meta.json`. Agent Skills strict conformance also requires `name` and `description`; Pioneer can still parse fallback values, but validation will report strict conformance issues.
+
+### Supported Frontmatter
+
+| Field | Type | Semantics |
+|---|---|---|
+| `name` | string | Human-facing name. Native skills should set it in frontmatter. Imported compatibility packages can fall back to `_meta.json.displayName`, then `slug`, if missing. |
+| `slug` | string | Required for native skills. Normalized to lowercase hyphen form and stored with owner as `owner/slug`. Imported compatibility packages can provide `_meta.json.slug`. |
+| `owner` | string | Optional namespace. Native skills should set it here when they need a non-default owner. Imported compatibility packages can provide `_meta.json.owner` or `_meta.json.ownerId`, which takes precedence. |
+| `description` | string | Skill summary and trigger description. Falls back to the first non-empty body line if omitted, but strict conformance requires it. |
+| `license` | string | Optional license string. |
+| `compatibility` | string | Optional compatibility note. Strict profile requires 1..=500 characters when provided. |
+| `version` | string | Optional version hint. Native skills should set it here. Imported compatibility packages can provide `_meta.json.version` or `_meta.json.latest.version`, which takes precedence. |
+| `user-invocable` | boolean | Defaults to `true`. Controls whether the skill can be selected explicitly. |
+| `disable-model-invocation` | boolean | Defaults to `false`. Prevents automatic model-side invocation when set. |
+| `paths` | string or list of strings | Path match rules used by the resolver. |
+| `allowed-tools` | string or list of strings | Agent Skills tool allowlist hint. Pioneer accepts both forms, but the strict Agent Skills profile requires a space-separated string. |
+| `dependencies` | object | Dependency declarations for environment variables, binaries, commands, config keys, MCP servers, and API keys. |
+| `metadata` | object or JSON-object string | Raw metadata retained in the compiled definition. Pioneer recognizes `openclaw` and `clawdbot` namespaces. |
+| `runtime` | object | Dynamic runtime tool declarations. |
+
+Unknown frontmatter keys are ignored by the parser unless they are inside a typed section such as `runtime.tools.output_policy`, where serde validation rejects unknown policy fields.
+
+### Dependencies
+
+The `dependencies` object supports these lists:
+
+| Field | Meaning |
+|---|---|
+| `env` | Environment variables that must be set and non-empty. |
+| `api_keys` | API key environment variables that must be set and non-empty. |
+| `bins` | Executables that must be available in `PATH`. |
+| `commands` | Command dependencies that must be available in `PATH`. |
+| `mcp` | MCP server names that must be registered in the dependency check input. |
+| `config` | Config dependencies retained in the compiled definition. Current baseline dependency checks do not enforce this field directly. |
+
+The compiler also merges known dependency metadata from `metadata.openclaw.requires` and `metadata.clawdbot.requires` into the normalized dependency set.
+
+### Sidecar Metadata
+
+`_meta.json` support exists for compatibility with imported OpenClaw-style or registry-style skill packages. Native Pioneer skills should put contract data in `SKILL.md` YAML frontmatter instead.
+
+If `_meta.json` exists beside `SKILL.md`, Pioneer reads only these fields:
+
+| Field | Semantics |
+|---|---|
+| `owner` or `ownerId` | Owner namespace override. |
+| `slug` | Slug override. |
+| `version` | Version hint override. |
+| `latest.version` | Fallback version hint. |
+| `displayName` | Fallback display name when frontmatter `name` is missing. |
+
+Sidecar identity fields take precedence over frontmatter identity fields. This lets imported registry metadata stabilize package identity without rewriting `SKILL.md`, but it also means native packages should avoid `_meta.json` unless they intentionally need compatibility override behavior.
+
+Pioneer does not read `description`, `dependencies`, `paths`, `allowed-tools`, `metadata`, `user-invocable`, `disable-model-invocation`, or `runtime` from `_meta.json`; those fields are frontmatter-only.
+
+### Runtime Tool Declarations
+
+`runtime.tools` declares dynamic tools that can be projected into the normal tool router after policy checks:
+
+```yaml
+runtime:
+  tools:
+    - tool_slug: run-report
+      description: Run the report helper.
+      kind: shell
+      parameters:
+        type: object
+        additionalProperties: false
+      execution_class: exclusive
+      config:
+        command:
+          - scripts/run-report.sh
+      output_policy:
+        llm:
+          mode: summary_only
+```
+
+Each tool has:
+
+| Field | Type | Semantics |
+|---|---|---|
+| `tool_slug` | string | Required. Normalized to lowercase hyphen form. Canonical name becomes `skill.<normalized-skill>.<normalized-tool>`. |
+| `description` | string | Tool description. Defaults to `Runtime tool '<tool_slug>'` when omitted. |
+| `kind` | `shell`, `http`, or `function_proxy` | Runtime class. |
+| `parameters` | JSON schema object | Function-call argument schema. Defaults to an open object. |
+| `execution_class` | `shared`, `exclusive`, or `session_scoped` | Scheduling hint for the tool router. Defaults to `shared`. |
+| `config` | object | Kind-specific configuration. Shell tools read `config.command`; HTTP tools read request defaults such as `url`, `method`, `headers`, and `timeout_ms`; function proxies require `config.target_tool`. |
+| `output_policy` | object | Optional dynamic output policy request. Host caps may narrow or reject it. |
+
+Runtime tool declarations are not enough to expose a tool. The runtime planner also checks dynamic-tool enablement, allowed tool kinds, trust thresholds, duplicate canonical names, max tools per skill, dependency health, and output policy constraints.
+
+### Conformance Profiles
+
+Pioneer produces a conformance report with two profiles:
+
+| Profile | Purpose |
+|---|---|
+| `agentskills_strict` | Checks the open Agent Skills shape: `name`, `description`, name length and hyphen rules, strict `allowed-tools` string form, and strict metadata value types. |
+| `openclaw_compat` | Checks OpenClaw-style `name`, `description`, and recognized `metadata.openclaw` / `metadata.clawdbot` shapes. |
+
+Conformance issues are stored on `SkillDefinition`. Resolver policy decides whether validation issues block activation.
 
 The compiler turns parsed data into a `SkillDefinition` with identity, instructions, source information, trust level, dependencies, runtime tools, metadata, conformance report, and fingerprint.
 
@@ -76,6 +199,7 @@ The design intent is that skills are not just prompt snippets. They are installa
 
 ## Related Pages
 
+- [Creating Skills](/skills/creating) gives the user-facing package authoring flow.
 - [Prompt And Context](/architecture/prompt) explains how resolved skills become the `[Skills]` prompt section.
 - [Tools System](/architecture/tools) explains how skill runtime tools are routed and projected.
 - [MCP Architecture](/architecture/mcp) explains the external-server extension path.

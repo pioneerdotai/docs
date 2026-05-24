@@ -42,6 +42,7 @@
             "group": "Skills",
             "pages": [
               "skills/overview",
+              "skills/creating",
               "skills/installing",
               "skills/managing",
               "skills/security"

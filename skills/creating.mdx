@@ -1,0 +1,597 @@
+---
+title: "Creating Skills"
+description: "Create a Pioneer skill package with a SKILL.md contract and supporting resources."
+icon: "file-plus"
+---
+
+A skill is a directory with a `SKILL.md` file at its root. That file declares the skill identity and tells the agent how to use the package. The directory can also contain scripts, references, assets, templates, and other files the instructions point to.
+
+Keep the first version small. Start with instructions only, install it, test it explicitly in one thread, then add dependencies or runtime tools only when the workflow needs them.
+
+## Package Layout
+
+```text
+repo-review/
+  SKILL.md
+  references/
+    review-checklist.md
+  scripts/
+    collect-context.sh
+  assets/
+    report-template.md
+```
+
+Only `SKILL.md` is required. Supporting folders are conventional:
+
+| Folder | Use it for |
+| --- | --- |
+| `references/` | Longer documentation the agent should read only when needed. |
+| `scripts/` | Repeatable commands or helpers the skill instructions can call. |
+| `assets/` | Templates, examples, images, or other files used as inputs or outputs. |
+
+For native Pioneer skills, put the skill contract in YAML frontmatter inside `SKILL.md`. Pioneer also reads an optional `_meta.json` sidecar for compatibility with imported OpenClaw-style or registry-style skill packages, but do not use `_meta.json` as the primary authoring format for new Pioneer-native skills.
+
+Other files are packaged with the skill, but they are not loaded automatically. Mention them from `SKILL.md` so the agent knows when to read or use them.
+
+## Minimal SKILL.md
+
+```md
+---
+name: repo-review
+slug: repo-review
+description: Review code in this repository using the team's review checklist. Use when the user asks for a code review, regression risk check, or release-readiness pass.
+---
+
+# Repo Review
+
+Read `references/review-checklist.md` before reviewing application code.
+
+Prioritize correctness bugs, behavior changes, missing tests, and security risks.
+Lead with findings ordered by severity. Include file and line references when available.
+```
+
+For native Pioneer skills, include `slug` explicitly in the YAML frontmatter. The open Agent Skills strict profile requires `name` and `description`; Pioneer-native packages should provide all three fields in `SKILL.md`.
+
+## Frontmatter Fields
+
+Use YAML frontmatter between the opening and closing `---` markers. Field names are case-sensitive. Empty strings are trimmed and treated as missing. Unknown top-level fields are ignored by the parser, so do not rely on a custom top-level field unless another system reads it.
+
+The body after frontmatter must not be empty. Pioneer stores the body as the full instruction text returned by `read_skill`.
+
+```md
+---
+name: repo-review
+slug: repo-review
+owner: platform
+description: Review code in this repository using the team's checklist. Use when the user asks for a code review, regression risk check, or release-readiness pass.
+version: "1.2.0"
+license: Apache-2.0
+compatibility: Requires git and GitHub CLI on the gateway host.
+user-invocable: true
+disable-model-invocation: false
+paths:
+  - "crates/**"
+  - "apps/**"
+allowed-tools: Read Bash(git:*) Bash(gh:*)
+dependencies:
+  env:
+    - GH_TOKEN
+  api_keys:
+    - OPENAI_API_KEY
+  bins:
+    - git
+  commands:
+    - gh
+  mcp:
+    - github
+  config:
+    - skills.review.enabled
+metadata:
+  author: platform-team
+  homepage: https://example.com/skills/repo-review
+runtime:
+  tools:
+    - tool_slug: run-review-helper
+      description: Run the repository review helper script.
+      kind: shell
+      parameters:
+        type: object
+        properties:
+          target:
+            type: string
+        additionalProperties: false
+      execution_class: exclusive
+      config:
+        command:
+          - scripts/collect-context.sh
+      output_policy:
+        llm:
+          mode: summary_only
+---
+
+# Repo Review
+
+Read `references/review-checklist.md` before reviewing application code.
+```
+
+## Frontmatter Summary
+
+| Field | Status | Type | Accepted YAML | Meaning |
+| --- | --- | --- | --- | --- |
+| `name` | Recommended, Agent Skills strict-required | string | `name: repo-review` | Human-facing skill name. Native skills should set it in frontmatter. |
+| `slug` | Pioneer-native required | string | `slug: repo-review` | Stable machine name. Pioneer normalizes it and installs the skill as `owner/slug`. |
+| `description` | Recommended, Agent Skills strict-required | string | `description: Review code...` | Short capability and trigger description shown before the full skill body is read. |
+| `owner` | Optional | string | `owner: platform` | Namespace used in the qualified slug. Native skills should set it here when they need a non-default owner. |
+| `version` | Optional | string | `version: "1.2.0"` | Version hint shown in catalog and health data. Quote numeric-looking versions. Native skills should set it here. |
+| `license` | Optional | string | `license: Apache-2.0` | License label for review and catalog display. |
+| `compatibility` | Optional | string | `compatibility: Requires git.` | Short compatibility note. |
+| `metadata` | Optional | object or JSON-object string | `metadata: {author: team}` or nested YAML object | Additional metadata retained with the skill definition. This is frontmatter metadata, not `_meta.json`. |
+| `allowed-tools` | Optional | string or string array | `allowed-tools: Read Bash(git:*)` | Agent Skills tool allowlist hint. Strict conformance expects a string. |
+| `dependencies` | Optional | object | `dependencies: { bins: [git] }` | Local requirements checked by install and health flows. |
+| `paths` | Optional | string or string array | `paths: ["crates/**"]` | Path match hints used during skill resolution. |
+| `user-invocable` | Optional | boolean | `user-invocable: true` | Whether users can select the skill explicitly. Defaults to `true`. |
+| `disable-model-invocation` | Optional | boolean | `disable-model-invocation: false` | Whether automatic model-side invocation is disabled. Defaults to `false`. |
+| `runtime` | Optional | object | `runtime: { tools: [...] }` | Dynamic tool declarations. Advanced; most skills should omit it. |
+
+## Field Reference
+
+### `name`
+
+Use `name` for the display name stored in the compiled skill definition.
+
+```yaml
+name: repo-review
+```
+
+Accepted type: string.
+
+Strict Agent Skills conformance requires `name`. The strict profile also checks that it is 64 characters or less and does not start with `-`, end with `-`, or contain `--`.
+
+For imported compatibility packages, Pioneer can fall back to `_meta.json.displayName`, then `slug`, but that sidecar fallback is not the native authoring path. New Pioneer skills should set `name` directly in frontmatter.
+
+Prefer a short lowercase hyphen name when you want maximum compatibility:
+
+```yaml
+name: repo-review
+```
+
+### `slug`
+
+Use `slug` for stable machine identity.
+
+```yaml
+slug: repo-review
+```
+
+Accepted type: string.
+
+Pioneer-native skills must set `slug` in `SKILL.md` frontmatter. The slug is normalized to lowercase hyphen form. For example, `Repo Review` becomes `repo-review`. The installed qualified slug is `owner/slug`, such as `platform/repo-review`.
+
+For imported OpenClaw-style or registry-style packages, Pioneer can also read `_meta.json.slug`. Treat that as a compatibility path, not the recommended way to author a new Pioneer skill.
+
+Use lowercase letters, digits, and hyphens in the file to avoid surprises:
+
+```yaml
+slug: github-issue-triage
+```
+
+### `description`
+
+Use `description` to tell Pioneer and the model when the skill is relevant.
+
+```yaml
+description: Review code in this repository using the team's checklist. Use when the user asks for a code review, regression risk check, or release-readiness pass.
+```
+
+Accepted type: string.
+
+This is the most important discovery field. Keep both parts in the same string:
+
+- what the skill does
+- when it should be used
+
+Strict Agent Skills conformance requires `description` and limits it to 1024 characters. If it is missing, Pioneer falls back to the first non-empty body line, but that fallback is worse for discovery and reports strict conformance issues.
+
+### `owner`
+
+Use `owner` to put the skill in a namespace.
+
+```yaml
+owner: platform
+```
+
+Accepted type: string.
+
+Pioneer uses `owner` with `slug` to create the qualified slug:
+
+```text
+platform/repo-review
+```
+
+For native Pioneer skills, set `owner` in frontmatter when you need a namespace other than the default. If no owner is provided, Pioneer can derive it from a nested source path. Otherwise it defaults to `pioneer`.
+
+For imported compatibility packages, `_meta.json.owner` or `_meta.json.ownerId` can also provide the owner. When present, sidecar identity fields take precedence over frontmatter identity fields, so do not include `_meta.json` in a native skill unless you intentionally want that override behavior.
+
+### `version`
+
+Use `version` as a catalog and health hint.
+
+```yaml
+version: "1.2.0"
+```
+
+Accepted type: string.
+
+Quote versions so YAML does not reinterpret values such as `1.2` as numbers. For native Pioneer skills, put the version hint in frontmatter.
+
+For imported compatibility packages, Pioneer can read `_meta.json.version` or `_meta.json.latest.version`. Those sidecar values take precedence over frontmatter `version` when present.
+
+Pioneer stores this as a version hint. It is not a package manager lock and does not enforce semantic version rules.
+
+## `_meta.json` Compatibility Sidecar
+
+Native Pioneer skills should use YAML frontmatter in `SKILL.md` for `name`, `slug`, `owner`, `version`, `description`, dependencies, metadata, and runtime declarations.
+
+Pioneer still supports `_meta.json` beside `SKILL.md` so imported OpenClaw-style or registry-style skills can keep their existing package identity metadata. The parser reads only a small set of sidecar identity fields:
+
+```json
+{
+  "owner": "openclaw",
+  "ownerId": "openclaw",
+  "slug": "browser",
+  "version": "1.2.0",
+  "latest": {
+    "version": "1.2.0"
+  },
+  "displayName": "Browser"
+}
+```
+
+Supported `_meta.json` fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `owner` | string | Owner namespace override. |
+| `ownerId` | string | Alternate owner namespace field used by compatibility packages. |
+| `slug` | string | Slug override. |
+| `version` | string | Version hint override. |
+| `latest.version` | string | Fallback version hint. |
+| `displayName` | string | Fallback display name when frontmatter `name` is missing. |
+
+Precedence rules:
+
+- `_meta.json.slug` takes precedence over frontmatter `slug`.
+- `_meta.json.owner` or `_meta.json.ownerId` takes precedence over frontmatter `owner`.
+- `_meta.json.version` or `_meta.json.latest.version` takes precedence over frontmatter `version`.
+- `_meta.json.displayName` is used only when frontmatter `name` is missing.
+
+Do not put native-only fields such as `description`, `dependencies`, `paths`, `allowed-tools`, `metadata`, `user-invocable`, `disable-model-invocation`, or `runtime` in `_meta.json`. Pioneer reads those from `SKILL.md` frontmatter.
+
+### `license`
+
+Use `license` to describe the package license.
+
+```yaml
+license: Apache-2.0
+```
+
+Accepted type: string.
+
+Strict conformance rejects an explicitly empty license. It does not validate SPDX values today, but SPDX-style values are easiest to review.
+
+### `compatibility`
+
+Use `compatibility` for short constraints a reviewer should see.
+
+```yaml
+compatibility: Requires macOS or Linux, git, and GitHub CLI on the gateway host.
+```
+
+Accepted type: string.
+
+Strict conformance allows it when it is between 1 and 500 characters. Put long setup docs in `references/` instead of making this field long.
+
+### `metadata`
+
+Use `metadata` for extra structured data that should travel with the skill definition.
+
+Accepted types:
+
+- YAML object
+- JSON-object string
+
+Recommended YAML object form:
+
+```yaml
+metadata:
+  author: platform-team
+  homepage: https://example.com/skills/repo-review
+  support: "#ai-tools"
+```
+
+Accepted JSON string form:
+
+```yaml
+metadata: '{"author":"platform-team","homepage":"https://example.com/skills/repo-review"}'
+```
+
+If `metadata` is a YAML string, it must parse as a JSON object. Plain text metadata is reported as invalid. An unquoted inline form like `metadata: {author: platform-team}` is a YAML object, not a string, and is also accepted.
+
+Pioneer recognizes two nested namespaces from compatibility ecosystems:
+
+```yaml
+metadata:
+  openclaw:
+    os:
+      - darwin
+      - linux
+    requires:
+      bins:
+        - node
+        - npm
+      config:
+        - skills.browser.enabled
+    skillKey: openclaw/browser
+    homepage: https://docs.openclaw.ai
+  clawdbot:
+    emoji: "*"
+    homepage: https://example.com
+    requires:
+      commands:
+        - agent-browser
+      bins:
+        - node
+```
+
+Known dependency metadata is merged into the compiled dependency set:
+
+- `metadata.openclaw.requires.bins`
+- `metadata.openclaw.requires.config`
+- `metadata.clawdbot.requires.commands`
+- `metadata.clawdbot.requires.bins`
+
+Strict Agent Skills conformance is intentionally narrower: top-level custom metadata values should be strings. Nested objects are strict-compatible only for `openclaw` and `clawdbot`.
+
+### `allowed-tools`
+
+Use `allowed-tools` as an Agent Skills allowlist hint.
+
+Strict-compatible form:
+
+```yaml
+allowed-tools: Read Bash(git:*) Bash(gh:*)
+```
+
+Accepted by Pioneer but not strict-compatible:
+
+```yaml
+allowed-tools:
+  - Read
+  - Bash(git:*)
+  - Bash(gh:*)
+```
+
+Accepted types:
+
+- string, split on whitespace
+- array of strings
+
+Pioneer parses and stores this field on the skill runtime definition. It is a declaration from the skill contract, not a replacement for gateway policy. Runtime exposure still depends on actual configured tools, trust, dynamic-tool settings, and policy.
+
+### `dependencies`
+
+Use `dependencies` when missing local state should be visible in install, health, and runtime checks.
+
+```yaml
+dependencies:
+  env:
+    - GH_TOKEN
+  api_keys:
+    - OPENAI_API_KEY
+  bins:
+    - git
+  commands:
+    - gh
+  mcp:
+    - github
+  config:
+    - skills.review.enabled
+```
+
+Accepted type: object.
+
+Each dependency list accepts either a string or an array of strings:
+
+```yaml
+dependencies:
+  bins: git
+  commands:
+    - gh
+```
+
+Supported dependency fields:
+
+| Field | Accepted YAML | Checked today | Meaning |
+| --- | --- | --- | --- |
+| `env` | string or string array | Yes | Environment variables that must be set and non-empty. |
+| `api_keys` | string or string array | Yes | API key environment variables that must be set and non-empty. |
+| `bins` | string or string array | Yes | Executables that must be available in `PATH`. |
+| `commands` | string or string array | Yes | Commands that must be available in `PATH`. |
+| `mcp` | string or string array | Yes | MCP server names that must be available to the dependency checker. |
+| `config` | string or string array | Stored, not baseline-enforced | Config keys retained in the compiled dependency set. |
+
+If install is blocked by a dependency failure, install the missing binary, set the environment variable, register the MCP server, or install the skill on a gateway that has those dependencies.
+
+### `paths`
+
+Use `paths` to hint that a skill is relevant when a turn touches matching files or directories.
+
+```yaml
+paths:
+  - "crates/**"
+  - "apps/web/**"
+```
+
+Accepted types:
+
+- string
+- array of strings
+
+Single-string form:
+
+```yaml
+paths: "docs/**"
+```
+
+Path matches participate in turn resolution. They do not grant filesystem permissions and do not install the skill into those paths.
+
+### `user-invocable`
+
+Use `user-invocable` to control explicit user selection.
+
+```yaml
+user-invocable: true
+```
+
+Accepted type: boolean.
+
+Default:
+
+```yaml
+user-invocable: true
+```
+
+Use `false` for internal helper skills that should not appear as something a user selects directly:
+
+```yaml
+user-invocable: false
+```
+
+This field must be a YAML boolean, not a string. Use `true` or `false`, not `"true"` or `"false"`.
+
+### `disable-model-invocation`
+
+Use `disable-model-invocation` to prevent automatic model-side invocation.
+
+```yaml
+disable-model-invocation: false
+```
+
+Accepted type: boolean.
+
+Default:
+
+```yaml
+disable-model-invocation: false
+```
+
+Set it to `true` when the skill should be available only through explicit user or client selection:
+
+```yaml
+disable-model-invocation: true
+```
+
+This is separate from workspace policy. Workspace policy can still disable the skill or keep it explicit-only even when this field is `false`.
+
+### `runtime`
+
+Use `runtime` only when the skill must expose callable tools.
+
+Accepted type: object with optional `tools` array.
+
+Most skills should omit `runtime`. Instructions, references, and scripts are easier to review. Runtime tools add policy, trust, dependency, and output-safety concerns.
+
+```yaml
+runtime:
+  tools:
+    - tool_slug: run-review-helper
+      description: Run the repository review helper script.
+      kind: shell
+      parameters:
+        type: object
+        properties:
+          target:
+            type: string
+        additionalProperties: false
+      execution_class: exclusive
+      config:
+        command:
+          - scripts/collect-context.sh
+      output_policy:
+        llm:
+          mode: summary_only
+        timeline:
+          mode: summary
+          max_chars: 2000
+```
+
+Supported runtime tool fields:
+
+| Field | Status | Type | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `tool_slug` | Required | string | None | Tool slug inside the skill. Normalized to lowercase hyphen form. |
+| `description` | Optional | string | `Runtime tool '<tool_slug>'` | Model-facing tool description. |
+| `kind` | Required | enum string | None | One of `shell`, `http`, or `function_proxy`. |
+| `parameters` | Optional | JSON schema object | Open object | Function-call argument schema exposed to the model. |
+| `execution_class` | Optional | enum string | `shared` | One of `shared`, `exclusive`, or `session_scoped`. |
+| `config` | Optional | object | `{}` | Runtime-specific configuration. |
+| `output_policy` | Optional | object | Host default | Requested output projection policy. Host caps may narrow or reject it. |
+
+Runtime tool kinds:
+
+| Kind | Required or common config | Behavior |
+| --- | --- | --- |
+| `shell` | `config.command` as an array of strings, or `command` in call arguments | Runs a command through the gateway's `exec_command` runtime. |
+| `http` | `config.url`, or `url` in call arguments | Makes an HTTP request from the gateway. Supports defaults for `method`, `headers`, and `timeout_ms`. |
+| `function_proxy` | `config.target_tool` | Wraps another available tool. Call arguments are forwarded to the target tool. |
+
+Runtime tools are still subject to gateway configuration, trust policy, dependency rechecks, output policy caps, duplicate-name checks, and per-skill tool limits. A declared tool may be excluded even when the skill installs.
+
+## Create And Install
+
+<Steps>
+  <Step title="Create the directory">
+    Create a directory named after the skill slug and place `SKILL.md` at its root.
+  </Step>
+  <Step title="Write the contract">
+    Add `name`, `slug`, `description`, and a non-empty instruction body. Keep detailed reference material in separate files and link to it from the body.
+  </Step>
+  <Step title="Add resources">
+    Add `references/`, `scripts/`, or `assets/` only when the skill needs them. Test scripts outside Pioneer before packaging.
+  </Step>
+  <Step title="Archive the package">
+    Package one top-level directory. The archive root must contain `SKILL.md`.
+  </Step>
+  <Step title="Install in the desktop app">
+    Open the Skills view, install the archive or folder, review validation and health results, and keep the skill explicit-only for the first test.
+  </Step>
+  <Step title="Test explicitly">
+    Attach the skill from the composer and run a low-risk prompt before making it implicit.
+  </Step>
+</Steps>
+
+Archive from the parent directory:
+
+```bash
+tar -czf repo-review.tar.gz repo-review
+```
+
+The archive must contain a single top-level root, such as `repo-review/`, and that root must contain `SKILL.md`.
+
+## Quality Checklist
+
+- The skill has a short, stable `slug`.
+- The `description` says exactly when the skill should be used.
+- The body tells the agent what to do, what files to read, and what output shape to produce.
+- Large details live in `references/` and are linked from the body.
+- Scripts are executable, deterministic, and tested before packaging.
+- Dependencies are declared when missing state should block install or use.
+- Runtime tools are avoided unless the workflow truly needs callable tools.
+- The first install is tested on a sandbox gateway or low-risk workspace.
+
+## Related Pages
+
+- [Installing Skills](/skills/installing) explains the desktop install flow.
+- [Managing Skills](/skills/managing) explains enabled and implicit policy.
+- [Skill Security](/skills/security) explains trust and testing.
+- [Skills Architecture](/architecture/skills) describes the parser, conformance profiles, resolver, and runtime tool model.
