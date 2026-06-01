@@ -90,6 +90,8 @@ MCP servers are also explicit-only by default. In a thread, attach a server or s
 
 A task is repeatable work managed by the gateway. It can run manually, on a schedule, or as part of a larger workflow.
 
-Subagents are agents created by the task system. In many workflows you do not manually delegate to them. Pioneer can create subagents, give them instructions and model settings, let them work in child threads, and bring their results back into the parent task.
+Subagents are agents created by the task system. In many workflows you do not manually delegate to them. Pioneer can create subagents, give them instructions and model settings, let them work in child threads, and bring their candidate results back to the parent.
+
+For attached subagent work, the parent agent reviews the candidate result before it becomes final. It can accept the result or ask the same subagent to revise the work with specific feedback.
 
 Tasks are useful when the work has shape: check this repo every morning, summarize a feed, run a repeated research pass, prepare a report, or coordinate several smaller agent steps.

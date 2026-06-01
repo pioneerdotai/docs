@@ -18,6 +18,22 @@ Another common shape is “check, then act.” A task inspects a project. If it 
 
 For larger jobs, Pioneer can fan out work to subagents. Each subagent works in a child thread with its own instructions, model, context policy, and tool policy. The parent task then collects the results.
 
+## Review And Revision Loops
+
+For attached subagent workflows, "collect the results" is an explicit review step. A subagent produces a candidate result. The parent agent reads that candidate and either accepts it or sends revision feedback back to the same subagent.
+
+Use revision loops when the parent can cheaply verify the child work: missing files, weak citations, incomplete coverage, wrong output format, unsafe edits, or a result that does not match the original task contract. The feedback should be concrete enough for the child to act on:
+
+```text
+The result is missing file:line references for the Desktop timeline path.
+Add a short "Revision verification" section with three exact links and a final conclusion.
+Do not rewrite the rest of the answer.
+```
+
+The revised work stays attached to the same task run history. Pioneer records the initial candidate, the review event, the revision turn, and the final accepted candidate. This gives the parent a normal workflow loop without hiding what happened.
+
+Avoid using revisions as a vague "try harder" mechanism. If the parent cannot say what is wrong, it should ask for a narrower follow-up task or accept the result with an explicit limitation.
+
 ## Dependencies
 
 Dependencies tell Pioneer when a task is allowed to run.

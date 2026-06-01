@@ -120,7 +120,7 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 
   <Accordion title="Running tasks and subagents">
-    The task runtime stores tasks as durable task events and projected read models. When a task has an agent spec, the gateway task executor creates or restores a hidden child thread, starts a child turn, links thread lineage to the parent task, and reconciles the task result when the child turn completes, fails, or is interrupted.
+    The task runtime stores tasks as durable task events and projected read models. When a task has an agent spec, the gateway task executor creates or restores a hidden child thread, starts a child turn, records thread lineage separately from run execution state, and turns child output into a reviewable result candidate. The parent can accept that candidate or request a revision in the same child thread before the task result is finalized.
   </Accordion>
 
   <Accordion title="Recalling and writing memory">

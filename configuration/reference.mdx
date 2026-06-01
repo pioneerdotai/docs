@@ -44,6 +44,29 @@ preflight_model = "thread"
 
 The desktop app exposes this as **Settings > General > Preflight model**. Use `gateway.preflight_model` for new configuration. Legacy memory active-recall model settings are migrated to this general preflight model setting when no explicit preflight model is present.
 
+## Task review settings
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.tasks.review.enabled` | `true` | Enable task result review runtime. |
+| `gateway.tasks.review.allow_task_create_review_policy` | `false` | Allow callers to override review policy directly in `task/create`. |
+| `gateway.tasks.review.default_parent_review_for_immediate_attached_agent_tasks` | `true` | Require parent-agent review for immediate attached agent tasks. |
+| `gateway.tasks.review.default_max_revision_rounds` | `5` | Default number of revision turns a parent can request. |
+| `gateway.tasks.review.auto_accept_after_seconds` | `300` | Auto-accept candidates that stay in review too long. Set to `0` to disable timeout auto-accept. |
+
+Example:
+
+```toml
+[gateway.tasks.review]
+enabled = true
+allow_task_create_review_policy = false
+default_parent_review_for_immediate_attached_agent_tasks = true
+default_max_revision_rounds = 5
+auto_accept_after_seconds = 300
+```
+
+Immediate attached subagent tasks use parent-agent review by default. Scheduled or detached work should not depend on a live parent turn and may be finalized automatically according to task policy.
+
 ## Agent memory settings
 
 | Key | Default | Purpose |

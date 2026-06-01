@@ -64,9 +64,10 @@ Each subagent can be scoped independently:
 | Context policy | Inherit parent context, pass only recent turns, use a summary, start empty, or provide custom context. |
 | Tool policy | Allow or deny tools, choose read-only or write-capable modes, restrict paths, and control network access. |
 | Result contract | Ask for text, Markdown, JSON, or artifacts with required outputs. |
+| Review policy | Let the parent agent accept a candidate result or request a targeted revision before the result becomes final. |
 | Depth and lineage | Track nested agent work through child threads and task lineage so delegated work can be audited and recovered. |
 
-This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in isolated threads, and the desktop app can still show the full task tree from one place. Users shape this with goals and policies, while Pioneer handles the orchestration.
+This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in isolated threads, and the parent can review the results before accepting them. If a result is incomplete, the parent can send concrete feedback back to the same subagent and wait for a revised candidate. The desktop app can still show the full task tree from one place.
 
 ## Durable Agent Memory
 

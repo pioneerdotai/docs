@@ -18,6 +18,14 @@ When a turn uses tools, open the tool events. Check the tool name, arguments, wo
   Tool calls execute on the gateway host. In a remote gateway thread, commands and file paths belong to the remote machine.
 </Warning>
 
+## Delegated Work In The Timeline
+
+In Agent mode, a parent turn can create attached subagent tasks. Each subagent runs in a hidden child thread, but the parent timeline still shows the task activity: task creation, child progress, task waits, review-required candidates, revision requests, accept decisions, and final task completion.
+
+When a subagent result needs review, the parent agent does not have to accept it immediately. It can call `task_revise` with concrete feedback. Pioneer then records the rejected candidate, starts a revision turn in the same child thread, and shows the revised child activity under the parent workflow. When the parent accepts the revised candidate, the task completes and the accepted result becomes the task result.
+
+Use the timeline to audit multi-agent work: expand the task items, read the child result summaries, check parent review feedback, and confirm which candidate was accepted.
+
 ## Start With Narrow Prompts
 
 When you are learning a project or testing a gateway, ask for read-only work first:

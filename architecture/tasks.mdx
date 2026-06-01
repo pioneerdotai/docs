@@ -51,19 +51,49 @@ The handle is the executor's durable output channel. It can mark a run started, 
 
 ## Subagents
 
-Subagents are task-backed child turns. When a task has `TaskAgentSpec`, `TaskAgentExecutor` creates or restores a hidden task thread, creates a hidden turn, links lineage to the parent task, and starts the agent loop with the spec's model, provider, prompt, context policy, tool policy, and result contract.
+Subagents are task-backed child turns. When a task has `TaskAgentSpec`, `TaskAgentExecutor` creates or restores a hidden task thread, creates a hidden turn, records child-thread lineage and run/thread bindings, and starts the agent loop with the spec's model, provider, prompt, context policy, tool policy, and result contract.
 
-Context policy controls what the child receives from the parent: empty context, custom context, recent parent context, summary-style context, or inherited context depending on the spec. The child result is reconciled back to the parent task when the child turn completes, fails, or is interrupted.
+Context policy controls what the child receives from the parent: empty context, custom context, recent parent context, summary-style context, or inherited context depending on the spec. When the child turn completes, its output is extracted into a result candidate. That candidate is then accepted, revised, cancelled, or auto-accepted according to the review policy and task lifecycle.
 
-Lineage is stored through `ThreadLineage`, including child thread id, child turn id, parent thread/turn, task id, task run id, root thread id, depth, and creation time. Hidden child threads use `ThreadSidebarVisibility::Hidden`, so they do not become normal sidebar conversations while still being loadable through lineage and task trees.
+Thread ancestry is stored separately from task execution state. `thread_lineage` answers only "which thread came from which thread": child thread, parent thread, root thread, depth, origin kind, creating thread/turn, and creation time. It does not own task ids, run ids, or child turn ids.
+
+Task execution state is stored in task-specific tables:
+
+| Table | Purpose |
+|---|---|
+| `task_run_execution` | Executor lifecycle for one task run: reserved, starting, running, waiting for review, succeeded, failed, cancelled, or timed out. |
+| `task_run_thread_binding` | Which thread is the execution context for a run, usually `primary_executor`, with room for reviewer and recovery roles. |
+| `task_run_turn` | Each child turn inside the run: initial, revision, recovery, or review. |
+| `task_result_candidate` | A proposed output from one child turn. It can be pending review, accepted, rejected, superseded, extraction-failed, or cancelled. |
+| `task_result_review_event` | Review/audit history for candidates, including parent-agent, user, review-agent, runtime-auto, and system decisions. |
 
 This is why subagents are not just "spawn another chat." They are task runs with durable lineage. The child thread gives the agent a normal execution environment, while the task run gives the parent system progress, retries, cancellation, and result reconciliation.
+
+## Parent Review And Revision State
+
+When review is enabled for an attached subagent task, child completion creates a result candidate rather than immediately completing the run. The execution enters `waiting_review`, and `task/wait` can return a `reviewRequired` item to the parent agent.
+
+The parent has three normal choices:
+
+- accept the candidate with `task/accept`;
+- request another child turn with `task/revise`;
+- cancel the task when the candidate should not be used.
+
+Accepting records a `TaskResultReviewEvent` decision, marks the candidate accepted, finalizes the run result, completes the task when appropriate, and queues delivery/artifact handoff.
+
+Requesting a revision records a review event with concrete feedback, marks the current candidate rejected, creates a new `task_run_turn` in the same child thread with `kind = revision`, and dispatches the child agent again with the review feedback and any additional instructions. The next child turn produces another candidate. That candidate can be accepted or revised again until `maxRevisionRounds` is reached.
+
+The review event log is intentionally separate from the candidate row. That lets Pioneer support multiple reviewers, advisory reviews, user approvals, overrides, and dispute history without overloading a single mutable result field. A candidate can have many review events, but only a final decision event resolves it.
+
+Foreground attached subagent work uses parent-agent review by default. Scheduled and detached tasks must not wait forever for a foreground parent turn, so they can use runtime auto-accept behavior instead of entering the parent review loop.
 
 ## Task Tools In The Agent Loop
 
 When task orchestration is available, the agent materializes task tools into the normal tool router. The task domain is lazy-visible: preflight may reveal concrete task tools before the first main round, or the model can call `request_tools` with the `task` domain to reveal them for the next round. The prompt compiler includes the task orchestration policy when task tools are materialized. The model can create attached tasks, wait for task sets, cancel tasks, detach tasks, and observe results.
 
 The parent turn is not allowed to silently finish while attached tasks created by that turn are still active. The agent loop injects a system observation telling the model to call exactly one of wait, cancel, or detach.
+
+When `task/wait` returns review-required candidates, the task tool provider exposes `task_accept` and `task_revise` to the parent agent. `task_accept` finalizes the candidate. `task_revise` requires explicit feedback and keeps the parent turn active while the child revision runs.
 
 Child agent turns run through the same agent loop as foreground agent turns, including turn preflight before the child main provider request. They receive a task runtime hook context so memory policy and post-turn extraction can distinguish task-owned context from ordinary user-thread context.
 

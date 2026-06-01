@@ -3,7 +3,7 @@ title: "Tasks API"
 description: "Creating tasks, scheduling work, managing subagents, reading task trees, waiting for results, and tracking deliveries."
 ---
 
-Tasks are the durable automation layer in the gateway. A task can run immediately, wait for a schedule, repeat on an interval or cron expression, depend on another task, or be triggered manually or externally. When the executor is `agent`, the task can create a subagent thread with its own prompt, model, context policy, tool policy, and result contract.
+Tasks are the durable automation layer in the gateway. A task can run immediately, wait for a schedule, repeat on an interval or cron expression, depend on another task, or be triggered manually or externally. When the executor is `agent`, the task can create a subagent thread with its own prompt, model, context policy, tool policy, result contract, and review policy.
 
 Clients use the Tasks API for two different experiences: user-facing automation UI and internal agent orchestration. In both cases the gateway owns task state, run state, retries, write locks, delivery state, and the lineage between parent work and subagent threads.
 
@@ -17,6 +17,8 @@ Clients use the Tasks API for two different experiences: user-facing automation 
 | `task/tree` | `TaskTreeParams` | `TaskTreeResponse` | Load a root task with nested child tasks. |
 | `task/events` | `TaskEventsParams` | `TaskEventsResponse` | Read durable task event history. |
 | `task/wait` | `TaskWaitParams` | `TaskWaitResponse` | Wait for tasks or runs to reach terminal state. |
+| `task/accept` | `TaskAcceptParams` | `TaskAcceptResponse` | Accept a pending result candidate and finalize the run. |
+| `task/revise` | `TaskReviseParams` | `TaskReviseResponse` | Reject a pending result candidate and start a revision turn in the same child thread. |
 | `task/cancel` | `TaskCancelParams` | `TaskCancelResponse` | Cancel a task and optionally its subtree. |
 | `task/reschedule` | `TaskRescheduleParams` | `TaskRescheduleResponse` | Replace a task trigger. |
 | `task/detach` | `TaskDetachParams` | `TaskDetachResponse` | Detach a child task from parent lifecycle. |
@@ -207,11 +209,72 @@ Subagents are represented by `agentSpec`. They are not just a UI affordance; the
 | `contextPolicy` | What parent context the subagent receives. |
 | `toolPolicy` | What tools, paths, writes, and network access are allowed. |
 | `resultContract` | Expected result format and optional schema. |
+| `reviewPolicy` | How the subagent result candidate should be reviewed before it becomes final. |
 | `depth`, `maxDepth` | Nesting controls for subagent trees. |
 
 Context policy modes are `inherit_parent`, `last_n_turns`, `summary_only`, `empty`, and `custom`. Write modes are `read_only`, `workspace_write`, `scoped_write`, and `full_access`. Result formats are `text`, `markdown`, `json`, and `artifact`.
 
+Callers usually omit `reviewPolicy`. The gateway applies the default parent-agent review policy to immediate attached agent tasks. Direct `reviewPolicy` overrides in `task/create` require `gateway.tasks.review.allow_task_create_review_policy = true`.
+
 When a task creates a child thread, task events include child thread lineage. The child thread is hidden from the normal sidebar, but clients can show the subagent's work in the parent task tree and can load the child conversation through [Threads API](/protocol/threads) and [Turns API](/protocol/turns).
+
+## Result Review
+
+Agent tasks can require review before a child result becomes the final run result. For attached subagent work, the default review mode is parent-agent review with explicit acceptance and five revision rounds.
+
+Review policy fields:
+
+| Field | Meaning |
+|---|---|
+| `mode` | `none`, `parent_agent`, `parent_agent_with_reviewers`, or `user_approval`. |
+| `maxRevisionRounds` | Maximum number of revision turns after the initial child turn. |
+| `requireExplicitAcceptance` | Whether a candidate must be accepted before the run succeeds. |
+| `reviewers` | Optional reviewer specs for future review-agent or user-review flows. |
+| `resolutionStrategy` | How multiple review decisions resolve, for example `parent_final` or `require_all_required_reviewers_then_parent`. |
+
+When a child turn finishes, the gateway creates a `TaskResultCandidate`. If review is required, the candidate status is `pending_review`, the run/execution waits for review, and `task/wait` can return it under `reviewRequired`.
+
+The parent accepts a candidate with `task/accept`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "review_accept_00000001",
+  "method": "task/accept",
+  "params": {
+    "taskId": "tsk_000000000000000001",
+    "runId": "run_000000000000000001",
+    "candidateId": "trc_000000000000000001",
+    "reason": "The subagent included the required file:line references and answered the task."
+  }
+}
+```
+
+Accepting creates a `TaskResultReviewEvent` with `decision = accept`, marks the candidate accepted, stores the accepted result on the run, and completes the task when its lifecycle policy allows it.
+
+The parent requests changes with `task/revise`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "review_revise_00000001",
+  "method": "task/revise",
+  "params": {
+    "taskId": "tsk_000000000000000001",
+    "runId": "run_000000000000000001",
+    "candidateId": "trc_000000000000000001",
+    "feedback": "Add a Revision verification section with three exact file:line references.",
+    "additionalInstructions": [
+      "Keep the original structure.",
+      "Do not redo unrelated research."
+    ]
+  }
+}
+```
+
+Revising creates a review event with `decision = request_changes`, marks the current candidate rejected, creates a new `TaskRunTurn` with `kind = revision`, and dispatches the same child thread again with the feedback. The next child turn produces a new candidate.
+
+`TaskResultReviewEvent` is an audit log, not just the latest state. It records reviewer kind (`parent_agent`, `review_agent`, `user`, `runtime_auto`, or `system`), event kind (`advisory`, `decision`, `override`, or `system_auto`), decision, feedback, optional reviewer thread/turn/user/agent ids, and the next revision turn when one is created.
 
 ## Policies
 
@@ -354,16 +417,48 @@ Response groups terminal and pending work:
   "completed": [],
   "failed": [],
   "cancelled": [],
+  "reviewRequired": [],
   "pending": [],
   "timedOut": false,
   "totalCount": 1,
   "terminalCount": 1,
   "pendingCount": 0,
+  "reviewRequiredCount": 0,
   "mode": "all_terminal"
 }
 ```
 
-Wait modes are `all_terminal` and `any_terminal`. A timed-out wait does not cancel the task; it only returns control to the caller.
+Wait modes are `all_terminal`, `any_terminal`, `all_terminal_or_review_required`, and `any_terminal_or_review_required`. A timed-out wait does not cancel the task; it only returns control to the caller.
+
+Parent-agent orchestration normally uses a review-aware wait mode. When a candidate needs a decision, `reviewRequired` contains the task/run item, the candidate, the review policy, revision limits, and allowed actions:
+
+```json
+{
+  "reviewRequired": [
+    {
+      "item": {
+        "task": { "id": "tsk_000000000000000001", "status": "waiting" },
+        "run": { "id": "run_000000000000000001", "status": "waiting_review" },
+        "childThreadId": "thr_child_0000000001",
+        "childTurnId": "trn_child_0000000001"
+      },
+      "candidate": {
+        "id": "trc_000000000000000001",
+        "status": "pending_review",
+        "round": 0,
+        "summary": "Found the relevant TaskService implementation."
+      },
+      "maxRevisionRounds": 5,
+      "remainingRevisionRounds": 5,
+      "allowedActions": ["task_accept", "task_revise", "task_cancel"]
+    }
+  ],
+  "reviewRequiredCount": 1,
+  "mode": "all_terminal_or_review_required"
+}
+```
+
+If `remainingRevisionRounds` is `0`, `allowedActions` omits `task_revise` and `revisionBlockedReason` explains why. The parent should then accept, cancel, or create a separate follow-up task.
 
 ## Cancelling And Lifecycle Changes
 
@@ -443,6 +538,10 @@ Task notifications use the same event names as durable task events:
 | `task/run/created`, `task/run/started`, `task/progress` | Run lifecycle and progress updates. |
 | `task/run/completed`, `task/run/failed`, `task/run/cancelled` | Run terminal updates. |
 | `task/run/retry_scheduled`, `task/run/retry_exhausted` | Retry lifecycle updates. |
+| `task/run/turn/started`, `task/run/turn/completed`, `task/run/turn/failed` | Initial, revision, recovery, and review turn lifecycle. |
+| `task/run/entered_review` | A run has a pending result candidate and is waiting for review. |
+| `task/result_candidate/created`, `task/result_candidate/accepted`, `task/result_candidate/rejected`, `task/result_candidate/cancelled` | Candidate lifecycle for child outputs. |
+| `task/result_review_event/recorded` | Parent-agent, user, review-agent, runtime-auto, or system review event was recorded. |
 | `task/completed`, `task/failed`, `task/cancelled` | Task terminal updates. |
 | `task/detached`, `task/updated`, `task/rescheduled`, `task/paused`, `task/resumed` | Manual lifecycle and editable task contract changes. |
 | `task/tree/changed` | Parent/child structure, dependencies, or child thread linkage changed. |

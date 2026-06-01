@@ -30,9 +30,31 @@ Only after that should you add schedules, write access, dependencies, or multi-a
 
 Pioneer can create subagents automatically as part of a task workflow.
 
-You do not have to manually delegate every piece of work. A task can define the prompt, model, context policy, tool policy, result expectations, and child-thread behavior for agents that run under it. Pioneer can then break work into smaller parts and attach the results back to the parent task.
+You do not have to manually delegate every piece of work. A task can define the prompt, model, context policy, tool policy, result expectations, review policy, and child-thread behavior for agents that run under it. Pioneer can then break work into smaller parts and attach the results back to the parent task.
 
 This is useful when one large job needs several focused passes: gather information, inspect files, draft a result, verify it, and report back. The important part is that each agent has a clear job and a clear result contract.
+
+Subagents run in hidden child threads. The child thread gives the subagent a normal agent environment with its own timeline, tools, context, and artifacts. The parent thread still owns the workflow: it creates the task, waits for the result, reviews the candidate output, and decides what happens next.
+
+## Parent Review And Revisions
+
+Attached subagent tasks do not have to become final just because the child agent stopped. When a subagent finishes a turn, Pioneer stores the output as a result candidate. The parent agent can then:
+
+- accept the candidate when it satisfies the task;
+- request a revision from the same subagent with concrete feedback;
+- cancel the task when the result should not be used.
+
+When the parent requests a revision, Pioneer records the rejected candidate, sends the feedback back into the same child thread, starts a new revision turn, and waits for a new candidate. The cycle can repeat up to the configured revision limit. The default parent-agent review policy allows up to five revision rounds.
+
+This makes multi-agent work auditable. You can see the first answer, the parent feedback, the revised answer, and the final accepted candidate instead of losing rejected work in a mutated final result.
+
+Scheduled and detached work is treated differently from foreground attached delegation. Those runs should not get stuck waiting for a parent turn that is no longer active, so they can be finalized automatically according to their task policy.
+
+## Subagent Artifacts
+
+Files created by subagents are still workspace artifacts when the subagent registers them. The artifact is bound to the child thread and task lineage, and the parent thread can list artifacts created anywhere in its delegated child-thread tree.
+
+If a subagent says it created a file but the file is missing from the artifacts panel, the file was probably written as an ordinary gateway file and not registered with `artifact_register`.
 
 ## Where Task Work Happens
 

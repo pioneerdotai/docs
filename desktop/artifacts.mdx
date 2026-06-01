@@ -25,6 +25,8 @@ The panel lets you:
 
 Clicking an attachment chip in the timeline selects that artifact. If the artifacts panel is closed, Pioneer opens it first and then shows the selected file.
 
+For parent threads that use subagents, the panel includes artifacts registered in the parent thread and in delegated child threads under that parent. A file created by a subagent should therefore be visible from the parent workflow as long as it was registered as an artifact.
+
 ## Upload Files
 
 Attach files in the composer when they are part of the prompt: screenshots, logs, small datasets, text files, or documents. Pioneer uploads those bytes to the gateway before the turn starts.
@@ -42,6 +44,8 @@ When an agent creates a file as a result for you, it must register that file wit
 The agent is instructed to use a managed output directory and the `artifact_prepare` / `artifact_register` tools for user-visible files. The managed path is temporary staging on the gateway. The durable artifact is the registered file in the gateway artifact store.
 
 Pioneer does not scan arbitrary gateway folders to guess which files should become artifacts. If an agent mentions that it created a file but the file does not appear in the artifacts panel, ask it to register the file as an artifact. If you explicitly asked the agent to write to a specific path, that path may still be a normal gateway file; it is only shown in the artifact panel after registration.
+
+The same applies to hidden subagent threads. A subagent-created file is shown in the parent thread only after the subagent registers it. The artifact stays bound to child-thread and task lineage, but the desktop includes that child-thread subtree when listing artifacts for the parent workflow.
 
 ## Preview And Metadata
 

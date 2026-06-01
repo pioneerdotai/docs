@@ -91,7 +91,7 @@ Agent-created files:
 7. The gateway sends `artifact/created` and `thread/artifacts/changed`. Projection workers may later send `artifact/projection/updated`.
 8. Staging files are removed after successful registration or by TTL/GC cleanup.
 
-Task result files follow the same artifact service path and bind files to task and task-run lineage.
+Task result files follow the same artifact service path and bind files to task and task-run lineage. If a task runs in a hidden subagent thread, the artifact remains bound to that child thread and task run, while parent-thread artifact listing can include the child-thread subtree through thread lineage.
 
 There is no turn-end filesystem scan. Pioneer does not infer artifacts from newly-created files in a workspace, process current directory, home directory, browser runtime directory, or tool cache. Any tool can create a file, but user-visible turn results enter the artifact graph only through explicit registration.
 
