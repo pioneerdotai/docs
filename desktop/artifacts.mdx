@@ -74,6 +74,23 @@ This is useful when:
 - you want to ask a follow-up question about a generated file;
 - you want a task or subagent to receive a file from the parent thread.
 
+## Follow-Up Questions About Old Files
+
+Pioneer does not blindly attach every old file to every new model request. That would make long threads expensive and confusing, especially if you uploaded many screenshots, photos, logs, or documents.
+
+Instead, Pioneer keeps lightweight artifact references next to the conversation messages where those artifacts appeared. When recent history is included in a new turn, the model can see that a past user message or assistant message had artifacts attached. The reference includes enough metadata to identify the file, such as artifact id, version id, name, kind, MIME type, size, and role. It does not include the file bytes.
+
+If the model needs the actual content, it must reveal the artifact tool domain and call `artifact_read` for one or more specific artifact refs. That is the right behavior for questions like:
+
+- "why did you think the car in the photo was BMW?";
+- "look again at the second screenshot";
+- "use the CSV I uploaded earlier";
+- "compare this answer with the PDF from yesterday."
+
+This gives Pioneer continuity without flooding the prompt. If a follow-up does not need the file, the model can answer from normal conversation history. If it does need the file, it can request only that file instead of receiving every artifact from the thread.
+
+Thread context recall follows the same idea. If Pioneer recalls an older conversation snippet that had artifacts attached, the snippet can include a clearly scoped artifact-reference block for that specific snippet. The reference is still metadata only. File content is loaded only through `artifact_read`.
+
 ## Troubleshooting
 
 If the artifacts panel says the thread was not found, the thread may still be a draft. Pioneer only loads artifacts for materialized threads.
@@ -81,3 +98,5 @@ If the artifacts panel says the thread was not found, the thread may still be a 
 If a preview is missing but the file is ready, open or download the artifact. The preview path is separate from the original file.
 
 If a file cannot be opened, download it first and check that the destination exists on your desktop. In a remote gateway setup, revealing a gateway path directly is not possible; Pioneer can only reveal local cached or downloaded files.
+
+If Pioneer seems to "forget" a photo or document in a follow-up turn, check two things: whether that message is still in the retained recent history or whether thread context recall brought back the relevant older snippet. If neither happened, the model may not see the artifact reference and therefore cannot know which artifact to read.

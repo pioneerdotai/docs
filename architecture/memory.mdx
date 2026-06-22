@@ -7,6 +7,8 @@ Pioneer memory is a durable domain service, not just a prompt trick. It combines
 
 The user-facing behavior is: Pioneer can remember stable facts, recall them when useful, forget them when asked, and avoid creating duplicates. The architectural behavior is: the agent loop dispatches lifecycle phases, memory hooks contribute typed context/tools/prompt sections, and the memory service remains authoritative for storage and visibility.
 
+There is also a separate episodic context layer for thread history. Durable memory answers "what should Pioneer remember about the user or project long term?" Thread episodic context answers "what old conversation fragment is useful for this turn?" Both can feed the prompt, but they have different storage rules, ranking rules, and product meaning.
+
 ## Main Components
 
 | Component | Location | Responsibility |
@@ -17,6 +19,7 @@ The user-facing behavior is: Pioneer can remember stable facts, recall them when
 | Capsule backend | `memvid-core` through `MemvidMemoryBackend` | Searchable payload storage split by scope capsules. |
 | Gateway runtime | `crates/gateway/src/memory_runtime.rs` and `crates/gateway/src/lib.rs` | Enables/disables memory, resolves runtime config, wires service, hook package config, and operation context. |
 | Memory hooks | `crates/memory/src/hooks` | Memory policy, deterministic recall, active recall, tool materialization, prompt contract, and post-turn extraction. |
+| Thread episodic context | `crates/gateway/src/thread_episodic.rs` and related hooks | Indexes visible thread history into bounded memvid capsules and contributes recalled snippets when the current turn needs conversation history. |
 | Agent hook bridge | `crates/agent/src/hooks.rs` and `crates/agent/src/chat/mod.rs` | Dispatches lifecycle phases and consumes typed contributions without owning memory-domain rules. |
 | Prompt contracts | `crates/promt` | Memory recall prompt and post-turn extractor prompt. |
 
@@ -73,6 +76,19 @@ strict_diagnostics_enabled = false
 
 The capsule directory is resolved under runtime home. Absolute paths, empty paths, `..`, and unsafe runtime escapes are rejected.
 
+## Durable Memory Vs Thread Context
+
+Durable memory and thread context are intentionally split.
+
+| Layer | Stores | Used for | Should not be used for |
+| --- | --- | --- | --- |
+| Durable memory | Stable facts, preferences, recurring instructions, project decisions, canonical keys, provenance, candidates, tombstones. | Personalization, continuity across threads, long-lived project behavior, remembering and forgetting. | Raw transcript replay, every temporary debugging step, every tool result, every attachment. |
+| Thread episodic context | Indexed snippets from visible conversation items, scoped by workspace/thread and ranked for the current turn. | Follow-ups about earlier discussion, "what did we decide?", old research snippets, context from another part of a long thread. | Permanent user facts, policy decisions, secrets, automatic prompt stuffing. |
+
+Thread context uses memvid too, but it is not the same capsule namespace as durable memory. It is a separate indexed conversation surface with its own `gateway.thread_episodic` configuration. The service can search current-thread context and workspace-thread context through bounded read-only recall, then inject only selected snippets into prompt context.
+
+When a recalled thread snippet came from a message with artifacts, Pioneer can attach artifact references to that snippet. The prompt still receives metadata only. The model must request the artifact domain and call `artifact_read` if it needs the file bytes or provider attachment.
+
 ## Configuration Flow
 
 Configuration flows through typed boundaries:
@@ -80,7 +96,8 @@ Configuration flows through typed boundaries:
 ```mermaid
 flowchart TD
   Config["gateway.memory\ncrates/config/src/lib.rs"]
-  Desktop["desktop-settings.toml\ncrates/desktop/src/settings.rs"]
+  RuntimeSettings["gateway-settings.toml\nruntime home"]
+  SettingsApi["settings/get + settings/update\npioneer-protocol"]
   Gateway["Gateway startup\ncrates/gateway/src/lib.rs"]
   Preflight["Turn preflight\ncrates/agent/src/chat/preflight.rs"]
   Loop["MemoryLoopConfig\ncrates/memory/src/hooks/config.rs"]
@@ -89,7 +106,8 @@ flowchart TD
   Service["MemoryRuntime / MemoryService\ncrates/gateway/src/memory_runtime.rs\ncrates/memory/src/service.rs"]
 
   Config --> Gateway
-  Desktop --> Gateway
+  RuntimeSettings --> Gateway
+  SettingsApi --> Gateway
   Gateway --> Loop
   Gateway --> Preflight
   Loop --> Package
@@ -97,7 +115,9 @@ flowchart TD
   Gateway --> Service
 ```
 
-The desktop settings are a product control surface for the same memory switches. They should not create a second memory policy language. If a setting is exposed to users, it must map to a real gateway/hook behavior or stay hidden.
+Gateway config provides defaults. Runtime settings in `gateway-settings.toml` provide gateway-local overrides. Clients, including the desktop app, read and update those values through the settings API. That boundary matters for remote gateways: a client should not edit a gateway settings file directly and should not keep a private copy of gateway memory policy in desktop state.
+
+If a setting is exposed to users, it must map to a real gateway/hook behavior or stay hidden. The UI should not create a second memory policy language.
 
 The hook package is the boundary where product switches decide which hooks are registered:
 
@@ -127,9 +147,9 @@ sequenceDiagram
   Agent->>Hooks: turn.pre_tool_materialization
   Hooks-->>Agent: memory tool bundle if policy allows
   Agent->>Model: internal preflight JSON request
-  Model-->>Agent: tools.visibleTools + memory.activeRecall
+  Model-->>Agent: tools.visibleTools + memory.activeRecall envelope
   Agent->>Hooks: turn.post_preflight_prompt_context
-  Hooks->>Memory: active recall from preflight plan or memory fallback
+  Hooks->>Memory: active durable recall and/or thread episodic recall from validated plan
   Agent->>Hooks: turn.pre_prompt_compile
   Hooks->>Prompt: render Memory Recall section
   Agent->>Model: prompt + messages + tools
@@ -140,6 +160,8 @@ The recall prompt is not enough by itself and tool exposure is not enough by its
 - prompt policy tells the model when and how to use memory;
 - recalled context gives the model relevant facts without forcing a tool call;
 - memory tools let the model search, get exact records, remember, or forget when policy allows.
+
+Active recall planning uses an envelope rather than a single flat "memory search" decision. The durable subplan can ask for profile, project, or exact-key memory. The episodic subplan can ask for thread-history context. Rust validates the plan, rejects unsupported fields, applies budgets, and executes read-only searches. The provider planner never writes memory and never directly reads stores.
 
 ## Model-Visible Tools
 
@@ -240,7 +262,7 @@ When memory was not recalled:
 3. Check whether the turn had a workspace id. Workspace-scoped memory should not leak into unrelated workspaces.
 4. Inspect `TurnPrePromptContext` and `TurnPostPreflightPromptContext` hook runs, plus preflight diagnostics.
 5. Confirm the prompt section was rendered by `MemoryPromptContractHook`.
-6. If the expected context lives only in raw thread history, it will not be recalled until the episodic/thread transcript system exists.
+6. If the expected context lives in old conversation history rather than durable memory, inspect the thread episodic recall path. Check `gateway.thread_episodic.enabled`, indexing state, recall diagnostics, prompt budget, and whether the relevant message was indexed and still visible.
 
 ## Safety Invariants
 
@@ -262,4 +284,5 @@ Keep these invariants when changing memory:
 - [Desktop Memory](/desktop/memory) explains the user-facing behavior.
 - [Hook Runtime](/architecture/hooks) explains lifecycle phases and typed contributions.
 - [Prompt And Context](/architecture/prompt) explains memory prompt injection.
+- [Thread Episodic Context](/architecture/thread-episodic-context) explains searchable conversation-history recall.
 - [Memory Protocol](/protocol/memory) documents JSON-RPC methods and notifications.

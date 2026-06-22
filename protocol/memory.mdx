@@ -7,6 +7,8 @@ Memory protocol methods let clients inspect and manage durable agent memory dire
 
 All memory methods are served by the gateway and routed through `MemoryService`. Clients should treat the service response as authoritative even when the underlying capsule backend has stale search data.
 
+This page is about durable memory, not thread episodic context. Durable memory is where Pioneer stores long-lived facts and decisions. Thread episodic context is the searchable conversation-history layer; it is controlled through gateway settings and used by the agent recall path, but it is not exposed as the `memory/*` JSON-RPC API.
+
 ## Methods
 
 | Method | Purpose |
@@ -52,6 +54,18 @@ Clients should listen for these events if they render memory management screens 
 
 Generated schemas are exported under `schemas/` in the repository. The protocol source is `crates/protocol/src/memory.rs`.
 
+## Durable Memory Vs Thread Context
+
+The protocol intentionally keeps these surfaces separate:
+
+| Surface | Protocol shape | Product meaning |
+| --- | --- | --- |
+| Durable memory | `memory/search`, `memory/list`, `memory/get`, `memory/remember`, `memory/forget`, candidate methods. | Stable user/project/agent facts that can survive across turns and threads. |
+| Thread episodic context | Gateway settings plus internal recall hooks. | Searchable old conversation snippets used during prompt construction. |
+| Thread event replay | `thread/history`, `turn/items`, `turn/timeline`. | Exact durable timeline/event data for clients to render or recover UI state. |
+
+Do not use `memory/remember` to store every thread message. That would pollute durable memory and make forgetting/ranking much harder. If a client wants to display transcript history, use thread and turn APIs. If the agent needs older discussion as context, the thread episodic layer handles that through bounded recall.
+
 ## Candidate Statuses
 
 Candidate statuses include active review states and dormant states:
@@ -88,4 +102,5 @@ Even when a caller provides semantic fields, the service still owns canonical ke
 
 - [Desktop Memory](/desktop/memory) explains user-facing behavior.
 - [Memory Architecture](/architecture/memory) explains the service and storage model.
+- [Thread Episodic Context](/architecture/thread-episodic-context) explains searchable conversation-history recall.
 - [Protocol Introduction](/protocol/introduction) explains the JSON-RPC envelope.

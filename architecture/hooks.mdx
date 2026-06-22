@@ -95,6 +95,8 @@ Subscriptions are sorted by priority and id, but explicit dependencies are the i
 
 Memory uses phase ordering for recall: deterministic memory runs at `turn.pre_prompt_context`, then active memory runs at `turn.post_preflight_prompt_context` after the internal preflight plan has been built. The active hook receives typed prompt context plus the preflight-owned active recall plan or fallback.
 
+Thread episodic context follows the same rule. The hook/runtime boundary carries typed prompt context and recall contributions; the agent loop should not know how memvid capsules, thread chunks, or artifact refs are searched. It only dispatches the phase and later consumes the compiled prompt context.
+
 ## Persistence And Recovery
 
 Gateway hook-run persistence records lifecycle state for subscribed work:
@@ -122,6 +124,8 @@ Agent memory is the first heavy domain built on this runtime:
 - `MemoryPostTurnExtractorHook` runs at `turn.post_turn`.
 
 The result is that memory can recall context, expose tools, render prompt policy, and extract durable facts without adding memory-specific extraction branches to the agent loop.
+
+Thread context and artifact continuity build on the same pattern. A domain can enrich prompt context with recalled snippets or artifact references, while the prompt compiler and tool materialization layer decide what the model sees. The loop does not need a special "if this old message had a photo" branch.
 
 ## Adding A Hook
 

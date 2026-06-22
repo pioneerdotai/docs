@@ -104,6 +104,20 @@ The response only means the gateway accepted the turn. Render progress from noti
 
 Attachments are resolved by the gateway/provider pipeline. Local paths are evaluated on the gateway host, not on the client machine unless the gateway is local.
 
+## Files, Artifacts, And Remote Gateways
+
+`localFile` and `localImage` mean "a path visible to the gateway." They are convenient for local developer flows, but they are not a portable client contract. If a desktop or mobile client is connected to a remote gateway, a path like `/Users/alexander/Desktop/photo.jpg` exists on the client machine, not on the gateway machine.
+
+The remote-safe path is:
+
+1. Upload the file with the artifact upload API.
+2. Bind or attach the resulting artifact to the turn.
+3. Send a `UserInput` artifact reference, for example `{ "type": "artifact", "artifactId": "art_..." }`.
+
+The current turn can then receive the artifact as provider input when supported. Later turns do not automatically receive that file again. If a retained history message or recalled thread-context snippet refers to an older artifact, Pioneer gives the model a compact artifact ref. The model must reveal the `artifact` tool domain and call `artifact_read` if it needs the actual content.
+
+This is why clients should treat artifacts as the durable file identity and local paths as a gateway-local convenience.
+
 ## Turn Capabilities
 
 Skills and MCP selections are sent separately from `input`:

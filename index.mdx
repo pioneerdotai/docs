@@ -75,6 +75,8 @@ Pioneer can remember stable facts, preferences, project decisions, recurring ins
 
 The memory service keeps SQLite as the control plane for scopes, status, provenance, tombstones, candidates, and policy decisions. Memvid is used as the searchable capsule store, while the control plane remains authoritative for visibility and safety.
 
+For conversation continuity, Pioneer also has thread episodic context: a separate searchable layer for old discussion snippets. That lets the assistant recover useful prior conversation without turning every old message into permanent memory or stuffing full transcripts into each prompt. Artifact references follow the same principle: old files are referenced near the relevant history message or recalled snippet, and the model reads the actual file only when needed.
+
 ## Where To Start
 
 Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Providers](/providers/overview) when you want to connect models, [Memory](/desktop/memory) when you want continuity across turns, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.

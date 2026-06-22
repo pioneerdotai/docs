@@ -58,7 +58,7 @@ sequenceDiagram
   Agent->>Agent: resolve skills, MCP, task/turn tools
   Agent->>Hooks: turn.pre_tool_materialization
   Agent->>Provider: preflight JSON request (no tools)
-  Provider-->>Agent: visibleTools + memory.activeRecall plan
+  Provider-->>Agent: visibleTools + memory.activeRecall envelope
   Agent->>Hooks: turn.post_preflight_prompt_context
   Agent->>Hooks: turn.pre_prompt_compile
   Agent->>Prompt: compile system prompt bundle
@@ -79,7 +79,7 @@ sequenceDiagram
 
 The model request is assembled in layers:
 
-1. The gateway supplies historical `ChatMessage` values from completed turns.
+1. The gateway supplies historical `ChatMessage` values from completed turns. When a retained history message has artifacts, the message can include compact artifact refs beside the original text.
 2. The agent builds the current user message from `UserInput` and turn capability summaries.
 3. The agent dispatches policy hooks, such as memory policy classification.
 4. The agent dispatches pre-prompt-context hooks, such as deterministic memory recall.
@@ -108,7 +108,7 @@ Preflight receives structured input only:
 - turn facts such as thread mode, tool-calling support, and a bounded input preview;
 - `tools.coreTools`, the small always-visible tool list;
 - `tools.candidateTools`, compact descriptors for hidden built-in domain tools that are registered and have handlers for this turn;
-- memory deterministic recall summary and, when needed, the active recall planning input owned by the memory subsystem.
+- memory deterministic recall summary and, when available, the active recall planning input owned by the memory subsystem. The active recall payload can include durable-memory planning and thread-episodic planning.
 
 The provider output is a strict JSON plan. `tools.visibleTools` is a list of exact hidden tool names to reveal before the first main model round. It is not a domain list. The runtime clamps the list to registered, available, policy-allowed tools before sending provider tool definitions.
 

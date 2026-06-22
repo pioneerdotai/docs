@@ -48,6 +48,29 @@ Memory is different from thread history. Thread history is the conversation tran
 
 If you ask Pioneer to forget something, memory creates a tombstone so stale search payloads are suppressed later.
 
+## Thread Context
+
+Thread context is Pioneer's searchable memory of conversation history. It is not the same as durable memory.
+
+Use this distinction:
+
+- Durable memory is for facts Pioneer should keep, such as "my name is Alexander" or "this project uses a hook runtime."
+- Thread context is for old discussion fragments, such as "what did you say yesterday in that research answer?" or "continue from the API plan we discussed earlier."
+
+Pioneer indexes visible conversation items into a separate thread episodic store. Later, active recall can search that store and include only the most useful snippets in the prompt. This is how Pioneer can use old thread context without sending thousands of old messages every time.
+
+Thread context is bounded and best-effort. It helps continuity, but it is not a guarantee that every old line will be recalled. If something is a long-lived fact or project rule, it should become durable memory instead.
+
+## Artifacts
+
+Artifacts are files owned by the gateway: uploaded images, PDFs, CSVs, logs, generated reports, screenshots, and agent-created outputs.
+
+Artifacts matter because Pioneer may run on a different machine than your desktop. A local file path from your laptop is not useful to a remote gateway. Uploading a file as an artifact gives the gateway a real copy with a stable id, metadata, versions, previews, and download support.
+
+Pioneer also uses artifact references for continuity. If a recent history message or recalled thread snippet had an attached file, the model can see a compact reference to that file. It does not automatically receive every old file. If it needs the content, it can request the artifact tool domain and read that specific artifact.
+
+That means follow-ups like "look again at the car photo" can work without attaching every photo from the whole thread to every turn.
+
 ## Providers And Models
 
 A provider is where models come from. Anthropic, OpenAI, Google, OpenRouter, Azure OpenAI, Bedrock, Ollama, and local OpenAI-compatible servers are all provider choices.

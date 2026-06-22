@@ -44,6 +44,8 @@ Settings are split between app-level preferences, gateway-owned configuration, a
 
 That separation is intentional. It lets one desktop app control several independent Pioneer environments without mixing their state.
 
+Gateway-owned settings, such as memory and thread-context switches, are read from the connected gateway through the settings API. If you switch to another gateway, the settings screen should reload that gateway's values. If you switch back, it should show the previous gateway's values again.
+
 Gateway bearer tokens saved by the desktop app are stored in the desktop keystore. The gateway registry keeps only `auth_token_ref` values, so raw bearer tokens are not serialized into `gateway-registry.toml`.
 
 ## Localization

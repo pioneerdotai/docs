@@ -124,7 +124,11 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 
   <Accordion title="Recalling and writing memory">
-    Memory hooks classify the turn, recall relevant durable facts, register memory tools when policy allows, render the memory prompt contract, and run post-turn extraction after successful turns. Preflight or `request_tools` decides which registered memory tools are visible to the model. The memory service owns scopes, ranking, canonical keys, dedupe, candidate scoring, tombstones, and memvid-backed storage.
+    Memory hooks classify the turn, recall relevant durable facts, register memory tools when policy allows, render the memory prompt contract, and run post-turn extraction after successful turns. Active recall can also plan thread episodic context searches so old conversation snippets are retrieved through a bounded indexed layer instead of by stuffing full transcripts into every prompt. Preflight or `request_tools` decides which registered memory tools are visible to the model. The memory service owns scopes, ranking, canonical keys, dedupe, candidate scoring, tombstones, and memvid-backed storage.
+  </Accordion>
+
+  <Accordion title="Keeping file context usable">
+    Artifacts are gateway-owned files with stable ids, versions, bindings, previews, and download support. Current-turn attachments can be sent as provider attachments. Older attachments are represented as compact refs beside retained history messages or recalled thread-context snippets. If the model needs the file, it requests the artifact tool domain and calls `artifact_read` for that specific artifact instead of receiving every old file automatically.
   </Accordion>
 
   <Accordion title="Loading MCP and skills">

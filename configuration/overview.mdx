@@ -82,6 +82,7 @@ The runtime home contains state such as:
 - install state
 - gateway settings
 - editable identity files (`SOUL.md`, `IDENTITY.md`)
+- memory capsules and thread-context indexes
 - skills
 - computer-use artifacts
 
@@ -159,7 +160,9 @@ Useful environment variables:
 
 ## Apply changes
 
-After changing gateway config:
+There are two kinds of settings.
+
+App config files provide startup defaults and operator-managed configuration. After changing app config:
 
 ```bash
 pioneer stop
@@ -168,6 +171,8 @@ pioneer status
 ```
 
 For desktop-managed local gateways, restart the gateway from the desktop app if available.
+
+Runtime settings such as memory switches and thread-context switches are gateway-owned but can be changed through `settings/update`. Clients should use the settings API instead of editing `gateway-settings.toml` directly. Those settings are meant to refresh the relevant runtime systems without making the user restart just to toggle memory behavior.
 
 ## Related pages
 

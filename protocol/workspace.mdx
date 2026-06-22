@@ -261,6 +261,8 @@ Result shape:
 
 History event payloads include turn start, item start, item deltas, item completion, recovery events, tool retry events, tool loop budget events, and terminal turn events.
 
+This is a replay surface for clients, not the semantic recall surface used by the agent. Clients should not use `thread/history` to push whole old transcripts back into a model request. Agent-side recall of older discussion is handled by thread episodic context: the gateway indexes visible conversation fragments, searches them when needed, and injects bounded snippets into prompt context.
+
 ## Thread Notifications
 
 | Event | Params | Meaning |

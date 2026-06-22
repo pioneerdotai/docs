@@ -73,6 +73,7 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | MCP | server installations, catalog snapshots, audit events, turn MCP bindings |
 | Tasks | tasks, triggers, runs, events, dependencies, agent specs, deliveries, write locks |
 | Agent memory | memory records, memory candidates, policy decisions, tombstones, provenance, repair diagnostics, memvid capsule refs |
+| Thread episodic context | indexed conversation chunks, capsule segments, index jobs, exclusions, recall events, and thread directory metadata |
 | Recovery | recovery jobs and provider failure metadata |
 
 ## Read-Model Repair
@@ -99,6 +100,8 @@ Do not store raw secrets in ordinary domain tables or `gateway-settings.toml`. W
 
 Memory has an additional persistence rule: `gateway.db` is the control plane and remains authoritative even when the memvid capsule backend returns stale payloads. Memory records, statuses, scopes, candidates, tombstones, and policy decisions must be checked by `MemoryService` before a search hit becomes visible.
 
+Thread episodic context follows a related but separate rule. The database tracks which conversation chunks are indexable, indexed, excluded, deleted, or due for retry, while memvid stores the searchable payload. A recall hit is useful only after the gateway checks the indexed chunk state, workspace/thread scope, status, and prompt budget.
+
 ## Related Pages
 
 - [Protocol Layer](/architecture/protocol) describes the public types that often drive storage changes.
@@ -106,4 +109,5 @@ Memory has an additional persistence rule: `gateway.db` is the control plane and
 - [Artifact Store](/architecture/artifacts) explains workspace-scoped file storage, bindings, previews, and provider attachment reuse.
 - [Prompt And Context](/architecture/prompt) explains prompt manifests and retained LLM context.
 - [Memory Architecture](/architecture/memory) explains memory records, candidates, tombstones, and memvid capsule storage.
+- [Thread Episodic Context](/architecture/thread-episodic-context) explains indexed conversation chunks and recall events.
 - [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the domain-specific records stored here.

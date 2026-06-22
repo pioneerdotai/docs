@@ -36,7 +36,9 @@ The gateway can automatically fan work out to subagents with their own prompts, 
 
 ### Agent Memory
 
-In agent mode, Pioneer can recall durable facts, preferences, project decisions, and recurring instructions across turns when memory is enabled. Memory combines prompt policy, model-visible memory tools, proactive post-turn extraction, service-owned dedupe, and memvid-backed search capsules. It is not full transcript recall, and it does not guarantee every useful fact will be saved.
+In agent mode, Pioneer can recall durable facts, preferences, project decisions, and recurring instructions across turns when memory is enabled. Memory combines prompt policy, model-visible memory tools, proactive post-turn extraction, service-owned dedupe, and memvid-backed search capsules.
+
+Pioneer also has a separate thread-context layer for searchable conversation history. Durable memory remembers long-lived facts; thread context helps recover useful old discussion snippets without sending the full transcript every time.
 
 ### Bring Your Own Model
 
@@ -68,7 +70,7 @@ Run scheduled and on-demand tasks with dependencies, retries, delivery state, pr
 
 ### Explicit Artifacts
 
-Files are workspace-scoped gateway artifacts. User uploads are copied to the gateway before a turn, and agent-created result files must be registered with the artifact tools before the final response. This keeps preview, download, and reuse workflows safe for both local and remote gateways.
+Files are workspace-scoped gateway artifacts. User uploads are copied to the gateway before a turn, and agent-created result files must be registered with the artifact tools before the final response. Historical messages and recalled thread snippets can carry lightweight artifact refs, and the model reads file content on demand through `artifact_read` instead of receiving every old attachment automatically.
 
 ### Cross-Platform Packaging
 

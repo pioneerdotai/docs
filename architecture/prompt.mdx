@@ -44,6 +44,10 @@ If compression fails, the gateway falls back to truncating recent turns to fit t
 
 The compression policy optimizes for continuity over raw transcript length. Once a thread becomes too large, sending every old message is less useful than preserving decisions, file paths, user corrections, and unresolved work in a compact summary. The summary is stored on the thread and reused on later turns.
 
+When a retained history message had artifacts attached, Pioneer can append a compact artifact-reference block to that same provider message. The block lists metadata only, such as artifact id, version id, display name, kind, MIME type, size, and role. It does not include file bytes and it does not create a global "all artifacts in this thread" section.
+
+That placement is intentional. If the old message says "what car is this?" and has `car.jpg`, the reference belongs right next to that message. If the same thread also has 100 unrelated screenshots, those screenshots should not appear in the prompt unless their own messages are included or recalled.
+
 ## Prompt Compiler
 
 The system prompt compiler lives in `crates/promt`. The crate name is intentionally `promt` in the current workspace.
@@ -77,6 +81,7 @@ The compiler builds ordered sections:
 | Tool Recovery Policy | Stable | Built-in policy when enabled. |
 | Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
 | Memory Recall | Dynamic | Memory prompt contract rendered from hook prompt context when memory policy allows it. |
+| Artifact References | Dynamic | Short policy section rendered only when the current compiled prompt contains artifact refs. |
 | Hidden Tool Domains | Dynamic | Compact `request_tools` catalog listing hidden domain names and exact tools when tool calling is enabled. |
 | AGENTS.md | Dynamic | Effective thread-tree AGENTS.md rendered by the AGENTS.md prompt hook when an active file exists. |
 | Recovery Continuation | Dynamic | Built-in continuation hint when requested. |
@@ -143,6 +148,28 @@ The rendered memory section tells the model how to use memory proactively, when 
 
 The post-turn extractor uses a separate prompt renderer. It is not the main assistant prompt and does not include model-facing memory tools. Its job is to return strict JSON facts for the memory service after a completed turn.
 
+## Thread Context Prompt
+
+Thread episodic recall is separate from ordinary retained history. Retained history is loaded directly from recent completed conversation entries. Thread context is searched from indexed conversation snippets and injected only when recall decides a snippet is useful.
+
+When thread context appears in the prompt, it is rendered as compact context, not as a replacement for conversation history. A recalled snippet includes provenance such as thread, turn, item, chunk, source, and boundary. If that snippet came from a message with artifacts, Pioneer renders a scoped artifact block for that snippet, for example "available artifacts for this recalled thread context item." The model can then tell which artifacts belong to which recalled fragment.
+
+The prompt should never contain a loose pile of artifact refs without the message or snippet they came from. Without that source text, the model cannot know why a file matters.
+
+## Artifact Reference Prompt
+
+Artifact refs in prompt context are an invitation to inspect a file, not the file itself.
+
+When compiled prompt content includes one or more artifact refs, Pioneer adds a dynamic artifact-reference policy section. That section tells the model that:
+
+- historical artifact refs are metadata only;
+- if it needs file content, it should request the hidden `artifact` tool domain;
+- after the domain is visible, it should call `artifact_read` for the specific artifact refs it needs;
+- it should not ask for every artifact just because refs exist;
+- it should answer from conversation history when the file itself is unnecessary.
+
+The section is omitted when there are no artifact refs in the compiled prompt. A model should not be told to use `artifact_read` when there is nothing available to read.
+
 ## AGENTS.md Prompt
 
 AGENTS.md prompt content is also contributed through hooks. The gateway installs an internal hook package that resolves the effective active `AGENTS.md` for the current thread at `turn.pre_prompt_compile`.
@@ -185,6 +212,7 @@ When model behavior looks wrong, check these in order:
 - [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.
 - [Hook Runtime](/architecture/hooks) explains how hook contributions become prompt context and prompt sections.
 - [Memory Architecture](/architecture/memory) explains the memory prompt contract and post-turn extractor prompt.
+- [Thread Episodic Context](/architecture/thread-episodic-context) explains recalled conversation snippets and artifact refs.
 - [AGENTS.md Architecture](/architecture/agents-md) explains the thread-tree instruction hook.
 - [Skills Architecture](/architecture/skills) explains the skills prompt.
 - [Tasks And Subagents](/architecture/tasks) explains why task orchestration can add prompt policy.

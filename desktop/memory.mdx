@@ -8,6 +8,13 @@ Pioneer has durable agent memory for facts and preferences that are useful beyon
 
 Memory is enabled by default. You can control it from **Settings > Memory** in the desktop app.
 
+The important thing to understand is that Pioneer now has two different continuity layers:
+
+- **Durable memory** remembers long-lived facts and decisions that should survive across threads.
+- **Thread context** indexes visible conversation history so Pioneer can search older discussion snippets when the current turn needs them.
+
+They work together, but they are not the same thing. Your name belongs in durable memory. A question like "what did you say earlier in this thread about the API design?" belongs to thread context.
+
 ## What Memory Does
 
 When memory is enabled, Pioneer can:
@@ -16,9 +23,10 @@ When memory is enabled, Pioneer can:
 - include a compact memory section in the model prompt;
 - register memory tools in agent mode when the selected model/provider supports tools, with actual visibility selected by preflight or `request_tools`;
 - proactively extract high-confidence durable facts after a successful turn;
+- search indexed thread context when a turn needs older conversation snippets;
 - forget memory when explicitly asked.
 
-Memory is not a complete transcript search system. Pioneer does not currently promise full recall of every past thread message. Thread-history and transcript recall are separate future systems.
+Memory is not a promise that every past token will always be available. Durable memory stores selected facts. Thread context is a bounded search layer over indexed conversation fragments. It is meant to recover useful prior discussion without stuffing whole transcripts into every prompt.
 
 ## Recall
 
@@ -27,9 +35,22 @@ Pioneer uses two recall paths:
 | Recall path | What it does |
 | --- | --- |
 | Deterministic recall | Runs a bounded search for relevant saved memories before the prompt is compiled. |
-| Active recall | Adds extra read-only planning for context-heavy turns when enabled. It still reads through the memory service and does not write memory. |
+| Active recall | Adds extra read-only planning for context-heavy turns. It can plan durable-memory recall and thread-context recall, then Rust validates and executes bounded searches. It does not write memory. |
 
 The recalled results are treated as context, not as instructions. Your current message wins if it conflicts with memory.
+
+## Thread Context
+
+Thread context is the part that helps with follow-up questions like "what did we decide earlier?" or "show me the API plan from yesterday." Pioneer indexes visible user and assistant conversation items into a separate episodic store and can recall matching snippets later.
+
+This is deliberately separate from durable memory:
+
+- it can include old discussion snippets that are not worth saving as permanent facts;
+- it is searched only when the turn needs context;
+- it is bounded by ranking, prompt budgets, and workspace/thread filters;
+- it does not turn every chat message into permanent user memory.
+
+If an old message had file attachments, recalled snippets can include compact artifact references next to the snippet. The model can request the artifact domain and call `artifact_read` only when it actually needs the file content. That avoids re-attaching old photos, PDFs, or logs to every future turn.
 
 ## Proactive Writes
 
@@ -63,7 +84,11 @@ The main controls are:
 | Active recall | Disables extra active recall planning while leaving basic deterministic recall available when memory is on. |
 | Proactive writes | Stops post-turn extraction from writing durable facts. |
 | Proactive writes model | Selects the model for post-turn extraction, or uses the current thread model by default. |
+| Background extraction | Runs post-turn extraction in the background so the user-visible answer can finish first. |
+| Thread context | Enables or disables the thread episodic context layer. It is on by default. |
 | Debug traces | Shows memory hook diagnostics in local debug surfaces. |
+
+These are gateway settings. The desktop app reads and updates them through the gateway settings API, so the controls apply to the gateway you are currently connected to. If you switch to another gateway, the settings screen reloads that gateway's values instead of reusing local desktop state.
 
 The Preflight model selector lives in **Settings > General** because preflight is system-wide. It is used by turn preflight, including active recall planning when memory asks preflight for a provider decision.
 
@@ -75,7 +100,7 @@ Memory improves continuity, but it is not perfect:
 
 - not every useful fact is guaranteed to be saved;
 - not every saved fact is guaranteed to be recalled on every relevant turn;
-- full thread-history recall is not part of the current durable memory surface;
+- thread-context recall is searchable and bounded, not a legal-grade full transcript replay;
 - candidate review APIs exist, but there is no default user-facing review queue yet.
 
 Use memory for durable context, not as the only record of important work.

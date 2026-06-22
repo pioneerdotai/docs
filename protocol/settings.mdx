@@ -1,11 +1,13 @@
 ---
 title: "Settings API"
-description: "Gateway-scoped settings read and update methods for general and memory behavior."
+description: "Gateway-scoped settings read and update methods for general, memory, and thread context behavior."
 ---
 
-Settings methods expose the gateway-owned runtime settings that clients can read and update over JSON-RPC. These settings are gateway-scoped, not workspace-scoped. Provider API keys, MCP secrets, skills, tasks, and artifacts remain separate workspace-owned surfaces.
+Settings methods expose the gateway-owned runtime settings that clients can read and update over JSON-RPC. These settings are gateway-scoped, not workspace-scoped. Provider API keys, MCP secrets, skills, tasks, artifacts, and workspace state remain separate workspace-owned surfaces.
 
-The gateway loads settings from its runtime settings file, overlays app config defaults, and returns the effective snapshot. Updates are persisted to the same gateway settings file. Memory updates also rebuild the memory hook runtime so active recall and background extraction reflect the new values without restarting the gateway.
+The gateway loads settings from app config defaults and its runtime settings file, then returns the effective snapshot. Updates are persisted to the same gateway settings file. Runtime systems that depend on these settings, such as memory hooks and thread episodic context, are refreshed through the gateway instead of requiring clients to edit files directly.
+
+This matters for remote gateways. A desktop or mobile client should call `settings/get` and `settings/update`; it should not write `gateway-settings.toml` on disk.
 
 ## Methods
 
@@ -16,12 +18,13 @@ The gateway loads settings from its runtime settings file, overlays app config d
 
 ## Snapshot Shape
 
-The response contains a `settings` object with `general` and `memory` sections.
+The response contains a `settings` object with `general`, `memory`, and `thread_episodic` sections.
 
 | Section | Fields |
 |---|---|
 | `general` | `keepawake`, `preflight_model` |
 | `memory` | `enabled`, `deterministic_recall_enabled`, `active_recall_enabled`, `tools_enabled`, `proactive_writes_enabled`, `background_extraction_enabled`, `proactive_writes_model`, `debug_trace_enabled`, `strict_diagnostics_enabled` |
+| `thread_episodic` | `enabled`, `indexing_enabled`, `recall_enabled`, prompt budgets, chunking limits, recall thresholds, index job retry settings, and capacity warning thresholds. |
 
 Model selection objects use:
 
@@ -67,6 +70,29 @@ Response:
       },
       "debug_trace_enabled": false,
       "strict_diagnostics_enabled": false
+    },
+    "thread_episodic": {
+      "enabled": true,
+      "indexing_enabled": true,
+      "recall_enabled": true,
+      "default_prompt_chars": 2400,
+      "max_prompt_chars": 12000,
+      "max_hit_chars": 1200,
+      "default_max_candidates": 32,
+      "max_candidate_work": 128,
+      "max_segments": 16,
+      "min_relevancy": 0.25,
+      "min_results": 1,
+      "snippet_chars": 360,
+      "chunk_target_min_chars": 700,
+      "chunk_target_max_chars": 1200,
+      "chunk_max_chars": 1600,
+      "max_chunks_per_item": 64,
+      "index_batch_limit": 16,
+      "retry_base_delay_secs": 30,
+      "retry_max_delay_secs": 900,
+      "max_attempts": 5,
+      "near_capacity_percent": 90.0
     }
   }
 }
@@ -74,7 +100,7 @@ Response:
 
 ## Updating Settings
 
-`settings/update` takes an `update` object. `general` is a patch: omitted fields keep their current effective value. `memory` is a complete memory settings object when present.
+`settings/update` takes an `update` object. `general` is a patch: omitted fields keep their current effective value. `thread_episodic` is also a patch. `memory` is a complete memory settings object when present, so clients should send the full memory section they want to keep.
 
 ```json
 {
@@ -125,6 +151,25 @@ To update memory settings, send the full `memory` section:
 
 The response shape is the same as `settings/get` and contains the new effective snapshot.
 
+To update one thread-context setting, send only that field under `thread_episodic`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "ddddddddddddddddddddd",
+  "method": "settings/update",
+  "params": {
+    "update": {
+      "thread_episodic": {
+        "enabled": false
+      }
+    }
+  }
+}
+```
+
+Disabling `thread_episodic.enabled` turns off the thread context layer as a whole. Disabling only `indexing_enabled` stops new indexing work while leaving existing state in place. Disabling only `recall_enabled` keeps indexing available but prevents recalled thread snippets from entering future prompts.
+
 ## Schemas
 
 Generated schemas include:
@@ -139,3 +184,5 @@ Generated schemas include:
 - `/schemas/gateway_memory_settings.json`
 - `/schemas/gateway_memory_model_selection.json`
 - `/schemas/gateway_memory_model_selection_source.json`
+- `/schemas/gateway_thread_episodic_settings.json`
+- `/schemas/gateway_thread_episodic_settings_update.json`

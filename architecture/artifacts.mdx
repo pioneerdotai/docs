@@ -7,6 +7,8 @@ Artifacts are Pioneer's durable file layer. They keep file bytes out of transien
 
 The core rule is simple: artifacts are workspace scoped and gateway owned. The desktop app may cache previews or downloaded copies, but the gateway is the source of truth for artifact bytes and metadata.
 
+Artifacts also participate in conversation continuity. Pioneer does not keep re-sending every old file to the model. Instead, it keeps compact artifact references attached to the exact conversation messages or recalled thread-context snippets where those artifacts appeared. The model can request the artifact domain and read a specific artifact only when it needs the content.
+
 ## Responsibilities
 
 | Layer | Responsibility |
@@ -122,6 +124,35 @@ Model providers often require their own file upload step before an attachment ca
 
 The cache key includes workspace, artifact, optional version, provider, optional model family, and transport kind. Expired refs are pruned and ignored. This keeps provider attachment reuse workspace scoped and replaces the previous standalone provider attachment cache.
 
+## Prompt-Time Artifact References
+
+Current-turn attachments are still sent to the provider as real provider attachments when the selected provider supports them. Historical artifacts are handled differently.
+
+When the gateway renders retained conversation history, it can append compact artifact references to the specific user or assistant message that originally had those artifacts. When thread episodic recall injects an older snippet, the snippet can carry a scoped block such as "available artifacts for this recalled snippet." In both cases the prompt gets metadata, not bytes:
+
+- artifact id;
+- version id when known;
+- display name;
+- artifact kind;
+- MIME type;
+- size;
+- role or binding direction;
+- source message/snippet identity.
+
+This lets the model understand that a past message had a photo, PDF, CSV, screenshot, or generated file without paying the cost of loading every old artifact into every turn.
+
+If the model needs content, it must reveal the hidden `artifact` tool domain and call `artifact_read` for the exact artifact ids it wants. `artifact_read` can return text-like content directly or provide a provider attachment for binary/image-like content. The tool does not accept a workspace id from the model; the gateway resolves workspace and authorization from the current turn context.
+
+This design keeps three things separate:
+
+| Surface | What the model sees | When bytes are loaded |
+| --- | --- | --- |
+| Current attachments | Actual provider attachments plus message text. | Immediately for the current turn. |
+| History artifact refs | Metadata beside retained recent history messages. | Only if `artifact_read` is called. |
+| Thread-context artifact refs | Metadata beside recalled episodic snippets. | Only if `artifact_read` is called. |
+
+Do not add a global "all thread artifacts" prompt section. Long threads can contain hundreds of artifacts, and most of them are irrelevant. Artifact references should stay close to the message or snippet that gives them meaning.
+
 ## Security And Lifecycle
 
 The artifact boundary is designed for local and remote gateways:
@@ -141,6 +172,8 @@ The artifact boundary is designed for local and remote gateways:
 - Keep artifact DB access inside `crates/crud` and expose it through `CrudStore`.
 - Keep bytes behind `ArtifactBlobStore`; do not hard-code local filesystem paths outside the blob-store implementation.
 - Register agent-created user-visible files with `artifact_prepare` and `artifact_register`; do not add heuristic filesystem discovery.
+- Use artifact references for historical continuity; do not auto-attach every old artifact to every provider request.
+- Keep historical artifact references scoped to the retained history message or recalled thread-context snippet that produced them.
 - Always validate `workspace_id` before listing, reading, uploading, downloading, binding, deleting, or restoring artifacts.
 - Bind artifacts at the narrowest known scope: message when known, otherwise turn/item/task lineage, and always workspace.
 - Do not query artifacts for draft threads that are not materialized.

@@ -80,6 +80,8 @@ Immediate attached subagent tasks use parent-agent review by default. Scheduled 
 | `gateway.memory.tools_enabled` | `true` | Register memory tools for capable agent-mode providers when policy allows; actual visibility is selected by preflight or `request_tools`. |
 | `gateway.memory.proactive_writes_enabled` | `true` | Allow post-turn extraction to write high-confidence durable facts through the quality gate. |
 | `gateway.memory.background_extraction_enabled` | `true` | Run post-turn extraction through background hook execution instead of blocking the user turn. |
+| `gateway.memory.active_recall_model` | `thread` | Provider/model selector for active recall planning when configured at app-config level. `thread` means the current thread model. |
+| `gateway.memory.proactive_writes_model` | `thread` | Provider/model selector for post-turn extraction. `thread` means the current thread model. |
 | `gateway.memory.debug_trace_enabled` | `false` | Enable memory debug traces in local diagnostic surfaces. |
 | `gateway.memory.strict_diagnostics_enabled` | `false` | Enable stricter developer diagnostics without bypassing memory policy or quality gates. |
 
@@ -96,13 +98,72 @@ active_recall_enabled = true
 tools_enabled = true
 proactive_writes_enabled = true
 background_extraction_enabled = true
+active_recall_model = "thread"
+proactive_writes_model = "thread"
 debug_trace_enabled = false
 strict_diagnostics_enabled = false
 ```
 
 `capsules_dir` is resolved under runtime home. Pioneer rejects empty paths, absolute paths, `..`, and other unsafe runtime-home escapes.
 
-The desktop app also stores user-facing memory preferences in `desktop-settings.toml` under runtime home. Desktop settings map onto the same `gateway.memory` product switches when the desktop runtime loads config. They do not expose candidate review or transcript recall controls.
+The desktop app does not own these settings. It reads and updates gateway-owned runtime settings through the settings API. That is what lets the same desktop app connect to a different gateway and show that gateway's actual memory configuration.
+
+## Thread episodic context settings
+
+Thread episodic context is the searchable conversation-history layer. It is separate from durable memory. Durable memory stores selected facts and project decisions. Thread episodic context indexes visible conversation snippets so Pioneer can recall old discussion fragments when a future turn needs them.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.thread_episodic.enabled` | `true` | Enable the thread context layer. When off, indexing and recall should not contribute to turns. |
+| `gateway.thread_episodic.indexing_enabled` | `true` | Allow new visible conversation items to be indexed. |
+| `gateway.thread_episodic.recall_enabled` | `true` | Allow indexed thread context to be recalled into future prompts. |
+| `gateway.thread_episodic.default_prompt_chars` | `2400` | Default prompt budget for recalled thread snippets. |
+| `gateway.thread_episodic.max_prompt_chars` | `12000` | Hard upper prompt budget for recalled snippets. |
+| `gateway.thread_episodic.max_hit_chars` | `1200` | Maximum characters taken from a single recalled hit. |
+| `gateway.thread_episodic.default_max_candidates` | `32` | Default number of candidate search hits considered before final filtering. |
+| `gateway.thread_episodic.max_candidate_work` | `128` | Upper work bound for candidate processing. |
+| `gateway.thread_episodic.max_segments` | `16` | Maximum memvid capsule segments per workspace/thread context surface. |
+| `gateway.thread_episodic.min_relevancy` | `0.25` | Minimum relevance threshold for recalled candidates. |
+| `gateway.thread_episodic.min_results` | `1` | Minimum desired results when recall is allowed. |
+| `gateway.thread_episodic.snippet_chars` | `360` | Default compact snippet size for prompt display. |
+| `gateway.thread_episodic.chunk_target_min_chars` | `700` | Lower target for chunking long conversation items. |
+| `gateway.thread_episodic.chunk_target_max_chars` | `1200` | Upper target for chunking long conversation items. |
+| `gateway.thread_episodic.chunk_max_chars` | `1600` | Hard maximum chunk size. |
+| `gateway.thread_episodic.max_chunks_per_item` | `64` | Safety limit for one message or item. |
+| `gateway.thread_episodic.index_batch_limit` | `16` | Number of pending index jobs handled in one batch. |
+| `gateway.thread_episodic.retry_base_delay_secs` | `30` | First retry delay for failed index jobs. |
+| `gateway.thread_episodic.retry_max_delay_secs` | `900` | Maximum retry delay for index jobs. |
+| `gateway.thread_episodic.max_attempts` | `5` | Maximum attempts before an index job is considered failed. |
+| `gateway.thread_episodic.near_capacity_percent` | `90.0` | Diagnostic threshold for near-capacity memvid capsules. |
+
+Example:
+
+```toml
+[gateway.thread_episodic]
+enabled = true
+indexing_enabled = true
+recall_enabled = true
+default_prompt_chars = 2400
+max_prompt_chars = 12000
+max_hit_chars = 1200
+default_max_candidates = 32
+max_candidate_work = 128
+max_segments = 16
+min_relevancy = 0.25
+min_results = 1
+snippet_chars = 360
+chunk_target_min_chars = 700
+chunk_target_max_chars = 1200
+chunk_max_chars = 1600
+max_chunks_per_item = 64
+index_batch_limit = 16
+retry_base_delay_secs = 30
+retry_max_delay_secs = 900
+max_attempts = 5
+near_capacity_percent = 90.0
+```
+
+Use the public settings API for user-facing runtime changes. App config is for defaults and operator-managed configuration; `gateway-settings.toml` is the runtime override file owned by the gateway.
 
 ## Thread defaults
 
@@ -181,6 +242,8 @@ backend = "keystore"
 ```
 
 Only `keystore` is supported. The old `db-keystore` backend name is not accepted. This setting selects the secret backend; the storage model itself is described in [Secret Storage](/architecture/secrets).
+
+The same file also stores gateway-scoped runtime settings that users change through clients, such as memory switches and thread episodic context switches. Clients should change those values with `settings/update`, not by writing the file directly.
 
 ## Auth settings
 

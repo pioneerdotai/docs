@@ -186,6 +186,28 @@ Common `artifact_register` errors include: the file does not exist, the path is 
 
 If the final assistant message mentions `PIONEER_ARTIFACT_OUTPUT_DIR` or a private gateway path instead of a registered artifact, the gateway can ask the agent to retry registration once. If registration still does not happen, the turn fails instead of presenting a private path as the result.
 
+### `artifact_read`
+
+`artifact_read` is the model-facing read tool for artifact continuity. It is different from the client JSON-RPC method `artifact/read`.
+
+The model sees artifact refs in recent history or recalled thread context as metadata. If it needs actual file content, it requests the hidden `artifact` domain and then calls `artifact_read` for the specific artifact ids it needs. The gateway resolves workspace, thread, turn, and authorization from the active agent turn; the model does not pass `workspace_id`.
+
+Typical arguments are camelCase because this is a model tool contract:
+
+```json
+{
+  "artifactId": "art_000000000000000001",
+  "versionId": "av_000000000000000001",
+  "projectionKind": "plain_text",
+  "offset": 0,
+  "maxBytes": 65536
+}
+```
+
+For text-like artifacts or ready text projections, the tool can return text. For images and other binary content, the gateway can return an attachment shape suitable for the provider request path. The model should read only the artifact it needs, not every artifact reference in the prompt.
+
+Artifact refs do not make `artifact_read` visible by themselves. They tell the model what can be requested. The capability becomes callable only after normal tool visibility rules reveal the `artifact` domain.
+
 ## Listing Artifacts
 
 Use `artifact/list/thread` for the thread artifacts panel.

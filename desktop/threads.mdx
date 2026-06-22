@@ -70,6 +70,8 @@ Use attachments for screenshots, logs, text files, and documents that are direct
 
 Uploaded files and agent-created files are stored as workspace-scoped artifacts. See [Artifacts](/desktop/artifacts) for upload, preview, download, and reuse workflows.
 
+Follow-up turns do not automatically reattach every old file in the thread. If a recent history message with an artifact is included in the model request, Pioneer can include a compact artifact reference next to that message. If an older message is found through thread context recall, the recalled snippet can include refs for artifacts that belonged to that snippet. The model can then read a specific artifact only when it needs the file content.
+
 The composer add button can attach files or folders, skills, and MCP capabilities. Skill and MCP selections appear as chips above the input, just like file attachments, and are scoped to the next turn. They are not inserted into the message text.
 
 When a turn is sent, file, skill, and MCP chips are rendered on the user message in the timeline. For MCP, you can attach either a whole server or individual tools; selecting the whole server is the server-level choice for that turn.
