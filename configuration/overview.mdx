@@ -4,7 +4,7 @@ description: "Configure the Pioneer gateway with user config files and environme
 icon: "gear"
 ---
 
-Most users can start with the desktop app and provider settings. Use config files when you need to change gateway behavior, bind addresses, tool limits, database settings, or development paths.
+Most users can start with the desktop or mobile app and provider settings. Use config files when you need to change gateway behavior, bind addresses, tool limits, database settings, CLI runtime defaults, remote-access relay settings, or development paths.
 
 ## How configuration is loaded
 
@@ -85,6 +85,7 @@ The runtime home contains state such as:
 - memory capsules and thread-context indexes
 - skills
 - computer-use artifacts
+- remote-access runtime files
 
 On startup, the gateway creates missing `SOUL.md` and `IDENTITY.md` files in runtime home. Existing files are left unchanged. These files are read into the Soul Core and Identity Core prompt sections.
 
@@ -144,6 +145,18 @@ They control:
 - dependency checks
 - dynamic tool registration
 
+## CLI runtime settings
+
+CLI runtime defaults live under `[gateway.cli_agent_runtime]`, and named runtime instances can be configured under `[gateway.cli_agent_runtimes.<id>]`.
+
+The runtime settings API also exposes `settings.cli_runtimes.instances`. Client-facing changes should go through `settings/update`; app config is best for operator defaults and deployment-specific paths.
+
+## Remote access settings
+
+Remote-access operator defaults live under `[gateway.remote_access]`. They define the relay address, local gateway address, service name, runtime directory, and restart policy.
+
+The runtime enable flag and remote-access key are managed through `settings/update`. The key is stored in the gateway keystore, not in `gateway-settings.toml`.
+
 ## Environment variables
 
 Useful environment variables:
@@ -172,10 +185,17 @@ pioneer status
 
 For desktop-managed local gateways, restart the gateway from the desktop app if available.
 
-Runtime settings such as memory switches and thread-context switches are gateway-owned but can be changed through `settings/update`. Clients should use the settings API instead of editing `gateway-settings.toml` directly. Those settings are meant to refresh the relevant runtime systems without making the user restart just to toggle memory behavior.
+Runtime settings such as memory switches, thread-context switches, CLI runtime instances, keep-awake, and remote-access controls are gateway-owned but can be changed through `settings/update`. Clients should use the settings API instead of editing `gateway-settings.toml` directly. Those settings are meant to refresh the relevant runtime systems without making the user restart just to toggle behavior.
 
 ## Related pages
 
 <Card title="Configuration Reference" icon="list" href="/configuration/reference">
   View important config keys and examples.
 </Card>
+
+## Go Deeper
+
+- [Gateway Architecture](/architecture/gateway) explains which systems read gateway settings at runtime.
+- [Persistence](/architecture/persistence) explains `gateway.db`, runtime home, and migration behavior.
+- [Secret Storage](/architecture/secrets) explains why secret values are stored outside ordinary config.
+- [Protocol Layer](/architecture/protocol) explains how clients use `settings/get` and `settings/update`.

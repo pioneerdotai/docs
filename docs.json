@@ -28,11 +28,16 @@
             "pages": [
               "desktop/overview",
               "desktop/workspace",
+              "desktop/remote-access",
               "desktop/threads",
               "desktop/memory",
               "desktop/agents-md",
               "desktop/artifacts"
             ]
+          },
+          {
+            "group": "Mobile App",
+            "pages": ["mobile/overview"]
           },
           {
             "group": "Providers",
@@ -75,13 +80,15 @@
           },
           {
             "group": "Core Systems",
-            "pages": [
-              "architecture/gateway",
-              "architecture/agent-loop",
-              "architecture/hooks",
-              "architecture/protocol",
-              "architecture/tools"
-            ]
+                        "pages": [
+                            "architecture/gateway",
+                            "architecture/clients",
+                            "architecture/agent-loop",
+                            "architecture/cli-runtime",
+                            "architecture/hooks",
+                            "architecture/protocol",
+                            "architecture/tools"
+                        ]
           },
           {
             "group": "Subsystems",
@@ -93,11 +100,12 @@
               "architecture/mcp",
               "architecture/memory",
               "architecture/thread-episodic-context",
-              "architecture/persistence",
-              "architecture/secrets",
-              "architecture/prompt",
-              "architecture/agents-md"
-            ]
+                            "architecture/persistence",
+                            "architecture/secrets",
+                            "architecture/remote-access",
+                            "architecture/prompt",
+                            "architecture/agents-md"
+                        ]
           },
           {
             "group": "Contributing",
@@ -127,6 +135,7 @@
               "protocol/tasks",
               "protocol/artifacts",
               "protocol/providers",
+              "protocol/cli-runtime",
               "protocol/settings",
               "protocol/skills",
               "protocol/memory",

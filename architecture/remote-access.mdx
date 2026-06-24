@@ -1,0 +1,161 @@
+---
+title: "Remote Access Architecture"
+description: "How the gateway-owned remote-access tunnel is configured, supervised, and exposed to clients."
+---
+
+Remote access lets a gateway expose itself through a relay so desktop or mobile clients can connect from another network. The gateway owns this feature. Clients only edit settings, save the relay key, and display status.
+
+The implementation lives in `crates/tunnel`, `crates/gateway/src/settings.rs`, and gateway startup/shutdown wiring in `crates/gateway/src/lib.rs`.
+
+## Ownership Model
+
+| Owner | Responsibility |
+| --- | --- |
+| Gateway config | Static operator defaults: relay address, local gateway address, service name, runtime dir, reconnect policy. |
+| Gateway settings | User-visible enabled flag, service name override, transport setting, and remote-access secret ref. |
+| Gateway keystore | Raw remote-access key. It is not written to `gateway-settings.toml`. |
+| Remote access supervisor | Applies desired state, starts/stops the rathole client, publishes status snapshots. |
+| Clients | Call `settings/get` and `settings/update`, show `remote_access.status`, and listen for status notifications. |
+
+The key point is that the client is never the tunnel endpoint. If the desktop app is connected to a remote gateway and enables remote access, the tunnel is started on that remote gateway host.
+
+## Static Config
+
+`GatewayRemoteAccessConfig` comes from layered app config and has these defaults:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `runtime_dir` | `remote-access` | Directory under runtime home used for supervisor runtime files and stale config cleanup. |
+| `relay_addr` | `relay-eu-west-1.getpioneer.dev:2333` | Rathole relay address. Must be `host:port`. |
+| `local_addr` | `127.0.0.1:17878` | Local gateway address the tunnel forwards to. |
+| `service_name` | `pioneer_gateway` | Rathole service name. |
+| `restart_initial_ms` | `1000` | Initial reconnect delay. |
+| `restart_max_ms` | `30000` | Maximum reconnect delay. |
+| `restart_jitter_percent` | `20` | Deterministic jitter range. |
+| `max_restarts` | `0` | Unlimited restarts when zero. |
+
+The runtime validates relay addresses rather than passing arbitrary URLs to rathole. Accepted forms include hostnames and IP socket addresses with a non-zero port. URLs with schemes or paths are rejected.
+
+## Runtime Settings
+
+`GatewayRemoteAccessSettingsOverride` is stored in `gateway-settings.toml` and can include:
+
+- `enabled`
+- `server`
+- `service_name`
+- `transport`
+- `secret_ref`
+
+Protocol updates may include a key or `clear_key`. The key is normalized, stored through `GatewaySecrets::put_remote_access_secret`, and referenced by secret ref. The default secret ref is `remote_access`.
+
+The effective settings snapshot includes `has_key` and the current status snapshot. Clients should rely on `has_key`, not on raw key visibility.
+
+## Desired State
+
+At startup and after settings updates, the gateway builds `RemoteAccessDesiredState`:
+
+1. Read the effective remote-access settings.
+2. Resolve the configured secret ref from the gateway keystore.
+3. Pass settings plus optional key to `RemoteAccessSupervisor::apply`.
+
+This means enabling remote access without a key is a valid settings state but an invalid run state. The supervisor publishes `Failed` with `MissingKey` instead of starting a tunnel with incomplete credentials.
+
+## Supervisor Lifecycle
+
+`RemoteAccessSupervisor` owns one supervised task at a time. `apply` increments a generation, stops any existing task, validates the new desired state, and starts a new rathole client task when the desired state is runnable.
+
+Validation can short-circuit into status-only states:
+
+| Condition | Published state |
+| --- | --- |
+| `enabled = false` | `Disabled` |
+| non-TCP transport | `Failed` / `UnsupportedTransport` |
+| invalid relay address or service name | `Failed` / `InvalidSettings` |
+| missing key | `Failed` / `MissingKey` |
+
+When runnable, the supervisor publishes `Starting`, creates a shutdown channel, and spawns `supervise_rathole`.
+
+## Rathole Client
+
+The supervisor builds an in-memory rathole client config:
+
+```toml
+[client]
+remote_addr = "relay-eu-west-1.getpioneer.dev:2333"
+
+[client.services.pioneer_gateway]
+auth = "token_hash"
+token = "<remote-access-key>"
+local_addr = "127.0.0.1:17878"
+```
+
+The config is not persisted as a runtime file. Startup cleanup still removes stale `rathole-client-*.toml` files from older or interrupted flows so raw tokens do not linger in remote-access runtime directories.
+
+## Status Projection
+
+Rathole events are projected into `GatewayRemoteAccessStatusSnapshot`:
+
+| Rathole event | Gateway state |
+| --- | --- |
+| control channel connecting before first connect | `Starting` |
+| control channel connected | `Connected` |
+| reconnecting after first connect | `Reconnecting` / `RelayConnectFailed` |
+| reconnecting before first connect | `Failed` / `RelayConnectFailed` |
+| auth failed | `Failed` / `TunnelAuthFailed` |
+| service missing | `Failed` / `InvalidSettings` |
+| stopped | `Stopped` |
+
+Each snapshot carries state, optional error kind, optional message, and update timestamp. The gateway includes this in `settings/get` and broadcasts changes through remote-access status notifications.
+
+## Restart Policy
+
+If the rathole task exits unexpectedly, the supervisor publishes `Reconnecting`, waits with exponential backoff and deterministic jitter, and starts it again until `max_restarts` is reached. `max_restarts = 0` means unlimited restarts.
+
+The delay doubles up to `restart_max_ms`. Jitter is deterministic from the attempt number, which avoids needing randomness in the supervisor while still spreading retry timing.
+
+## Shutdown
+
+On settings change, gateway shutdown, or supervisor shutdown, Pioneer sends a watch-channel shutdown signal to the rathole task. The supervisor gives it a short graceful window, then aborts the task if needed. Final status becomes `Stopped`.
+
+Gateway shutdown calls `shutdown_remote_access_supervisor` before shutting down the WebSocket server. This keeps tunnel process lifetime tied to gateway lifetime.
+
+## Protocol Boundary
+
+Remote access is exposed through settings, not through a separate remote-access method namespace:
+
+- `settings/get` returns `settings.remote_access`.
+- `settings/update` applies `remote_access` updates and persists non-secret settings.
+- status changes are emitted as remote-access notifications.
+
+This keeps the control plane consistent with memory, thread episodic context, keepawake, and CLI runtime settings.
+
+## Failure Modes
+
+Important failure modes are intentionally visible:
+
+- relay address malformed;
+- unsupported transport requested;
+- service name empty, too long, or with unsupported characters;
+- key missing or cleared;
+- relay connection fails;
+- tunnel auth fails;
+- relay reports service not found;
+- rathole task exits repeatedly until restart limit is reached.
+
+Do not hide these behind "offline". The user action differs: fix config, save a key, create a relay service, rotate a token, or inspect relay reachability.
+
+## Developer Rules
+
+- Do not store remote-access keys in `gateway-settings.toml`, `gateway.db`, or client registry files.
+- Treat remote access as gateway-owned state; clients must not start local tunnel tasks for a remote gateway.
+- Keep the rathole token out of persisted runtime config files.
+- Prefer status snapshots and notifications over client-side polling.
+- When adding a transport, update config parsing, supervisor validation, protocol enums, settings UI, and this page together.
+- When changing status states or error kinds, update client presentation and [Settings API](/protocol/settings).
+
+## Related Pages
+
+- [Gateway Architecture](/architecture/gateway) explains gateway startup, settings, and runtime ownership.
+- [Secret Storage](/architecture/secrets) explains where the remote-access key lives.
+- [Protocol Layer](/architecture/protocol) explains settings and notifications as public contract.
+- [Desktop Remote Access](/desktop/remote-access) explains the user-facing controls.

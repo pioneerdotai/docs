@@ -4,9 +4,9 @@ description: "Use the Pioneer desktop app to connect gateways, manage workspaces
 icon: "desktop"
 ---
 
-The desktop app is where most people will use Pioneer.
+The desktop app is the full native client for Pioneer.
 
-It is a native app, not a web shell. You use it to connect gateways, manage workspaces, talk to models, inspect tool runs, configure providers, manage skills and MCP servers, and keep an eye on tasks.
+You use it to connect gateways, manage workspaces, talk to models, inspect tool runs, configure providers, manage skills and MCP servers, and keep an eye on tasks.
 
 The important thing to remember is that the desktop app is a client. It gives you control, but the gateway owns the work. Provider calls, tool execution, task runs, skills, MCP servers, and stored Pioneer state belong to the gateway you are connected to.
 
@@ -16,13 +16,15 @@ For a single-machine setup, the desktop app can start and manage a local gateway
 
 In this setup, tool calls happen on your computer. If an agent lists files, it lists files visible to your local gateway. If it runs a shell command, it runs on your machine as the gateway user.
 
-## Multiple Gateways
+## Multiple Gateways And Other Clients
 
 One desktop app can connect to any number of gateways.
 
 This is useful when your environments should stay separate. You might keep a local gateway for everyday experiments, a work gateway close to work repositories and accounts, a home server for long-running personal tasks, and a sandbox gateway for testing risky skills or MCP servers.
 
 Switching gateways is more than changing a label in the sidebar. You are switching execution environments. A thread on `Work` uses work provider keys and work tools. A thread on `Home Server` uses the server's files, network, and services.
+
+The mobile app can connect to those same gateways, but it does not manage a local gateway process on the phone. Use desktop when you need local gateway installation/start/stop flows; use mobile when you need a remote client into an already running gateway.
 
 <Warning>
   When you connect to a remote gateway, tools run on the remote machine, not on the computer running the desktop app.
@@ -44,9 +46,11 @@ Settings are split between app-level preferences, gateway-owned configuration, a
 
 That separation is intentional. It lets one desktop app control several independent Pioneer environments without mixing their state.
 
-Gateway-owned settings, such as memory and thread-context switches, are read from the connected gateway through the settings API. If you switch to another gateway, the settings screen should reload that gateway's values. If you switch back, it should show the previous gateway's values again.
+Gateway-owned settings, such as memory and thread-context switches, are read from the connected gateway. If you switch to another gateway, the settings screen should reload that gateway's values. If you switch back, it should show the previous gateway's values again.
 
-Gateway bearer tokens saved by the desktop app are stored in the desktop keystore. The gateway registry keeps only `auth_token_ref` values, so raw bearer tokens are not serialized into `gateway-registry.toml`.
+Gateway bearer tokens saved by the desktop app are stored in the desktop keystore instead of being shown back as ordinary settings.
+
+Remote access is also gateway-owned. The desktop settings screen can enable the gateway's remote-access tunnel, save its relay key, and show live tunnel status. See [Remote Access](/desktop/remote-access).
 
 ## Localization
 
@@ -59,4 +63,16 @@ The desktop UI includes English, German, Spanish, French, Hindi, Japanese, Russi
   <Card title="Threads" icon="messages" href="/desktop/threads">
     Read timelines, tool events, and conversation history.
   </Card>
+  <Card title="Remote Access" icon="radio-tower" href="/desktop/remote-access">
+    Expose a gateway through the relay and connect other clients to it.
+  </Card>
+  <Card title="Mobile App" icon="smartphone" href="/mobile/overview">
+    Connect iOS and Android clients to remote gateways.
+  </Card>
 </Columns>
+
+## Go Deeper
+
+- [Client Architecture](/architecture/clients) explains how desktop, mobile, and shared client code fit together.
+- [Gateway Architecture](/architecture/gateway) explains what the desktop app controls through the connected gateway.
+- [Protocol Layer](/architecture/protocol) explains the client/gateway contract used by desktop and other clients.

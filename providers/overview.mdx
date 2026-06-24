@@ -1,14 +1,16 @@
 ---
 title: "Providers Overview"
-description: "Connect Pioneer to cloud, local, CLI, and OpenAI-compatible model providers."
+description: "Connect Pioneer to cloud, local, OpenAI-compatible, and CLI-backed model sources."
 icon: "brain"
 ---
 
-Pioneer needs a model provider before it can answer in threads or run model-backed tasks. A provider is the place the gateway sends model requests: a cloud API, a local runtime, a CLI-backed model tool, or an OpenAI-compatible endpoint.
+Pioneer needs a model source before it can answer in threads or run model-backed tasks. For most users, that source is a provider: a cloud API, a local model runtime, or an OpenAI-compatible endpoint.
+
+Some agent tools, such as Codex CLI, are configured separately from ordinary API providers because they run through their own CLI workflow on the gateway host.
 
 Provider setup is intentionally the same shape everywhere. Connect the desktop app to the gateway you want to configure, click the providers icon in the bottom bar to open **Providers**, choose the provider type, enter the required credential or endpoint details, save, and select a model in a thread.
 
-The important detail is where the provider is saved. Provider configuration belongs to the current workspace on the gateway, not to the desktop app. Secret API keys and tokens are stored in that gateway's `keystore.db` under workspace-scoped secret ids. If you configure a provider in `Default Workspace` and then switch to `Client A`, `Client A` needs its own provider configuration and credentials. If you switch to another gateway, configure providers there too.
+The important detail is where the provider is saved. Provider configuration belongs to the current workspace on the gateway, not to the desktop app. Secret API keys and tokens are stored in that gateway's secret store. If you configure a provider in `Default Workspace` and then switch to `Client A`, `Client A` needs its own provider configuration and credentials. If you switch to another gateway, configure providers there too.
 
 <Note>
   Provider requests are made by the gateway host. A remote gateway needs network access to the provider even if your desktop computer already has access.
@@ -40,22 +42,23 @@ Some providers can list models automatically. Others require you to enter the ex
 
 ## Supported Providers
 
-Pioneer supports dedicated provider integrations, local runtimes, CLI providers, and OpenAI-compatible endpoints.
+Pioneer supports dedicated provider integrations, local runtimes, OpenAI-compatible endpoints, and separate CLI agent runtimes.
 
 | Provider type | Supported providers |
 | --- | --- |
-| Direct cloud providers | Anthropic, OpenAI, Google Gemini, OpenRouter, Azure OpenAI, AWS Bedrock |
-| Local and self-hosted runtimes | Ollama, LM Studio, llama.cpp, SGLang, vLLM, LiteLLM |
-| CLI providers | Claude Code, Gemini CLI, Kilo CLI |
-| OpenAI-compatible providers | Groq, Mistral, xAI, DeepSeek, Together, Fireworks, Perplexity, Cohere, Cerebras, Hugging Face, NVIDIA NIM, and others |
+| Direct cloud providers | Anthropic, OpenAI, Google Gemini, OpenRouter, Azure OpenAI, AWS Bedrock, Copilot, GLM, Telnyx |
+| Local runtimes | Ollama |
+| OpenAI-compatible hosted providers | Groq, Mistral, xAI, DeepSeek, Together, Fireworks, Novita, Perplexity, Cohere, Venice, Cerebras, SambaNova, Hyperbolic, DeepInfra, Hugging Face, AI21, Reka, Baseten, Nscale, Anyscale, Nebius, Friendli, Lepton, SiliconFlow, AIHubMix, Astrai, StepFun, Baichuan, Yi, Hunyuan, OVHcloud, NVIDIA NIM, Synthetic, Doubao, Qianfan |
+| OpenAI-compatible local servers | LM Studio, llama.cpp, SGLang, vLLM, Osaurus, LiteLLM |
+| CLI-backed model sources | Codex CLI and other supported CLI workflows installed on the gateway host |
 
-Use [Other Providers](/providers/others) when you need the broader compatibility list.
+Use [Supported Providers](/providers/others) when you need the broader compatibility list. Use [CLI Runtime API](/protocol/cli-runtime) only when you are building or debugging CLI-backed model selection.
 
 ## Choosing A Provider
 
 Use the provider you already have access to. If your organization manages a specific cloud account, start there. If you want local model execution, use a local runtime available from the gateway host. If you want a broad model catalog behind one integration, use a router or another compatible endpoint.
 
-Do not assume every model behaves the same way. Before using a model for tool-heavy work or scheduled tasks, confirm that your account can access it, that the model supports the kind of tool use you need, and that cost, latency, and context size are acceptable.
+Do not assume every model source behaves the same way. Before using a model for tool-heavy work or scheduled tasks, confirm that your account can access it, that the model or runtime supports the kind of tool use you need, and that cost, latency, authentication, and context size are acceptable.
 
 <AccordionGroup>
   <Accordion title="The provider does not appear in a thread">
@@ -71,3 +74,9 @@ Do not assume every model behaves the same way. Before using a model for tool-he
     Check network access, proxy settings, firewall rules, and DNS from the gateway machine.
   </Accordion>
 </AccordionGroup>
+
+## Go Deeper
+
+- [Providers Architecture](/architecture/providers) explains provider adapters, model discovery, streaming, and attachments.
+- [Secret Storage](/architecture/secrets) explains where provider keys are stored.
+- [Gateway Architecture](/architecture/gateway) explains why provider calls happen from the gateway host.

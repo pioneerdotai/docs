@@ -1,11 +1,11 @@
 ---
 title: "Settings API"
-description: "Gateway-scoped settings read and update methods for general, memory, and thread context behavior."
+description: "Gateway-scoped settings read and update methods for general, memory, thread context, CLI runtime, and remote access behavior."
 ---
 
 Settings methods expose the gateway-owned runtime settings that clients can read and update over JSON-RPC. These settings are gateway-scoped, not workspace-scoped. Provider API keys, MCP secrets, skills, tasks, artifacts, and workspace state remain separate workspace-owned surfaces.
 
-The gateway loads settings from app config defaults and its runtime settings file, then returns the effective snapshot. Updates are persisted to the same gateway settings file. Runtime systems that depend on these settings, such as memory hooks and thread episodic context, are refreshed through the gateway instead of requiring clients to edit files directly.
+The gateway loads settings from app config defaults and its runtime settings file, then returns the effective snapshot. Updates are persisted to the same gateway settings file. Runtime systems that depend on these settings, such as memory hooks, thread episodic context, CLI runtime instances, keep-awake, and remote access, are refreshed through the gateway instead of requiring clients to edit files directly.
 
 This matters for remote gateways. A desktop or mobile client should call `settings/get` and `settings/update`; it should not write `gateway-settings.toml` on disk.
 
@@ -18,13 +18,15 @@ This matters for remote gateways. A desktop or mobile client should call `settin
 
 ## Snapshot Shape
 
-The response contains a `settings` object with `general`, `memory`, and `thread_episodic` sections.
+The response contains a `settings` object with `general`, `memory`, `thread_episodic`, `cli_runtimes`, and `remote_access` sections.
 
 | Section | Fields |
 |---|---|
 | `general` | `keepawake`, `preflight_model` |
 | `memory` | `enabled`, `deterministic_recall_enabled`, `active_recall_enabled`, `tools_enabled`, `proactive_writes_enabled`, `background_extraction_enabled`, `proactive_writes_model`, `debug_trace_enabled`, `strict_diagnostics_enabled` |
 | `thread_episodic` | `enabled`, `indexing_enabled`, `recall_enabled`, prompt budgets, chunking limits, recall thresholds, index job retry settings, and capacity warning thresholds. |
+| `cli_runtimes` | Complete list of configured CLI runtime instances: `id`, `kind`, `display_name`, `enabled`, `binary_path`, `home_path`, and optional `shadow_home_path`. |
+| `remote_access` | Remote-access enablement, relay server display value, service name, transport, key presence, and live status snapshot. |
 
 Model selection objects use:
 
@@ -93,6 +95,28 @@ Response:
       "retry_max_delay_secs": 900,
       "max_attempts": 5,
       "near_capacity_percent": 90.0
+    },
+    "cli_runtimes": {
+      "instances": [
+        {
+          "id": "codex",
+          "kind": "codex",
+          "display_name": "Codex CLI",
+          "enabled": true,
+          "binary_path": "codex",
+          "home_path": "~/.codex"
+        }
+      ]
+    },
+    "remote_access": {
+      "enabled": false,
+      "server": "relay-eu-west-1.getpioneer.dev:2333",
+      "service_name": "pioneer_gateway",
+      "transport": "tcp",
+      "has_key": false,
+      "status": {
+        "state": "disabled"
+      }
     }
   }
 }
@@ -100,7 +124,7 @@ Response:
 
 ## Updating Settings
 
-`settings/update` takes an `update` object. `general` is a patch: omitted fields keep their current effective value. `thread_episodic` is also a patch. `memory` is a complete memory settings object when present, so clients should send the full memory section they want to keep.
+`settings/update` takes an `update` object. `general` is a patch: omitted fields keep their current effective value. `thread_episodic` is also a patch. `memory` is a complete memory settings object when present, so clients should send the full memory section they want to keep. `cli_runtimes` is a complete runtime instance list when present. `remote_access` is a patch for user-facing remote-access controls.
 
 ```json
 {
@@ -170,6 +194,79 @@ To update one thread-context setting, send only that field under `thread_episodi
 
 Disabling `thread_episodic.enabled` turns off the thread context layer as a whole. Disabling only `indexing_enabled` stops new indexing work while leaving existing state in place. Disabling only `recall_enabled` keeps indexing available but prevents recalled thread snippets from entering future prompts.
 
+To update CLI runtime instances, send the full `cli_runtimes.instances` list you want the gateway to keep:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "eeeeeeeeeeeeeeeeeeeee",
+  "method": "settings/update",
+  "params": {
+    "update": {
+      "cli_runtimes": {
+        "instances": [
+          {
+            "id": "codex",
+            "kind": "codex",
+            "display_name": "Codex CLI",
+            "enabled": true,
+            "binary_path": "codex",
+            "home_path": "~/.codex",
+            "shadow_home_path": null
+          },
+          {
+            "id": "codex_work",
+            "kind": "codex",
+            "display_name": "Codex Work",
+            "enabled": false,
+            "binary_path": "/opt/homebrew/bin/codex",
+            "home_path": "~/.codex-work",
+            "shadow_home_path": "~/.pioneer/codex/work"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Runtime ids and display names must be unique after normalization. `binary_path`, `home_path`, and `shadow_home_path` are validated before the settings file is saved.
+
+To enable remote access, send the enable flag and key. The key is written to the gateway keystore and is not serialized into `gateway-settings.toml`.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "fffffffffffffffffffff",
+  "method": "settings/update",
+  "params": {
+    "update": {
+      "remote_access": {
+        "enabled": true,
+        "key": "relay-token"
+      }
+    }
+  }
+}
+```
+
+To clear the remote-access key:
+
+```json
+{
+  "method": "settings/update",
+  "params": {
+    "update": {
+      "remote_access": {
+        "clear_key": true
+      }
+    }
+  }
+}
+```
+
+`remote_access.status` is live runtime state. Clients receive `gateway/remote_access/status_changed` when the relay connection moves through states such as `starting`, `connected`, `reconnecting`, `failed`, or `stopped`.
+
 ## Schemas
 
 Generated schemas include:
@@ -186,3 +283,14 @@ Generated schemas include:
 - `/schemas/gateway_memory_model_selection_source.json`
 - `/schemas/gateway_thread_episodic_settings.json`
 - `/schemas/gateway_thread_episodic_settings_update.json`
+- `/schemas/gateway_cli_runtime_settings.json`
+- `/schemas/gateway_cli_runtime_instance_settings.json`
+- `/schemas/gateway_remote_access_settings.json`
+- `/schemas/gateway_remote_access_settings_update.json`
+- `/schemas/gateway_remote_access_status_snapshot.json`
+
+## Related Pages
+
+- [Remote Access Architecture](/architecture/remote-access) explains gateway-owned tunnel supervision and status projection.
+- [CLI Runtime Architecture](/architecture/cli-runtime) explains CLI runtime settings and recovery behavior.
+- [Secret Storage](/architecture/secrets) explains why settings snapshots expose secret presence instead of raw values.

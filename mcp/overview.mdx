@@ -26,7 +26,7 @@ MCP connections are installed for the current workspace on the gateway.
 
 This keeps environments clean. A work workspace can connect to work systems. A personal workspace can connect to personal tools. A sandbox workspace can test new MCP servers before they touch anything important. Use a separate gateway when the MCP server must run on a different machine or security boundary.
 
-MCP secrets are scoped the same way. Redacted install data and secret refs live in the gateway database, while actual secret values from `env` and `headers` live in that gateway's keystore.
+MCP secrets are scoped the same way. Pioneer keeps visible MCP settings redacted and stores actual secret values, such as `env` and `headers`, in the gateway secret store.
 
 ## Enabled And Implicit MCP
 
@@ -46,7 +46,7 @@ After you add a server, Pioneer starts or connects to it, reads its catalog, and
 
 In a thread, use the composer add button and choose **Add MCP** to attach a whole server or specific tools to the next turn. Selected MCP capabilities appear as chips above the input and on the sent user message. If you select a whole server, Pioneer treats that as the server-level selection for the turn and suppresses duplicate individual tool selections for that server.
 
-MCP selections are not rendered as prompt prose. They materialize as model-visible tool definitions in the provider request, and calls still route through the gateway MCP service.
+MCP selections are not pasted into the prompt as plain text. Pioneer turns them into available tools for that turn, and calls still route through the gateway MCP service.
 
 For local processes, Pioneer uses stdio. For network services, it uses HTTP.
 
@@ -58,3 +58,9 @@ For local processes, Pioneer uses stdio. For network services, it uses HTTP.
     Inspect exposed tools, resources, and health.
   </Card>
 </Columns>
+
+## Go Deeper
+
+- [MCP Architecture](/architecture/mcp) explains installation, runtime supervision, catalogs, policy, and tool binding.
+- [Secret Storage](/architecture/secrets) explains how MCP env/header secrets are stored.
+- [Tools Architecture](/architecture/tools) explains how MCP tools become model-visible tools during a turn.

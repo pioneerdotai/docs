@@ -100,3 +100,9 @@ If a preview is missing but the file is ready, open or download the artifact. Th
 If a file cannot be opened, download it first and check that the destination exists on your desktop. In a remote gateway setup, revealing a gateway path directly is not possible; Pioneer can only reveal local cached or downloaded files.
 
 If Pioneer seems to "forget" a photo or document in a follow-up turn, check two things: whether that message is still in the retained recent history or whether thread context recall brought back the relevant older snippet. If neither happened, the model may not see the artifact reference and therefore cannot know which artifact to read.
+
+## Go Deeper
+
+- [Artifacts Architecture](/architecture/artifacts) explains artifact storage, bindings, uploads, downloads, projections, and `artifact_read`.
+- [Thread Episodic Context](/architecture/thread-episodic-context) explains why recalled snippets can carry artifact references.
+- [Tools Architecture](/architecture/tools) explains how model-facing tools are exposed during agent turns.

@@ -3,7 +3,7 @@ title: "Provider System"
 description: "How Pioneer normalizes LLM providers, streaming, tools, models, and attachments."
 ---
 
-`crates/provider` gives the agent one interface for many model backends. The rest of Pioneer talks to `Provider`, `ChatRequest`, `ChatMessage`, `ToolDefinition`, and `ProviderToolCall`; provider adapters translate those into OpenAI, Anthropic, Gemini, Ollama, Bedrock, CLI, or OpenAI-compatible API calls.
+`crates/provider` gives the agent one interface for API-backed model backends. The rest of Pioneer talks to `Provider`, `ChatRequest`, `ChatMessage`, `ToolDefinition`, and `ProviderToolCall`; provider adapters translate those into OpenAI, Anthropic, Gemini, Ollama, Bedrock, direct cloud, local API, or OpenAI-compatible API calls.
 
 The provider layer should feel boring to the rest of the system. Its job is to absorb API differences so the agent loop can reason in one vocabulary: messages, tools, streaming chunks, usage, reasoning, and normalized tool calls.
 
@@ -40,6 +40,19 @@ Provider API keys are workspace-scoped. The same gateway can have one OpenAI key
 
 Provider construction is centralized in `create_provider`. That function maps provider aliases to concrete adapters. It also includes a large set of OpenAI-compatible endpoints where the only difference is base URL and auth style.
 
+The provider registry is deliberately gateway-side. Clients can list providers, set/delete keys, and request model lists, but they should not instantiate provider adapters or hold raw provider credentials.
+
+## Current Adapter Families
+
+| Family | Examples | Notes |
+| --- | --- | --- |
+| Direct cloud adapters | OpenAI, Anthropic, Gemini, Azure OpenAI, Bedrock, OpenRouter, Copilot, GLM, Telnyx | Dedicated request/stream/tool-call mapping. |
+| Local API runtimes | Ollama | Local means local to the gateway host. |
+| OpenAI-compatible adapters | Groq, Mistral, xAI, DeepSeek, Together, Fireworks, LM Studio, llama.cpp, vLLM, and many others | Mostly share OpenAI-compatible wire shape with provider-specific base URLs and metadata. |
+| Test/dev adapters | Echo | Useful for development and tests. |
+
+CLI-backed runtimes such as Codex CLI are excluded from this crate. They are process/session integrations documented in [CLI Runtime Architecture](/architecture/cli-runtime).
+
 ## Request Shape
 
 The common `ChatRequest` includes:
@@ -66,6 +79,19 @@ The attachment pipeline normalizes input parts before provider submission. It ha
 
 Gateway configuration controls attachment size limits, total request limits, allowed path roots, URL-source behavior, redirect limits, private-network rules, MIME checks, retry behavior, circuit breaker behavior, and upload registry TTL.
 
+Attachment handling is split under `crates/provider/src/attachments`:
+
+| Module | Responsibility |
+| --- | --- |
+| `normalize` | Turn heterogeneous user inputs into provider-ready attachment parts. |
+| `budget` | Enforce per-file and total request limits. |
+| `security` | Path, URL, redirect, private-network, and MIME policy checks. |
+| `plan` / `runtime` | Decide transport strategy and execute provider upload/inline/reference behavior. |
+| `registry` | Cache external provider refs for artifacts when reuse is allowed. |
+| `observability` | Emit diagnostics for attachment normalization and transport. |
+
+Do not bypass this pipeline from a provider adapter. If a new provider has special file-upload semantics, add a transport plan or adapter hook rather than making the agent loop provider-aware.
+
 ## Provider Failures
 
 Provider calls can fail before the first chunk, between chunks, during tool-call parsing, or in non-streaming calls. The agent/provider layer classifies these failures so the gateway recovery coordinator can decide whether to schedule a recovery attempt, mark the turn failed, or continue with available state.
@@ -78,9 +104,21 @@ Error normalization is one of the most important responsibilities of this crate.
 
 Add a provider by implementing `Provider`, declaring accurate capabilities, mapping `ChatRequest` into the provider API, normalizing stream chunks and tool calls, and registering the adapter in `create_provider`. If the provider supports model listing or file uploads, implement those paths in the provider crate rather than leaking provider-specific logic into the agent or gateway.
 
+Implementation checklist:
+
+1. Add adapter code under `crates/provider/src/providers`.
+2. Register aliases/base URL behavior in `create_provider`.
+3. Declare capabilities truthfully, especially streaming, tool calls, vision, and input type support.
+4. Normalize streaming chunks into `StreamChunk`.
+5. Normalize tool calls into `ProviderToolCall` with valid JSON arguments.
+6. Add model-listing support when the upstream API supports it.
+7. Add attachment support through the attachment pipeline when needed.
+8. Update gateway/client provider lists, docs, icons, and generated client contracts if the provider becomes user-selectable.
+
 ## Related Pages
 
 - [Prompt And Context](/architecture/prompt) explains the `compiled_prompt` payload that providers receive.
 - [Agent Loop](/architecture/agent-loop) explains when providers are called and how streaming chunks become turn events.
 - [Tools System](/architecture/tools) explains what happens after normalized tool calls leave the provider layer.
 - [Gateway](/architecture/gateway) explains provider key storage and provider cache invalidation.
+- [CLI Runtime Architecture](/architecture/cli-runtime) explains the separate process/session model for Codex-style runtimes.

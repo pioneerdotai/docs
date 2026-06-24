@@ -72,6 +72,7 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | Skills | installations, workspace policy, turn bindings, audit events, dependency snapshots, upload sessions |
 | MCP | server installations, catalog snapshots, audit events, turn MCP bindings |
 | Tasks | tasks, triggers, runs, events, dependencies, agent specs, deliveries, write locks |
+| CLI runtime | native thread bindings, active turn bindings, runtime ids, native ids, input mapping, and recovery status |
 | Agent memory | memory records, memory candidates, policy decisions, tombstones, provenance, repair diagnostics, memvid capsule refs |
 | Thread episodic context | indexed conversation chunks, capsule segments, index jobs, exclusions, recall events, and thread directory metadata |
 | Recovery | recovery jobs and provider failure metadata |
@@ -110,4 +111,4 @@ Thread episodic context follows a related but separate rule. The database tracks
 - [Prompt And Context](/architecture/prompt) explains prompt manifests and retained LLM context.
 - [Memory Architecture](/architecture/memory) explains memory records, candidates, tombstones, and memvid capsule storage.
 - [Thread Episodic Context](/architecture/thread-episodic-context) explains indexed conversation chunks and recall events.
-- [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the domain-specific records stored here.
+- [CLI Runtime Architecture](/architecture/cli-runtime), [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the domain-specific records stored here.

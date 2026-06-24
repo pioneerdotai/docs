@@ -16,6 +16,7 @@ Use it when:
 - checking keystore status and permissions
 - cleaning orphan MCP secret values
 - rotating the superuser JWT signing material
+- scanning task runtime invariants in a gateway database
 - debugging a desktop connection problem
 
 ## Common commands
@@ -29,6 +30,7 @@ pioneer issue-superuser-token
 pioneer secrets status
 pioneer secrets garbage-collection --dry-run
 pioneer secrets rotate-jwt-token superuser
+pioneer task-invariants --db ~/.pioneer/gateway.db
 pioneer version
 pioneer help
 ```
@@ -43,6 +45,7 @@ pioneer start --json
 pioneer secrets status --json
 pioneer secrets garbage-collection --json
 pioneer secrets rotate-jwt-token superuser --json
+pioneer task-invariants --db ~/.pioneer/gateway.db --json
 pioneer version --json
 ```
 
@@ -93,3 +96,9 @@ The service runs as the current OS user.
 <Card title="CLI Commands" icon="code" href="/cli/commands">
   See command syntax, flags, and examples.
 </Card>
+
+## Go Deeper
+
+- [Gateway Architecture](/architecture/gateway) explains the service the CLI starts and stops.
+- [Secret Storage](/architecture/secrets) explains the keystore commands and superuser token material.
+- [Persistence](/architecture/persistence) explains the gateway database used by task invariant checks.

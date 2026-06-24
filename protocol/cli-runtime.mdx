@@ -1,0 +1,255 @@
+---
+title: "CLI Runtime API"
+description: "Listing CLI agent runtimes, selecting runtime models, binding Pioneer threads to native CLI threads, steering turns, handling approvals, and login flow."
+---
+
+CLI runtimes let a Pioneer turn run through a local CLI-backed agent process instead of a direct model API provider. The current committed runtime implementation is Codex CLI through `pioneer-cli-agent-runtime`; the protocol enum also reserves a `claude` kind for future or in-progress runtime work.
+
+CLI runtimes are not `pioneer-provider` adapters. API providers expose `provider/*` methods. CLI runtimes expose `cli_runtime/*` methods and are selected as an execution backend on `turn/start`.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+| --- | --- | --- | --- |
+| `cli_runtime/list` | `CLIRuntimeListParams` | `CLIRuntimeListResponse` | List configured runtime instances for a workspace. |
+| `cli_runtime/get` | `CLIRuntimeGetParams` | `CLIRuntimeGetResponse` | Return one runtime summary. |
+| `cli_runtime/status` | `CLIRuntimeStatusParams` | `CLIRuntimeStatusResponse` | Return cached status for one runtime. |
+| `cli_runtime/refresh` | `CLIRuntimeRefreshParams` | `CLIRuntimeRefreshResponse` | Probe one or all runtimes and return live summaries. |
+| `cli_runtime/list_models` | `CLIRuntimeListModelsParams` | `CLIRuntimeListModelsResponse` | List models available through a runtime. |
+| `cli_runtime/thread_binding/get` | `CLIRuntimeThreadBindingGetParams` | `CLIRuntimeThreadBindingGetResponse` | Read the native CLI thread binding for a Pioneer thread. |
+| `cli_runtime/thread/fork` | `CLIRuntimeThreadForkParams` | `CLIRuntimeThreadForkResponse` | Fork a runtime-native thread into a new Pioneer thread. |
+| `cli_runtime/thread/compact` | `CLIRuntimeThreadCompactParams` | `CLIRuntimeThreadCompactResponse` | Ask the runtime to compact a bound native thread. |
+| `cli_runtime/turn/steer` | `CLIRuntimeTurnSteerParams` | `CLIRuntimeTurnSteerResponse` | Send steering text to an active runtime-backed turn. |
+| `cli_runtime/review/start` | `CLIRuntimeReviewStartParams` | `CLIRuntimeReviewStartResponse` | Start a runtime-native review flow for changes, a branch, a commit, or custom instructions. |
+| `cli_runtime/login/start` | `CLIRuntimeLoginStartParams` | `CLIRuntimeLoginStartResponse` | Start a supported runtime login flow. |
+| `cli_runtime/login/cancel` | `CLIRuntimeLoginCancelParams` | `CLIRuntimeLoginCancelResponse` | Cancel a pending runtime login flow. |
+| `cli_runtime/request/respond` | `CLIRuntimeRequestRespondParams` | `CLIRuntimeRequestRespondResponse` | Resolve a pending approval or user-input request from the runtime. |
+
+Every method takes `workspace_id`. Runtime visibility is gateway-owned, but clients use the workspace id so responses and notifications can be scoped to the selected workspace.
+
+## Runtime Summary
+
+A `RuntimeSummary` includes:
+
+| Field | Meaning |
+| --- | --- |
+| `runtime_id` | Stable gateway runtime id, for example `codex`. |
+| `kind` | Runtime kind, currently `codex` in committed config. |
+| `display_name` | Human-readable label for model selectors and settings UI. |
+| `enabled` | Whether the runtime instance is enabled. |
+| `status` | Tagged status such as `ready`, `needs_auth`, `missing_binary`, `degraded`, or `unsupported_version`. |
+| `capabilities` | Booleans for threads, resume, fork, steer, approvals, model list, review, compaction, auth management, and related features. |
+| `account` | Optional authenticated account snapshot. |
+| `version`, `binary_path`, `home_path`, `shadow_home_path` | Runtime installation and home details. |
+| `diagnostics`, `recent_stderr` | Sanitized diagnostic lines for UI/debug surfaces. |
+
+Diagnostics are sanitized before they cross the protocol boundary. Secret-like keys, bearer tokens, raw payloads, and long lines are redacted or truncated.
+
+## Listing Runtimes
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "aaaaaaaaaaaaaaaaaaaaa",
+  "method": "cli_runtime/list",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+Response shape:
+
+```json
+{
+  "runtimes": [
+    {
+      "runtime_id": "codex",
+      "kind": "codex",
+      "display_name": "Codex CLI",
+      "enabled": true,
+      "status": { "state": "ready" },
+      "capabilities": {
+        "supports_threads": true,
+        "supports_resume": true,
+        "supports_fork": true,
+        "supports_steer": true,
+        "supports_interrupt": true,
+        "supports_approvals": true,
+        "supports_file_change_approvals": true,
+        "supports_command_approvals": true,
+        "supports_user_input_requests": true,
+        "supports_model_list": true,
+        "supports_apps": false,
+        "supports_review": true,
+        "supports_compaction": true,
+        "supports_goal": true,
+        "supports_diff_updates": true,
+        "supports_history_read": true,
+        "supports_thread_archive": true,
+        "supports_auth_management": true,
+        "supports_generated_schema_probe": true
+      }
+    }
+  ]
+}
+```
+
+Clients should use the generated schema and treat unknown future capability flags conservatively.
+
+## Model Selection
+
+Clients can merge API providers and CLI runtimes in one model selector. The mobile client represents CLI runtime provider rows with the synthetic provider key:
+
+```text
+cli_runtime:<runtime_id>
+```
+
+When the user selects such a row, fetch models with `cli_runtime/list_models`, then start turns with `execution_backend` set to `cliAgentRuntime`.
+
+```json
+{
+  "method": "cli_runtime/list_models",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "runtime_id": "codex"
+  }
+}
+```
+
+## Starting A CLI Runtime Turn
+
+`turn/start` can select the runtime explicitly:
+
+```json
+{
+  "method": "turn/start",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "mode": "Agent",
+    "model": "gpt-5.4",
+    "execution_backend": {
+      "type": "cliAgentRuntime",
+      "runtime_id": "codex",
+      "runtime_kind": "codex"
+    },
+    "cli_runtime_options": {
+      "approval_policy": "untrusted",
+      "effort": "high",
+      "personality": "concise"
+    },
+    "input": [
+      {
+        "type": "text",
+        "text": "Review the uncommitted changes.",
+        "textElements": []
+      }
+    ]
+  }
+}
+```
+
+`cli_runtime_options` is runtime-specific. The protocol keeps `approval_policy` and `sandbox` as transparent values so a client can pass policies supported by the underlying CLI without the gateway inventing a lossy cross-runtime enum.
+
+## Thread Binding And Steering
+
+When a Pioneer thread is backed by a native runtime thread, the gateway stores a `CLIRuntimeThreadBinding` with the Pioneer thread id, runtime id, native thread id, optional native cwd/model, and binding status.
+
+Clients can read the binding with:
+
+```json
+{
+  "method": "cli_runtime/thread_binding/get",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "thread_id": "thr_000000000000000001"
+  }
+}
+```
+
+If the runtime supports steering and the thread has an active turn, send:
+
+```json
+{
+  "method": "cli_runtime/turn/steer",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "runtime_id": "codex",
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "message": "Focus only on the API boundary and ignore formatting."
+  }
+}
+```
+
+## Pending Requests
+
+CLI runtimes can ask the user to approve commands, approve file changes, or provide input. The gateway publishes:
+
+| Event | Meaning |
+| --- | --- |
+| `cli_runtime/request_opened` | A pending runtime request is ready for client UI. |
+| `cli_runtime/request_resolved` | The request no longer needs user action. |
+
+Request kinds include `command_approval`, `file_change_approval`, `user_input`, and `other`.
+
+Resolve a request with:
+
+```json
+{
+  "method": "cli_runtime/request/respond",
+  "params": {
+    "workspace_id": "ws_000000000000000001",
+    "runtime_id": "codex",
+    "request_id": "req_000000000000000001",
+    "resolution": {
+      "status": "approved"
+    }
+  }
+}
+```
+
+Other resolutions are `denied`, `cancelled`, `answered`, `expired`, and `error`.
+
+## Notifications
+
+CLI runtime notifications are:
+
+| Event | Params | Meaning |
+| --- | --- | --- |
+| `cli_runtime/status_changed` | `CLIRuntimeStatusChangedNotification` | Runtime status or diagnostics changed. |
+| `cli_runtime/account_updated` | `CLIRuntimeAccountUpdatedNotification` | Runtime authentication/account snapshot changed. |
+| `cli_runtime/request_opened` | `CLIRuntimeRequestOpenedNotification` | User action is required for a runtime request. |
+| `cli_runtime/request_resolved` | `CLIRuntimeRequestResolvedNotification` | A pending runtime request was resolved. |
+| `cli_runtime/apps_changed` | `CLIRuntimeAppsChangedNotification` | Runtime app catalog changed. |
+
+## Settings
+
+Configured CLI runtime instances are exposed through `settings/get` under `settings.cli_runtimes.instances`. Updating `settings.cli_runtimes` replaces the runtime instance list stored in `gateway-settings.toml`.
+
+Operator defaults can also come from app config under `[gateway.cli_agent_runtime]` and `[gateway.cli_agent_runtimes.<id>]`. User-facing clients should prefer `settings/get` and `settings/update` for runtime changes.
+
+## Schemas
+
+Generated schemas include:
+
+- `/schemas/agent_execution_backend.json`
+- `/schemas/turn_cli_runtime_options.json`
+- `/schemas/runtime_summary.json`
+- `/schemas/runtime_status.json`
+- `/schemas/runtime_capabilities.json`
+- `/schemas/runtime_model_info.json`
+- `/schemas/cli_runtime_list_params.json`
+- `/schemas/cli_runtime_list_response.json`
+- `/schemas/cli_runtime_list_models_params.json`
+- `/schemas/cli_runtime_list_models_response.json`
+- `/schemas/cli_runtime_thread_binding.json`
+- `/schemas/cli_runtime_turn_steer_params.json`
+- `/schemas/cli_runtime_request_respond_params.json`
+
+## Related Pages
+
+- [CLI Runtime Architecture](/architecture/cli-runtime) explains session management, native thread/turn bindings, pending requests, and restart recovery.
+- [Provider System](/architecture/providers) explains why CLI-backed runtimes are separate from API provider adapters.
+- [Client Architecture](/architecture/clients) explains how desktop and mobile consume runtime projections.

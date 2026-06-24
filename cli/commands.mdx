@@ -4,6 +4,12 @@ description: "Reference for the pioneer CLI commands and common flags."
 icon: "code"
 ---
 
+This is the full command reference for people who manage a gateway directly. If you normally use the desktop app, start with [CLI Overview](/cli/overview) and return here only when you need a specific command.
+
+<Note>
+  Commands that print tokens or manage secrets can affect gateway access. Read the warning near the command before running it.
+</Note>
+
 ## `pioneer install`
 
 Install or replace the managed gateway binary and optionally start the service.
@@ -148,6 +154,18 @@ pioneer stop
   The current CLI uses `stop` for service removal. There is no separate `uninstall` command.
 </Note>
 
+## `pioneer task-invariants`
+
+Scan a gateway SQLite database for task runtime invariant violations.
+
+```bash
+pioneer task-invariants --db <path>
+pioneer task-invariants --db ~/.pioneer/gateway.db --json
+pioneer task-invariants --db ~/.pioneer/gateway.db --stale-turn-after-seconds 120
+```
+
+The command exits non-zero when it finds violations. Use `--json` for automation and `--stale-turn-after-seconds` to tune stale turn detection.
+
 ## `pioneer version`
 
 Print CLI version information.
@@ -198,3 +216,9 @@ The native installer flow:
 9. Rolls back on failure.
 
 When `--json` is used, install/start output can include `warnings`. Treat these as service lifecycle caveats that did not prevent the gateway from starting. Linux headless persistence failures are blocking for script/manual installs because a `systemd --user` service without linger will stop when the login session ends.
+
+## Go Deeper
+
+- [Gateway Architecture](/architecture/gateway) explains what the service does after `pioneer start`.
+- [Secret Storage](/architecture/secrets) explains `pioneer secrets` and `issue-superuser-token`.
+- [Persistence](/architecture/persistence) explains the SQLite state inspected by `pioneer task-invariants`.

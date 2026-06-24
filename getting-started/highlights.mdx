@@ -4,19 +4,23 @@ description: "The main product capabilities and design choices in Pioneer."
 icon: "sparkles"
 ---
 
-Pioneer is built around a persistent gateway, a native desktop app, durable threads, task automation, MCP servers, skills, and real local tools. These are the product highlights that matter before you install it.
+Pioneer is built around a simple user model: you connect an app to a gateway, choose a workspace, pick a model source, and work in threads. The gateway can also run tools, remember durable facts, use reusable skills, connect MCP servers, and run tasks when you want more automation.
 
 ### Gateway-Centered Design
 
-All important work happens in the gateway: workspaces, threads, turns, tools, MCP, skills, tasks, provider settings, auth, and durable storage.
+The gateway is where Pioneer work actually happens. If the gateway runs on your laptop, tools touch your laptop environment. If it runs on a server, tools touch the server environment.
 
 ### Local Or Remote Deployment
 
 Run a gateway on your personal computer for a local assistant, or host gateways on separate servers for work, study, home, or other isolated environments.
 
-### One Desktop, Many Gateways
+### One Client, Many Gateways
 
-Connect the desktop app to any number of gateways and switch between them from one native client.
+Connect the desktop or mobile app to one or more gateways and switch execution environments without mixing their state.
+
+### Shared Client Core
+
+Desktop and mobile are different apps, but they follow the same gateway model. A workspace, thread, provider, skill, MCP server, or task means the same thing no matter which client you use.
 
 ### Workspace Management
 
@@ -32,21 +36,21 @@ Create `AGENTS.md` at the thread tree root or inside any thread folder to keep p
 
 ### Multi-Agent Workflows
 
-The gateway can automatically fan work out to subagents with their own prompts, roles, models, context policies, tool policies, result contracts, and child threads. The parent agent can review each subagent result, accept it, or request a revision with concrete feedback.
+Tasks can split work into subagents. The parent agent can review a subagent result, accept it, or request a revision with concrete feedback.
 
 ### Agent Memory
 
-In agent mode, Pioneer can recall durable facts, preferences, project decisions, and recurring instructions across turns when memory is enabled. Memory combines prompt policy, model-visible memory tools, proactive post-turn extraction, service-owned dedupe, and memvid-backed search capsules.
+In agent mode, Pioneer can recall durable facts, preferences, project decisions, and recurring instructions across turns when memory is enabled.
 
 Pioneer also has a separate thread-context layer for searchable conversation history. Durable memory remembers long-lived facts; thread context helps recover useful old discussion snippets without sending the full transcript every time.
 
-### Bring Your Own Model
+### Bring Your Own Model Or Runtime
 
-Pioneer includes providers for OpenAI, Anthropic, OpenRouter, Gemini, Azure OpenAI, Bedrock, Ollama, Copilot, Claude Code, Gemini CLI, Kilo CLI, and many OpenAI-compatible endpoints.
+Pioneer supports API providers such as OpenAI, Anthropic, OpenRouter, Gemini, Azure OpenAI, Bedrock, Ollama, Copilot, GLM, Telnyx, and many OpenAI-compatible endpoints. CLI-backed agent tools such as Codex CLI are configured separately from ordinary API providers.
 
 ### Keystore-Backed Secrets
 
-Workspace-scoped provider API keys, MCP env/header secrets, superuser JWT signing material, and desktop gateway bearer tokens are stored in `keystore.db`, not in ordinary config tables.
+Provider keys, MCP secrets, remote-access keys, and gateway access tokens are treated as secrets. They are stored by the gateway or by the client platform secret store, not as ordinary visible settings.
 
 ### Real Tools
 
@@ -62,20 +66,31 @@ Pioneer supports skills compatible with the [Agent Skills specification](https:/
 
 ### Tasks
 
-Run scheduled and on-demand tasks with dependencies, retries, delivery state, progress events, write locks, task trees, and reviewable subagent result candidates.
+Run scheduled and on-demand tasks for repeatable work. Tasks can retry, report progress, depend on other tasks, create subagents, and keep reviewable results.
 
 ### Protocol-First Architecture
 
-`pioneer-protocol` defines the public JSON-RPC surface and generated schemas under `schemas/`.
+Pioneer has a documented protocol for clients and integrations. Most users do not need it, but it gives advanced users and developers a stable place to build from.
+
+### CLI Agent Runtime
+
+The gateway can drive CLI-backed agent runtimes when they are installed and authenticated on the gateway host. This is useful for tools such as Codex CLI that have their own execution model.
 
 ### Explicit Artifacts
 
-Files are workspace-scoped gateway artifacts. User uploads are copied to the gateway before a turn, and agent-created result files must be registered with the artifact tools before the final response. Historical messages and recalled thread snippets can carry lightweight artifact refs, and the model reads file content on demand through `artifact_read` instead of receiving every old attachment automatically.
+Files you upload are copied to the gateway as artifacts before a turn. Agent-created result files should be registered as artifacts when they are meant to show up in the UI, be downloaded later, or stay linked to the thread.
 
 ### Cross-Platform Packaging
 
 Gateway builds target macOS, Linux, and Windows. Desktop packaging targets DMG, AppImage, and MSI.
 
-### Multi-Language Desktop
+### Multi-Language Clients
 
-Desktop UI locales are available for English, German, Spanish, French, Hindi, Japanese, Russian, and Chinese.
+Desktop and mobile UI locales are available for English, German, Spanish, French, Hindi, Japanese, Russian, and Chinese.
+
+## Go Deeper
+
+- [Architecture Overview](/architecture/overview) explains the main backend systems.
+- [Gateway](/architecture/gateway) explains why work happens where the gateway runs.
+- [Client Architecture](/architecture/clients) explains how desktop and mobile clients share gateway-facing logic.
+- [Tasks Architecture](/architecture/tasks) explains task runs, subagents, review, and scheduling.

@@ -65,3 +65,9 @@ Only schedule the workflow after manual runs are boring.
 ```text
 Review this repository. Split the work into focused checks if needed. Use read-only tools unless a task explicitly requires edits. Return a Markdown report with findings, changed files, and open questions.
 ```
+
+## Go Deeper
+
+- [Tasks Architecture](/architecture/tasks) explains dependencies, subagents, result candidates, review events, and write locks.
+- [Tools Architecture](/architecture/tools) explains why write locks are coordination, not sandboxing.
+- [Artifacts Architecture](/architecture/artifacts) explains how task and subagent outputs are stored.

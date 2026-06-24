@@ -4,7 +4,11 @@ description: "Common Pioneer configuration keys for users and operators."
 icon: "list"
 ---
 
-This is a user-focused reference for settings you are likely to change. It is not an exhaustive internal schema.
+This is an operator-facing reference for the default gateway configuration. If you only use the desktop app, start with [Configuration Overview](/configuration/overview) and change values here only when you need a gateway-level setting.
+
+<Note>
+  Most users do not need to read this page end to end. Use it when support, automation, or a deployment guide asks for a specific setting name.
+</Note>
 
 ## Top-level settings
 
@@ -22,6 +26,11 @@ By default, runtime home is `~/.pioneer`. On startup, the gateway creates missin
 | `install.command_name` | `pioneer` | User-facing CLI command |
 | `install.binary_name` | `pioneer` | Installed gateway/CLI binary name |
 | `install.managed_directory_name` | `managed` | Managed install directory name |
+| `install.unix_root_directory_name` | `pioneer` | Default Unix install root directory name |
+| `install.macos_root_directory_name` | `Pioneer` | Default macOS install root directory name |
+| `install.windows_root_directory_name` | `Pioneer` | Default Windows install root directory name |
+| `install.macos_background_item_name` | `Pioneer` | macOS background item display name |
+| `install.macos_associated_bundle_identifier` | `ai.pioneer.macos` | Bundle id associated with the macOS background item |
 
 Most users should not change install settings.
 
@@ -29,9 +38,12 @@ Most users should not change install settings.
 
 | Key | Default | Purpose |
 | --- | --- | --- |
+| `gateway.settings_version` | `1` | Gateway runtime settings schema version |
+| `gateway.settings_file_name` | `gateway-settings.toml` | Runtime settings filename under gateway home |
 | `gateway.service_name` | `com.pioneer.gateway` | OS service name |
 | `gateway.listen_addr` | `0.0.0.0:17878` | Gateway bind address |
 | `gateway.outbound_queue_capacity` | `128` | Outbound event queue capacity |
+| `gateway.keepawake` | `false` | Keep the gateway process awake when supported by the host platform |
 | `gateway.preflight_model` | `thread` | Provider/model used for the internal turn preflight planner. `thread` means the current thread model. |
 
 Local-only example:
@@ -66,6 +78,36 @@ auto_accept_after_seconds = 300
 ```
 
 Immediate attached subagent tasks use parent-agent review by default. Scheduled or detached work should not depend on a live parent turn and may be finalized automatically according to task policy.
+
+## Hook recovery settings
+
+Hook recovery repairs persisted hook/task/turn state after gateway restart or stale runtime activity.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.hooks.recovery.enabled` | `true` | Enable startup and runtime recovery for hook execution state. |
+| `gateway.hooks.recovery.startup_scan` | `true` | Scan for stale hook work during gateway startup. |
+| `gateway.hooks.recovery.poll_interval_ms` | `2000` | Runtime recovery polling interval. |
+| `gateway.hooks.recovery.batch_size` | `64` | Maximum recovery rows handled in one batch. |
+| `gateway.hooks.recovery.max_concurrent` | `4` | Maximum concurrent recovery jobs. |
+| `gateway.hooks.recovery.stale_running_after_ms` | `120000` | Mark running work stale after this duration. |
+| `gateway.hooks.recovery.strict_debug` | `false` | Enable stricter debug behavior for recovery development. |
+
+## Artifact storage settings
+
+Artifacts are gateway-owned durable files and generated outputs.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.artifacts.max_file_bytes` | `536870912` | Maximum size for one artifact file. |
+| `gateway.artifacts.max_workspace_bytes` | `10737418240` | Maximum artifact storage per workspace. |
+| `gateway.artifacts.max_files_per_workspace` | `100000` | Maximum artifact count per workspace. |
+| `gateway.artifacts.upload_session_ttl_secs` | `3600` | Time-to-live for incomplete upload sessions. |
+| `gateway.artifacts.download_session_ttl_secs` | `900` | Time-to-live for download sessions. |
+| `gateway.artifacts.gc_grace_secs` | `86400` | Grace period before artifact garbage collection can remove eligible files. |
+| `gateway.artifacts.output_dir_ttl_secs` | `86400` | Time-to-live for temporary artifact output directories. |
+| `gateway.artifacts.readable_copy_ttl_secs` | `86400` | Time-to-live for readable artifact copies. |
+| `gateway.artifacts.quota_warn_at_percent` | `80` | Workspace quota warning threshold. |
 
 ## Agent memory settings
 
@@ -181,9 +223,21 @@ You can override these if you want new threads to start with a different default
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `gateway.tools.web.default_timeout_ms` | `20000` | Default web operation timeout |
+| `gateway.tools.web.hard_max_timeout_ms` | `120000` | Hard maximum web operation timeout |
 | `gateway.tools.web.default_fetch_max_bytes` | `2097152` | Default fetched content limit |
+| `gateway.tools.web.hard_fetch_max_bytes` | `8388608` | Hard fetched content limit |
 | `gateway.tools.web.default_download_max_bytes` | `134217728` | Default download size limit |
+| `gateway.tools.web.hard_download_max_bytes` | `1073741824` | Hard download size limit |
 | `gateway.tools.web.default_max_results` | `8` | Default web search result count |
+| `gateway.tools.web.hard_max_results` | `20` | Hard web search result count |
+| `gateway.tools.web.default_snippet_chars` | `420` | Default snippet size for search results |
+| `gateway.tools.web.hard_max_snippet_chars` | `4096` | Hard snippet size limit |
+| `gateway.tools.web.default_link_count` | `40` | Default number of links retained from rendered pages |
+| `gateway.tools.web.hard_link_count` | `200` | Hard link count limit |
+| `gateway.tools.web.default_render_max_chars` | `40000` | Default rendered text limit |
+| `gateway.tools.web.ddg_html_search_url` | `https://duckduckgo.com/html/` | DuckDuckGo HTML search endpoint |
+| `gateway.tools.web.ddg_instant_api_url` | `https://api.duckduckgo.com/` | DuckDuckGo instant-answer endpoint |
+| `gateway.tools.web.default_user_agent` | browser UA string | Default user agent for web requests |
 
 ## Tool loop limits
 
@@ -191,9 +245,27 @@ You can override these if you want new threads to start with a different default
 | --- | --- | --- |
 | `gateway.tools.budget.max_agent_rounds_per_turn` | `512` | Maximum model/tool rounds per turn |
 | `gateway.tools.budget.max_tool_calls_per_turn` | `2048` | Maximum tool calls per turn |
+| `gateway.tools.retry.max_recoverable_retry_rounds_per_episode` | `32` | Maximum retry rounds for one recoverable episode |
 | `gateway.tools.retry.max_same_tool_error_retries_per_episode` | `3` | Retry limit for repeated tool errors |
+| `gateway.tools.retry.max_retries_per_tool_name_per_episode` | `16` | Retry limit per tool name in one episode |
 
 These limits help stop runaway loops, but they are not a security sandbox.
+
+## Execution window limits
+
+Execution windows bound long agent turns in smaller windows and also keep total-turn limits.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.tools.execution_windows.max_agent_rounds_per_window` | `512` | Maximum model/tool rounds in one execution window |
+| `gateway.tools.execution_windows.max_tool_calls_per_window` | `2048` | Maximum tool calls in one execution window |
+| `gateway.tools.execution_windows.max_wall_clock_ms_per_window` | unset | Optional wall-clock limit for one execution window |
+| `gateway.tools.execution_windows.max_provider_tokens_per_window` | unset | Optional provider-token limit for one execution window |
+| `gateway.tools.execution_windows.total.max_windows_per_turn` | `16` | Maximum execution windows for one turn |
+| `gateway.tools.execution_windows.total.max_tool_calls_per_turn` | `4096` | Total tool-call ceiling across all windows in one turn |
+| `gateway.tools.execution_windows.total.max_wall_clock_ms_per_turn` | `86400000` | Total wall-clock ceiling for one turn |
+| `gateway.tools.execution_windows.total.max_provider_tokens_per_turn` | unset | Optional provider-token ceiling for one turn |
+| `gateway.tools.execution_windows.total.max_consecutive_failed_windows` | `3` | Stop after this many consecutive failed windows |
 
 ## Computer-use settings
 
@@ -201,28 +273,153 @@ These limits help stop runaway loops, but they are not a security sandbox.
 | --- | --- | --- |
 | `gateway.tools.computer_use.artifacts_subdir` | `tools/computer_use` | Where computer-use artifacts are stored under runtime home |
 | `gateway.tools.computer_use.retention_hours` | `24` | Artifact retention |
+| `gateway.tools.computer_use.max_total_bytes` | `1073741824` | Maximum total computer-use artifact bytes retained. |
 | `gateway.tools.computer_use.run_max_steps_default` | `300` | Default maximum steps per computer-use run |
+| `gateway.tools.computer_use.snapshot_transport_max_bytes` | `8388608` | Maximum snapshot payload size transported to the model. |
+| `gateway.tools.computer_use.snapshot_transport_max_side_px` | `1280` | Maximum snapshot side length after transport scaling. |
+| `gateway.tools.computer_use.snapshot_transport_min_side_px` | `320` | Minimum useful snapshot side length. |
+| `gateway.tools.computer_use.snapshot_downscale_factor` | `0.85` | Downscale factor used during snapshot reduction. |
+| `gateway.tools.computer_use.accessibility_tree_max_depth` | `6` | Maximum accessibility tree depth. |
+| `gateway.tools.computer_use.accessibility_tree_max_nodes` | `200` | Maximum accessibility nodes serialized. |
+| `gateway.tools.computer_use.accessibility_tree_max_serialized_bytes` | `196608` | Maximum serialized accessibility tree size. |
+| `gateway.tools.computer_use.accessibility_tree_text_max_chars` | `160` | Maximum text kept per accessibility node. |
+| `gateway.tools.computer_use.semantic_action_timeout_ms` | `30000` | Timeout for semantic computer-use actions. |
+| `gateway.tools.computer_use.app_activation_timeout_ms` | `5000` | Timeout for activating a target app. |
+| `gateway.tools.computer_use.input_simulation_enabled` | `true` | Allow mouse/keyboard input simulation. |
+| `gateway.tools.computer_use.launch_if_missing_default` | `false` | Default for launching missing apps when requested. |
+| `gateway.tools.computer_use.allowed_launch_commands` | `[]` | Optional allowlist for explicit launch commands. |
+| `gateway.tools.computer_use.preflight_screenshot_probe_enabled` | `true` | Capture a preflight screenshot probe before runs. |
+| `gateway.tools.computer_use.max_consecutive_same_snapshot_hash` | `6` | Stop after repeated identical snapshots. |
+| `gateway.tools.computer_use.max_consecutive_same_action_signature` | `8` | Stop after repeated identical action signatures. |
+| `gateway.tools.computer_use.max_consecutive_no_progress_steps` | `4` | Stop after repeated no-progress steps. |
+| `gateway.tools.computer_use.max_recovery_attempts_per_step` | `2` | Recovery attempts allowed for one step. |
+| `gateway.tools.computer_use.max_recovery_attempts_per_run` | `12` | Recovery attempts allowed for one run. |
 
 ## Skills settings
 
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `gateway.skills.enabled` | `true` | Enable skills |
+| `gateway.skills.max_skills_per_source` | `256` | Maximum skills loaded from one source |
+| `gateway.skills.max_skill_file_bytes` | `1048576` | Maximum size for a skill file |
+| `gateway.skills.prompt_max_chars` | `24000` | Maximum skill prompt text included in prompts |
 | `gateway.skills.allow_implicit_invocation` | `false` | Allow implicit skill invocation |
+| `gateway.skills.paths.system` | `[]` | System skill source directories |
+| `gateway.skills.paths.user` | `["{homeDirectory}/skills/workspace/{workspaceId}/user"]` | User-installed skill directories |
+| `gateway.skills.paths.registry` | `["{homeDirectory}/skills/workspace/{workspaceId}/registry"]` | Registry-installed skill directories |
 | `gateway.skills.validation.strict_agentskills` | `true` | Enforce AgentSkills validation |
+| `gateway.skills.validation.accept_openclaw_profile` | `true` | Accept OpenClaw-style compatibility metadata |
+| `gateway.skills.security.allow_untrusted_install` | `true` | Allow installs from untrusted sources subject to policy |
+| `gateway.skills.security.min_trust_for_shell_tools` | `untrusted` | Minimum trust level for shell tools |
+| `gateway.skills.security.min_trust_for_http_tools` | `untrusted` | Minimum trust level for HTTP tools |
+| `gateway.skills.security.min_trust_for_function_proxy_tools` | `untrusted` | Minimum trust level for function-proxy tools |
+| `gateway.skills.security.max_install_archive_compressed_bytes` | `10485760` | Maximum compressed skill archive size |
+| `gateway.skills.security.max_install_archive_uncompressed_bytes` | `52428800` | Maximum uncompressed skill archive size |
+| `gateway.skills.security.max_install_archive_entries` | `2048` | Maximum entries in a skill archive |
+| `gateway.skills.security.max_install_file_bytes` | `1048576` | Maximum individual installed skill file size |
+| `gateway.skills.security.upload_ttl_secs` | `3600` | Time-to-live for skill upload sessions |
+| `gateway.skills.security.upload_recommended_chunk_size_bytes` | `262144` | Recommended skill upload chunk size |
+| `gateway.skills.security.upload_max_chunk_size_bytes` | `1048576` | Maximum skill upload chunk size |
 | `gateway.skills.dependencies.preflight_on_resolve` | `true` | Check dependencies before resolving skills |
+| `gateway.skills.dependencies.runtime_recheck_on_tool_call` | `true` | Recheck runtime dependencies before skill tool calls |
 | `gateway.skills.runtime.enable_dynamic_tools` | `true` | Let skills register dynamic tools |
+| `gateway.skills.runtime.enable_read_skill` | `true` | Expose the read-skill runtime helper when enabled |
+| `gateway.skills.runtime.max_dynamic_tools_per_skill` | `64` | Maximum dynamic tools exposed by one skill |
+| `gateway.skills.runtime.read_skill_max_chars` | `72000` | Maximum content returned by read-skill helper |
+| `gateway.skills.runtime.compact_mode_threshold` | `6` | Threshold for compact skill runtime prompt mode |
+| `gateway.skills.runtime.allow_shell_tools` | `true` | Allow skill-provided shell tools when trust policy allows |
+| `gateway.skills.runtime.allow_http_tools` | `true` | Allow skill-provided HTTP tools when trust policy allows |
+| `gateway.skills.runtime.allow_function_proxy_tools` | `true` | Allow skill-provided function-proxy tools when trust policy allows |
+
+## CLI agent runtime settings
+
+`gateway.cli_agent_runtime` sets shared defaults for CLI-backed agent runtimes. It is disabled in app config by default, but a new `gateway-settings.toml` can expose the default Codex runtime through the runtime settings layer.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.cli_agent_runtime.enabled` | `false` | Enable the legacy single default runtime fallback from app config. |
+| `gateway.cli_agent_runtime.idle_session_ttl_secs` | `1800` | Time before an idle CLI runtime session can be closed. |
+| `gateway.cli_agent_runtime.startup_timeout_ms` | `30000` | Startup/probe timeout for runtime sessions. |
+| `gateway.cli_agent_runtime.request_timeout_ms` | `120000` | Timeout for runtime requests. |
+| `gateway.cli_agent_runtime.event_channel_capacity` | `2048` | Internal runtime event channel capacity. |
+| `gateway.cli_agent_runtime.stderr_ring_lines` | `200` | Number of recent stderr lines retained for diagnostics. |
+| `gateway.cli_agent_runtime.debug_native_events` | `false` | Include extra native runtime event diagnostics. |
+
+Named instances can be configured under `[gateway.cli_agent_runtimes.<id>]`:
+
+```toml
+[gateway.cli_agent_runtimes.codex_work]
+kind = "codex"
+display_name = "Codex Work"
+enabled = true
+binary_path = "/opt/homebrew/bin/codex"
+home_path = "~/.codex-work"
+shadow_home_path = "~/.pioneer/codex/work"
+custom_models = ["gpt-5.4"]
+app_server_args = ["--experimental"]
+request_timeout_ms = 45000
+```
+
+When `gateway.cli_agent_runtimes` contains instances, those instances replace the single fallback runtime. User-facing clients should prefer the `settings/get` and `settings/update` `cli_runtimes` section when editing runtime instances after install.
+
+## Remote access settings
+
+Remote access is supervised by the gateway through `pioneer-tunnel`. App config provides operator defaults; runtime enablement and the relay key are managed through `settings/update`.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.remote_access.runtime_dir` | `remote-access` | Runtime directory under gateway home for remote-access supervisor files. |
+| `gateway.remote_access.relay_addr` | `relay-eu-west-1.getpioneer.dev:2333` | Relay host and port used by the rathole client. |
+| `gateway.remote_access.local_addr` | `127.0.0.1:17878` | Local gateway address exposed through the relay. |
+| `gateway.remote_access.service_name` | `pioneer_gateway` | Relay service name. |
+| `gateway.remote_access.restart_initial_ms` | `1000` | Initial reconnect delay. |
+| `gateway.remote_access.restart_max_ms` | `30000` | Maximum reconnect delay. |
+| `gateway.remote_access.restart_jitter_percent` | `20` | Reconnect jitter percentage. |
+| `gateway.remote_access.max_restarts` | `0` | Maximum restarts; `0` means retry indefinitely. |
+
+The remote-access key is never stored in app config or ordinary settings content. `settings/update` writes it into the gateway keystore and the settings snapshot exposes only `has_key`.
 
 ## Provider attachment settings
+
+Provider runtime settings control request timeouts before the provider-specific adapter runs.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.provider.non_stream_request_timeout_secs` | `120` | Timeout for non-stream provider requests. |
+| `gateway.provider.connect_timeout_secs` | `30` | Provider connection timeout. |
+| `gateway.provider.first_chunk_timeout_secs` | `180` | Streaming timeout before the first chunk. |
+| `gateway.provider.inter_chunk_idle_timeout_secs` | `180` | Streaming idle timeout between chunks. |
+
+Provider attachment settings control files, URLs, upload registry behavior, and attachment safety checks.
 
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `gateway.provider.attachments.max_bytes_per_attachment` | `104857600` | Max single attachment size |
 | `gateway.provider.attachments.max_total_bytes_per_request` | `209715200` | Max total attachment size per request |
 | `gateway.provider.attachments.max_attachments_per_request` | `64` | Max attachments per request |
+| `gateway.provider.attachments.upload_preferred_min_bytes` | `524288` | Minimum size where upload-based transport is preferred. |
+| `gateway.provider.attachments.upload_registry_enabled` | `true` | Enable provider upload registry cache. |
+| `gateway.provider.attachments.upload_registry_ttl_secs` | `604800` | Time-to-live for provider upload registry entries. |
+| `gateway.provider.attachments.enforce_path_allowlist` | `false` | Restrict local attachment paths to configured roots. |
+| `gateway.provider.attachments.allowed_path_roots` | `[]` | Allowed local attachment path roots when allowlist is enforced. |
 | `gateway.provider.attachments.allow_url_sources` | `true` | Allow URL attachment sources |
 | `gateway.provider.attachments.allow_http` | `false` | Allow plain HTTP URL sources |
 | `gateway.provider.attachments.allow_private_network` | `false` | Allow private-network URL sources |
+| `gateway.provider.attachments.max_url_redirects` | `3` | Maximum redirects for URL attachments. |
+| `gateway.provider.attachments.url_fetch_timeout_ms` | `15000` | Timeout for URL attachment fetches. |
+| `gateway.provider.attachments.url_fetch_max_bytes` | `20971520` | Maximum bytes fetched from one URL attachment. |
+| `gateway.provider.attachments.url_allowed_domains` | `[]` | Optional allowlist for URL attachment domains. |
+| `gateway.provider.attachments.url_blocked_domains` | `["localhost"]` | Blocked URL attachment domains. |
+| `gateway.provider.attachments.security_dry_run` | `false` | Report attachment security decisions without enforcing them. |
+| `gateway.provider.attachments.strict_mime_match` | `false` | Require stricter extension/content-type matching. |
+| `gateway.provider.attachments.max_base64_chars` | `209715200` | Maximum base64 payload size accepted. |
+| `gateway.provider.attachments.max_filename_chars` | `128` | Maximum attachment filename length. |
+| `gateway.provider.attachments.retry_max_attempts` | `3` | Retry attempts for transient attachment operations. |
+| `gateway.provider.attachments.retry_initial_backoff_ms` | `200` | Initial retry backoff. |
+| `gateway.provider.attachments.retry_max_backoff_ms` | `2000` | Maximum retry backoff. |
+| `gateway.provider.attachments.retry_jitter_ms` | `80` | Retry jitter. |
+| `gateway.provider.attachments.circuit_breaker_failure_threshold` | `5` | Failures before the attachment circuit breaker opens. |
+| `gateway.provider.attachments.circuit_breaker_open_ms` | `30000` | Circuit breaker open duration. |
 
 ## Database settings
 
@@ -230,6 +427,10 @@ These limits help stop runaway loops, but they are not a security sandbox.
 | --- | --- | --- |
 | `gateway.database.file_name` | `gateway.db` | Database filename under runtime home |
 | `gateway.database.max_connections` | `1` | SQLite connection count |
+| `gateway.database.connect_timeout_ms` | `5000` | SQLite connection timeout |
+| `gateway.database.acquire_timeout_ms` | `5000` | SQLite pool acquire timeout |
+| `gateway.database.idle_timeout_ms` | `30000` | SQLite idle connection timeout |
+| `gateway.database.sqlx_logging` | `false` | Enable SQLx query logging |
 | `gateway.database.run_migrations_on_startup` | `true` | Apply migrations during gateway startup |
 
 ## Gateway runtime settings file
@@ -252,7 +453,10 @@ The same file also stores gateway-scoped runtime settings that users change thro
 | `gateway.auth.jwt_issuer` | `pioneer` | JWT issuer |
 | `gateway.auth.jwt_audience` | `pioneer-clients` | JWT audience |
 | `gateway.auth.superuser_subject` | `superuser` | Subject for superuser tokens |
+| `gateway.auth.superuser_role` | `superuser` | Role assigned to superuser tokens |
+| `gateway.auth.secret_size_bytes` | `64` | Generated signing secret size |
 | `gateway.auth.token_ttl_seconds` | `31536000` | Token lifetime |
+| `gateway.auth.token_refresh_leeway_seconds` | `86400` | Refresh leeway before token expiry |
 
 ## Desktop gateway settings
 
@@ -260,5 +464,19 @@ The same file also stores gateway-scoped runtime settings that users change thro
 | --- | --- | --- |
 | `desktop.gateway.connect_timeout_ms` | `300` | Connection timeout |
 | `desktop.gateway.startup_timeout_ms` | `10000` | Local gateway startup timeout |
+| `desktop.gateway.poll_interval_ms` | `200` | Poll interval while waiting for local gateway startup |
 | `desktop.gateway.ws_ping_interval_ms` | `10000` | WebSocket ping interval |
+| `desktop.gateway.ws_pong_timeout_ms` | `30000` | WebSocket pong timeout |
+| `desktop.gateway.ws_reconnect_initial_ms` | `500` | Initial reconnect delay |
+| `desktop.gateway.ws_reconnect_max_ms` | `10000` | Maximum reconnect delay |
+| `desktop.gateway.ws_reconnect_jitter_percent` | `20` | Reconnect jitter percentage |
 | `desktop.gateway.registry_file_name` | `gateway-registry.toml` | Desktop gateway registry file |
+| `desktop.gateway.local_gateway_id` | `local` | Reserved id for the desktop-managed local gateway |
+| `desktop.gateway.registry_version` | `1` | Desktop gateway registry schema version |
+
+## Go Deeper
+
+- [Gateway Architecture](/architecture/gateway) explains how app config and runtime settings feed gateway systems.
+- [Persistence](/architecture/persistence) explains database and runtime-home state.
+- [Secret Storage](/architecture/secrets) explains keystore-backed values.
+- [Protocol Layer](/architecture/protocol) explains the settings API used by clients.

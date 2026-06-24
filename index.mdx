@@ -1,12 +1,12 @@
 ---
 title: "Pioneer"
-description: "A local-first AI workspace built around a persistent gateway, native clients, durable threads, task automation, MCP, skills, and real local tools."
+description: "A local-first AI workspace for desktop, mobile, gateways, tasks, skills, MCP, and local tools."
 icon: "rocket"
 ---
 
-Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. It combines a persistent gateway, a native desktop app, a JSON-RPC protocol, provider adapters, durable threads, agent memory, task automation, MCP servers, skills, and real local tools.
+Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. You use the desktop or mobile app, while a gateway does the actual work: it stores your Pioneer data, talks to model providers, runs tools, manages skills and MCP servers, and keeps threads and tasks alive.
 
-The gateway is the core of Pioneer. It owns state, configuration, storage, model access, task execution, tool execution, MCP runtime, skills, and thread history. Secret values such as workspace-scoped provider API keys, MCP env/header secrets, and superuser JWT signing material live in the gateway keystore. The desktop app is the primary client for connecting to one or more gateways, whether the gateway is running on the same computer or on a remote server.
+The basic flow is: connect to a gateway, choose or create a workspace, add a model provider, and start a thread. As your setup grows, you can add reusable skills, connect MCP servers, attach files as artifacts, enable memory, or schedule repeatable tasks.
 
 <Warning>
   Pioneer is in an extremely early stage of development. Expect rough edges, breaking changes, and incomplete flows. Use it carefully, and test it in a safe environment before trusting it with important work or exposing a gateway outside your machine.
@@ -16,25 +16,21 @@ The gateway is the core of Pioneer. It owns state, configuration, storage, model
   Tool runs are not sandboxed yet. Tools currently execute as the OS user running the gateway.
 </Warning>
 
-## Rust Native
+## Gateway And Clients
 
-Pioneer is built in Rust all the way through the product: gateway, CLI, desktop app, protocol, tools, tasks, MCP, skills, and provider integrations.
+Pioneer is split into four user-facing pieces.
 
-That keeps the core memory-safe, fast, and small. The desktop app is native GPUI, not Electron or a web app wrapped in a window.
+**Gateway** is where the work happens. It may run on your laptop, a workstation, or a server. Provider calls, tool runs, task runs, files, skills, MCP servers, settings, and thread history belong to the gateway you are connected to.
 
-## Gateway And Desktop
+**Desktop app** is the main UI. It connects to gateways, can start and manage a local gateway when needed, and gives you the screens for workspaces, conversations, provider setup, MCP, skills, settings, and thread history.
 
-Pioneer is split into three user-facing pieces.
+**Mobile app** is the iOS and Android client. It connects to existing gateways so you can continue work from a phone or tablet.
 
-**Gateway** is the main runtime and control plane. It runs as a service, stores data in `gateway.db`, stores secret values in `keystore.db`, talks to model providers, executes tools, manages MCP servers and skills, schedules tasks, and exposes the JSON-RPC WebSocket API.
-
-**Desktop app** is the primary native client. It connects to gateways, starts and manages a local gateway when needed, and gives you the UI for workspaces, conversations, provider setup, MCP, skills, settings, and thread history.
-
-**Protocol clients** are any clients built on top of the Pioneer JSON-RPC protocol. The desktop app is the main client today, and native mobile apps for iOS and Android are planned next.
+**Protocol clients** are custom clients built by teams that want to integrate with Pioneer directly.
 
 For a single-machine setup, install the desktop app and let it start the local gateway for you. On macOS, that means downloading the `.dmg`, moving Pioneer to **Applications**, launching it, and pressing **Start local gateway** when prompted.
 
-For a multi-environment setup, install gateways wherever the work should live: a laptop, a workstation, a home server, or a remote machine. Then connect to each gateway from the same desktop app. You can keep separate gateways for work, study, home, experiments, or clients without mixing their state, settings, tools, and histories.
+For a multi-environment setup, install gateways wherever the work should live: a laptop, a workstation, a home server, or a remote machine. Then connect to each gateway from the desktop app or mobile app. You can keep separate gateways for work, study, home, experiments, or clients without mixing their state, settings, tools, and histories.
 
 <Columns cols={2}>
   <Card title="Install Pioneer" icon="download" href="/getting-started/installation">
@@ -47,13 +43,13 @@ For a multi-environment setup, install gateways wherever the work should live: a
     Understand gateways, workspaces, threads, tools, skills, MCP, and tasks.
   </Card>
   <Card title="Providers" icon="brain" href="/providers/overview">
-    Connect Anthropic, OpenAI, OpenRouter, Ollama, Google, Azure, Bedrock, and more.
+    Connect model providers and understand where model settings are saved.
   </Card>
 </Columns>
 
 ## Multi-Agent Workflows
 
-Pioneer is designed for more than one long-running chat thread. The gateway can coordinate subagents automatically as part of the task system: a parent task can create an agent spec, start a child thread, run that subagent with its own model and instructions, and link the result back to the parent task.
+Pioneer is designed for more than one long-running chat thread. A task can split work into smaller pieces, give those pieces to subagents, and bring the results back for review.
 
 Each subagent can be scoped independently:
 
@@ -67,16 +63,18 @@ Each subagent can be scoped independently:
 | Review policy | Let the parent agent accept a candidate result or request a targeted revision before the result becomes final. |
 | Depth and lineage | Track nested agent work through child threads and task lineage so delegated work can be audited and recovered. |
 
-This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in isolated threads, and the parent can review the results before accepting them. If a result is incomplete, the parent can send concrete feedback back to the same subagent and wait for a revised candidate. The desktop app can still show the full task tree from one place.
+This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in separate threads, and the parent can review the results before accepting them. If a result is incomplete, the parent can ask for a revision with specific feedback.
 
 ## Durable Agent Memory
 
-Pioneer can remember stable facts, preferences, project decisions, recurring instructions, and communication style when memory is enabled. Memory is not just prompt text: agent mode combines recalled context, model-visible memory tools, post-turn extraction, candidate scoring, canonical-key dedupe, and memvid-backed search capsules.
+Pioneer can remember stable facts, preferences, project decisions, recurring instructions, and communication style when memory is enabled.
 
-The memory service keeps SQLite as the control plane for scopes, status, provenance, tombstones, candidates, and policy decisions. Memvid is used as the searchable capsule store, while the control plane remains authoritative for visibility and safety.
+Memory is different from a long chat transcript. It is meant for durable facts that should be useful later. You can review memory behavior from the desktop settings, and you should treat remembered facts as part of the gateway you are connected to.
 
-For conversation continuity, Pioneer also has thread episodic context: a separate searchable layer for old discussion snippets. That lets the assistant recover useful prior conversation without turning every old message into permanent memory or stuffing full transcripts into each prompt. Artifact references follow the same principle: old files are referenced near the relevant history message or recalled snippet, and the model reads the actual file only when needed.
+For conversation continuity, Pioneer also has thread context: a searchable layer for useful old discussion snippets. That lets the assistant recover prior context without turning every old message into permanent memory.
 
 ## Where To Start
 
-Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Providers](/providers/overview) when you want to connect models, [Memory](/desktop/memory) when you want continuity across turns, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.
+Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Desktop](/desktop/overview) or [Mobile](/mobile/overview) for client-specific behavior, [Providers](/providers/overview) when you want to connect models, [Memory](/desktop/memory) when you want continuity across turns, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.
+
+If you want the technical version of how Pioneer is built, start with [Architecture Overview](/architecture/overview). The most useful deep dives after this page are [Gateway](/architecture/gateway), [Client Architecture](/architecture/clients), [Agent Loop](/architecture/agent-loop), and [Protocol Layer](/architecture/protocol).

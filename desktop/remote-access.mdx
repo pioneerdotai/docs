@@ -1,0 +1,53 @@
+---
+title: "Remote Access"
+description: "Expose a gateway behind NAT through the gateway-owned remote-access tunnel."
+icon: "radio-tower"
+---
+
+Remote access lets a gateway expose itself through the configured Pioneer relay so another desktop or mobile client can connect to it as a remote gateway.
+
+The gateway owns the tunnel. The desktop app only edits gateway settings and displays status. Tool calls, MCP servers, local files, tasks, provider requests, and artifacts still happen on the gateway host.
+
+<Warning>
+  Remote access exposes the gateway environment. Treat gateway bearer tokens and relay keys like passwords.
+</Warning>
+
+## What The Desktop App Controls
+
+The desktop settings screen can:
+
+| Control | Gateway effect |
+| --- | --- |
+| Enable remote access | Sets `settings.remote_access.enabled` through `settings/update`. |
+| Save relay key | Stores the remote-access key in the gateway keystore. The key is not written into `gateway-settings.toml`. |
+| Show status | Reads `settings.remote_access.status` and listens for `gateway/remote_access/status_changed`. |
+
+The relay server, local gateway address, service name, transport, and restart policy come from operator config under `[gateway.remote_access]`.
+
+## Status Values
+
+Remote-access status is live runtime state from the gateway:
+
+| State | Meaning |
+| --- | --- |
+| `disabled` | Remote access is off. |
+| `starting` | The gateway is starting the tunnel process. |
+| `connected` | The tunnel is connected to the relay. |
+| `reconnecting` | The supervisor is retrying after a disconnect. |
+| `failed` | The supervisor hit an error. Check `error_kind` and `message`. |
+| `stopped` | The tunnel process is stopped. |
+
+Common error kinds include `missing_key`, `missing_binary`, `local_gateway_unavailable`, `relay_resolve_failed`, `relay_connect_failed`, `tunnel_auth_failed`, `unsupported_transport`, and `restart_limit_reached`.
+
+## Using The Remote Gateway
+
+After remote access is connected, add the exposed gateway address to another client as a remote gateway and use a gateway bearer token for authentication.
+
+The mobile app does not start a gateway on the phone. It connects to a reachable gateway, so remote access is the normal path for using a personal workstation or server from mobile.
+
+## Configuration And Protocol
+
+- [Configuration Reference](/configuration/reference) lists `[gateway.remote_access]` operator defaults.
+- [Settings API](/protocol/settings) documents `remote_access` snapshots, updates, key handling, and status notifications.
+- [Remote Access Architecture](/architecture/remote-access) explains the `pioneer-tunnel` supervisor, rathole status projection, and secret handling.
+- [Gateway Architecture](/architecture/gateway) explains where remote access fits in gateway startup and shutdown.

@@ -3,7 +3,7 @@ title: "Turns API"
 description: "Submitting turns, cancelling turns, reading turn items, composing timelines, and handling streaming turn notifications."
 ---
 
-A turn is one unit of assistant execution inside a thread. The client creates a turn with `turn/start`, then observes progress through notifications. In `Chat` mode a turn is a provider call. In `Agent` mode a turn can include prompt compilation, tool calls, MCP calls, skills, task tools, subagents, retries, and recovery.
+A turn is one unit of assistant execution inside a thread. The client creates a turn with `turn/start`, then observes progress through notifications. In `Chat` mode a turn is usually a provider call. In `Agent` mode a turn can include prompt compilation, tool calls, MCP calls, skills, task tools, subagents, retries, recovery, or execution through a CLI-backed agent runtime.
 
 ## Methods
 
@@ -11,6 +11,7 @@ A turn is one unit of assistant execution inside a thread. The client creates a 
 |---|---|---|---|
 | `turn/start` | `TurnStartParams` | `TurnStartResponse` | Start a new turn in a thread. |
 | `turn/cancel` | `TurnCancelParams` | `TurnCancelResponse` | Cancel or interrupt an in-progress turn. |
+| `turn/resume` | `TurnResumeParams` | `TurnResumeResponse` | Resume a blocked turn through a recovery job. |
 | `turn/get` | `TurnGetParams` | `TurnGetResponse` | Load one turn model. |
 | `turn/items` | `TurnItemsParams` | `TurnItemsResponse` | Load persisted item events for one turn. |
 | `turn/timeline` | `TurnTimelineParams` | `TurnTimelineResponse` | Load a composed timeline, optionally including task/child-turn events. |
@@ -70,6 +71,8 @@ Important fields:
 | `input` | Array of `UserInput` items. Text, files, images, audio, video, artifacts, and mentions are represented here. |
 | `capabilities` | Optional turn-scoped skills and MCP selections. Use this for composer-selected skills, MCP servers, and MCP tools. |
 | `model`, `model_provider` | Optional per-turn override. If omitted, the thread model/provider is used. |
+| `execution_backend` | Optional explicit execution backend. Use `apiProvider` for a remote model API provider, `cliAgentRuntime` for a configured CLI runtime, or `acpAgentRuntime` for an ACP runtime id. |
+| `cli_runtime_options` | Optional runtime-specific options for CLI runtime turns, such as approval policy, sandbox policy, effort, personality, summary, or whether to steer an active turn. |
 | `sandbox_policy` | Optional sandbox policy object. Current shape is `{ "mode": "FullAccess" }`. |
 | `mode` | Optional per-turn thread mode override, `Chat` or `Agent`. |
 
@@ -86,6 +89,42 @@ Response:
 ```
 
 The response only means the gateway accepted the turn. Render progress from notifications.
+
+## Execution Backends
+
+By default, a turn uses the thread's provider/model selection or the `model_provider` and `model` fields from `turn/start`. Clients can make the execution backend explicit:
+
+```json
+{
+  "execution_backend": {
+    "type": "apiProvider",
+    "provider": "openai"
+  }
+}
+```
+
+For CLI-backed turns, use `cliAgentRuntime`:
+
+```json
+{
+  "model": "gpt-5.4",
+  "execution_backend": {
+    "type": "cliAgentRuntime",
+    "runtime_id": "codex",
+    "runtime_kind": "codex"
+  },
+  "cli_runtime_options": {
+    "approval_policy": "untrusted",
+    "effort": "high",
+    "personality": "concise",
+    "steer_if_active": true
+  }
+}
+```
+
+`approval_policy` and `sandbox` are transparent protocol wrappers because policy values are runtime-specific. A client should fetch runtime capabilities and model catalogs through the [CLI Runtime API](/protocol/cli-runtime) before offering a CLI runtime in a model selector.
+
+When a CLI runtime turn is active, the runtime can open pending requests for command approvals, file-change approvals, or user input. Clients resolve those through `cli_runtime/request/respond`, not `turn/start`.
 
 ## User Input
 
@@ -176,6 +215,25 @@ Composer-selected skills become compact skill prompt entries and optional skill 
 
 The response contains the updated `Turn`. A cancelled turn is represented as an interrupted/failed terminal state depending on where cancellation lands in the runtime.
 
+## Resuming A Blocked Turn
+
+When a turn is blocked by recovery policy or an exhausted execution window, clients can resume it with `turn/resume`:
+
+```json
+{
+  "method": "turn/resume",
+  "params": {
+    "thread_id": "thr_000000000000000001",
+    "turn_id": "trn_000000000000000001",
+    "recovery_job_id": "rec_000000000000000001"
+  }
+}
+```
+
+`recovery_job_id` is optional. If omitted, the gateway chooses the active recovery job for the turn when one is available. The response includes the updated `Turn` and the recovery job id used for the resume operation.
+
+Clients should expect a blocked turn to publish `turn/blocked` before user-visible recovery actions become available.
+
 ## Reading Items
 
 `turn/items` returns persisted `TurnItemEvent` rows for one turn.
@@ -265,9 +323,39 @@ Turn execution is observed through notifications:
 | `item/updated` | `ItemUpdatedNotification` | A timeline item was updated after initial creation. |
 | `turn/completed` | `TurnCompletedNotification` | Turn completed successfully. |
 | `turn/failed` | `TurnFailedNotification` | Turn failed or was interrupted. |
+| `turn/blocked` | `TurnBlockedNotification` | Turn stopped in a recoverable blocked state. |
 | `turn/timeline/changed` | `TurnTimelineChangedNotification` | Composed timeline should be reloaded. |
 
 Delta notifications include `stream`: `agent_message`, `stdout`, `stderr`, `tool_progress`, `file_change`, or `generic`.
+
+## Execution Windows
+
+Long agent turns are divided into execution windows. A window bounds agent rounds, tool calls, wall-clock time, and provider-token accounting. When a window is exhausted, the gateway can checkpoint the turn and continue in a new window, or block the turn if the total turn budget has been reached.
+
+Execution window statuses serialize as `running`, `exhausted`, `checkpointed`, `continued`, `completed`, `interrupted`, `blocked`, or `failed`.
+
+Exhaustion reasons serialize as:
+
+| Reason | Meaning |
+|---|---|
+| `max_agent_rounds_per_window` | The window hit its agent-round limit. |
+| `max_tool_calls_per_window` | The window hit its tool-call limit. |
+| `max_wall_clock_ms_per_window` | The window hit its wall-clock limit. |
+| `max_provider_tokens_per_window` | Provider usage exceeded the configured provider-token window. |
+| `provider_failure_continuation` | Continuation was opened after a provider failure. |
+| `runtime_shutdown_continuation` | Continuation was opened after runtime shutdown or recovery. |
+
+Execution-window notifications are:
+
+| Event | Params | Meaning |
+|---|---|---|
+| `turn/execution_window/started` | `TurnExecutionWindowStartedNotification` | A bounded execution window started. |
+| `turn/execution_window/exhausted` | `TurnExecutionWindowExhaustedNotification` | The current window reached a limit and recorded observed counts. |
+| `turn/execution_window/checkpointed` | `TurnExecutionWindowCheckpointedNotification` | The gateway wrote a continuation checkpoint. |
+| `turn/execution_window/continued` | `TurnExecutionWindowContinuedNotification` | Execution resumed from a checkpoint into another window. |
+| `turn/execution_window/blocked` | `TurnExecutionWindowBlockedNotification` | No further automatic window can be opened; user or recovery action is needed. |
+
+The per-window limits come from `[gateway.tools.execution_windows]`; total turn limits come from `[gateway.tools.execution_windows.total]`.
 
 ## Recovery And Retry Notifications
 

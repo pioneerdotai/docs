@@ -3,7 +3,7 @@ title: "Protocol Introduction"
 description: "Pioneer's JSON-RPC 2.0 protocol: transport, authentication, envelopes, method names, notifications, ids, schemas, and conventions."
 ---
 
-Pioneer clients talk to a gateway over JSON-RPC 2.0 on a WebSocket connection. The desktop app uses this protocol, and any other client can use the same contract without linking to gateway internals.
+Pioneer clients talk to a gateway over JSON-RPC 2.0 on a WebSocket connection. The desktop app, mobile app, shared client core, and any custom client use this contract without linking to gateway internals.
 
 The protocol reference documents the public surface from `crates/protocol`. If a method, event, or payload is not exported there, treat it as an implementation detail.
 
@@ -127,6 +127,7 @@ workspace/default
 thread/start
 turn/start
 provider/models/list
+cli_runtime/list
 settings/get
 memory/search
 skills/upload/start
@@ -163,8 +164,11 @@ When implementing a client, use this reference for behavior and the generated sc
   <Card title="Providers" href="/protocol/providers">
     Provider listing, model listing, and API key management.
   </Card>
+  <Card title="CLI Runtime" href="/protocol/cli-runtime">
+    Codex CLI runtime listing, model catalogs, thread bindings, approvals, login, review, compaction, fork, and turn steering.
+  </Card>
   <Card title="Settings" href="/protocol/settings">
-    Gateway-scoped general, memory, and thread-context settings read/update methods.
+    Gateway-scoped general, memory, thread-context, CLI runtime, and remote-access settings read/update methods.
   </Card>
   <Card title="Skills" href="/protocol/skills">
     Skill upload, install, update, uninstall, policy, health, and catalog notifications.

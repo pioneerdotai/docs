@@ -1,0 +1,171 @@
+---
+title: "Client Architecture"
+description: "How desktop, mobile, shared Rust client code, FFI, and generated schemas fit around the gateway protocol."
+---
+
+Pioneer clients are shells around a gateway-owned runtime. They render state, collect user input, store local client preferences, and call the gateway protocol, but they do not own assistant execution.
+
+The current client stack has three layers:
+
+| Layer | Code | Responsibility |
+| --- | --- | --- |
+| Shared client core | `crates/client` | Shell-neutral Rust logic for gateway transport, protocol requests, notification reduction, read models, selectors, timeline rows, composer planning, provider/model helpers, MCP/skill presentation, settings, artifacts, AGENTS.md, tasks, and DTO contracts. |
+| Native boundary | `crates/client-ffi` | C ABI and JSON method boundary for shells that cannot link Rust APIs directly. It wraps `pioneer-client`, catches panics, serializes tagged JSON responses, exposes generated DTO schemas, and records client diagnostics. |
+| Shells | `crates/desktop`, `pioneer-app` | UI rendering, navigation, storage, native dialogs, local gateway process management where supported, platform permissions, localization, and OS integration. |
+
+## Runtime Boundary
+
+The gateway remains authoritative for:
+
+- workspaces, threads, turns, tasks, artifacts, skills, MCP, provider keys, and settings;
+- tool execution, MCP server processes, CLI agent runtime sessions, provider calls, and task scheduling;
+- persistence through `gateway.db`, secret storage through `keystore.db`, and notification fanout to connected sessions.
+
+Client shells should not duplicate those decisions. They should use shared client helpers when the behavior is protocol-facing or reusable across shells, and keep only platform-specific behavior in the shell.
+
+## Shared State Flow
+
+The client architecture is event/reduction oriented:
+
+1. A shell starts or selects a gateway connection.
+2. `pioneer-client` opens the WebSocket transport and sends typed JSON-RPC requests.
+3. Gateway notifications arrive as protocol events.
+4. The shared client core reduces those events into shell-friendly state: connection status, workspace catalog, thread tree, active timeline, composer draft, provider/model options, MCP/skill picker rows, settings snapshots, and task review state.
+5. The shell renders those projections and sends user actions back through shared helpers.
+
+The shell should not parse raw gateway events into UI state on its own when the same behavior matters to another client. Put reducers, selectors, display names, validation, and request planning in `crates/client` unless the code directly touches GPUI, React Native, OS APIs, app storage, or native dialogs.
+
+## Desktop Shell
+
+`crates/desktop` is the native GPUI desktop app. It can start and manage a local gateway, connect to remote gateways, store desktop gateway bearer tokens through the desktop secret layer, and render the full conversation/workspace UI.
+
+Desktop-specific code owns windows, menus, GPUI views, local gateway install/start flows, OS open/reveal actions, desktop registry files, and other native UI concerns.
+
+Important desktop areas:
+
+| Area | Code | Notes |
+| --- | --- | --- |
+| App flow | `crates/desktop/src/app/flow/*` | Bootstrap, connection event pump, workspace bootstrap/switch, thread start queues, turn resume queues, and gateway lifecycle operations. |
+| Root state | `crates/desktop/src/app/root/*` | Cross-screen state, model selection, root queries, and mutations. |
+| Conversation UI | `crates/desktop/src/app/thread/view/*` | Composer, timeline, approvals, artifacts panel, header, running state, and timeline item views. |
+| Providers/MCP/Skills | `crates/desktop/src/app/providers`, `mcp`, `skills` | Shell UI around shared client queries and gateway protocol calls. |
+| Settings | `crates/desktop/src/app/settings/*` | Gateway-owned settings, remote access controls, memory/thread-context toggles, and local presentation. |
+
+Desktop may manage a local gateway process because it runs on a workstation-class OS. That responsibility should not move into `pioneer-client`; it is shell/OS integration.
+
+## Mobile Shell
+
+`pioneer-app` is the Expo/React Native mobile app. It uses:
+
+- Expo Router routes under `src/routes`;
+- screens under `src/screens`;
+- Zustand stores for gateway, workspace, thread tree, active thread, editor, and CLI runtime state;
+- generated TypeScript contracts under `src/client/generated`;
+- schema exports under `src/client/schema`;
+- `@pioneer/client-nitro` for the Rust FFI bridge.
+
+Mobile stores its gateway registry in MMKV-backed local storage and bearer tokens in Expo SecureStore. It connects to remote gateways; it does not currently supervise a local gateway process on the phone.
+
+Mobile should call through the Nitro module for shared behavior rather than reimplementing Rust reducers in TypeScript. TypeScript owns screens, navigation, local store orchestration, platform permissions, localization, file picker behavior, and presentation glue.
+
+## Shared Client Core
+
+`pioneer-client` is intentionally shell-neutral. Code belongs there when it can run without GPUI, React Native, native dialogs, or OS-specific process management.
+
+Good candidates for `pioneer-client` include:
+
+- JSON-RPC request helpers and WebSocket command sender abstractions;
+- protocol-to-read-model reducers for conversations and timelines;
+- gateway registry planning and remote endpoint validation;
+- workspace bootstrap/switch/create/rename workflows;
+- provider and CLI runtime model selector helpers;
+- composer attachment, skill, and MCP capability planning;
+- artifact transfer/cache helpers behind platform traits;
+- AGENTS.md state machines and save/archive helpers;
+- public DTOs and schema export.
+
+Keep code in a shell when it needs a window, native picker, app storage, secure storage, localization resources, OS open/reveal behavior, mobile permissions, or local gateway service management.
+
+## Client Runtime
+
+`ClientRuntime` is the long-lived shared object behind client operations. It owns connection-oriented workers, request helpers, reducer state, and diagnostic/event streams. Shells should treat it as the local client engine, not as a gateway substitute.
+
+The runtime can validate and plan gateway registry mutations without writing secrets directly. For example, remote gateway add/update planning produces token refs and registry plans; the shell then writes the raw bearer token through its platform secret store. This keeps secret handling platform-specific while keeping registry semantics shared.
+
+## Transport
+
+`crates/client/src/transport/ws/*` contains WebSocket connection machinery:
+
+- connection backoff;
+- command sending;
+- frame decoding;
+- RPC request/response tracking;
+- event worker loops;
+- download helpers;
+- runtime client/command sender abstractions.
+
+Transport code should stay unaware of GPUI and React Native. It is allowed to know protocol envelopes and connection state, but not UI layout.
+
+## Timeline Projection
+
+The timeline projection is shared because every client needs the same interpretation of gateway events. `crates/client/src/conversation`, `timeline`, and `threads` turn protocol items into rows such as agent messages, reasoning, tool calls, downloads, system events, task rows, and final statuses.
+
+This layer is where UI-adjacent normalization belongs. For example, a shell should not decide independently how to coalesce tool rows or label a final turn status if the behavior should match desktop and mobile.
+
+## Composer Planning
+
+Composer helpers live in `crates/client/src/composer`. They convert user-selected attachments, skills, MCP capabilities, model selections, and draft state into turn-ready protocol inputs. This is where capability rejection rows and picker filtering belong.
+
+The gateway still enforces policy. Client composer planning is a presentation and preflight layer that makes invalid choices visible early; it is not an authorization boundary.
+
+## FFI And Schemas
+
+`pioneer-client-ffi` exposes JSON methods such as:
+
+- `gateway_connect`, `gateway_next_events`, `gateway_disconnect`;
+- `workspace_bootstrap`, `workspace_switch`, `workspace_create`, `workspace_rename`;
+- `provider_list`, `provider_list_models`, `provider_model_display`;
+- `cli_runtime_list`, `cli_runtime_list_models`, `cli_runtime_thread_binding_get`, `cli_runtime_turn_steer`;
+- `composer_*` helpers for attachments, skills, and MCP capabilities;
+- `thread_tree_refresh`, `agents_doc_get`, `agents_doc_save`, `active_thread_*`.
+
+The mobile module wraps those as Nitro methods such as `gatewayConnectJson` and parses tagged JSON responses in TypeScript. Generated schemas make the shell boundary reviewable without making the shell understand gateway internals.
+
+The FFI boundary uses tagged responses:
+
+- `{"status":"ok","value":...}`
+- `{"status":"error","message":"...","code":...}`
+
+This keeps the C ABI narrow and avoids exposing Rust panic/unwind behavior across the boundary. `pioneer-client-ffi` catches panics around exported operations and records diagnostics.
+
+Generated client schemas have two jobs. First, they make TypeScript bindings reviewable and reproducible. Second, they make accidental shell-only DTO changes visible during contract review. If a mobile screen needs a new field that is derived from protocol state, prefer adding it to shared client DTOs rather than constructing it ad hoc in TypeScript.
+
+## Generated Mobile Contracts
+
+`pioneer-app/src/client/generated` and `pioneer-app/src/client/schema` are generated from the Rust client/FFI contract. They include DTOs for gateway registry plans, active-thread snapshots, composer rows, provider/model selection, CLI runtime pending requests, settings, MCP catalog rows, skill diagnostics, task review display, timeline rows, and workspace bootstrap.
+
+When changing a shared client DTO:
+
+1. Change the Rust DTO or schema source.
+2. Regenerate schemas/types.
+3. Update mobile code that consumes the generated type.
+4. Keep the shell presentation logic thin.
+
+Do not edit generated TypeScript as the source of truth.
+
+## Design Rules
+
+- Gateway authority beats client convenience. Do not make a client shell the owner of workspaces, tasks, provider keys, MCP runtime, skills, or turn state.
+- Put cross-client behavior in `pioneer-client` before duplicating it in desktop and mobile.
+- Keep FFI methods coarse enough to be stable but small enough to test.
+- Keep platform secret storage in the shell; keep registry and validation semantics in shared client code.
+- Keep protocol DTOs distinct from client presentation DTOs. Protocol is the gateway contract; client DTOs are shell-facing projections.
+- When adding a client-visible gateway feature, update `protocol`, gateway handlers, `pioneer-client`, FFI/schema export when mobile needs it, and the shell views together.
+
+## Related Pages
+
+- [Gateway](/architecture/gateway) explains the runtime clients connect to.
+- [Protocol Layer](/architecture/protocol) explains the public JSON-RPC contract.
+- [CLI Runtime Architecture](/architecture/cli-runtime) explains runtime projections, approvals, and turn steering.
+- [Mobile App Overview](/mobile/overview) explains the current React Native client.
+- [Desktop App Overview](/desktop/overview) explains the GPUI desktop client.

@@ -1,0 +1,60 @@
+---
+title: "Mobile App Overview"
+description: "Use the Pioneer mobile app to connect to gateways, manage workspaces, and continue threads from iOS or Android."
+icon: "smartphone"
+---
+
+The Pioneer mobile app lets you connect to existing gateways from iOS or Android. Use it when you want to continue threads, check task output, switch workspaces, or steer a gateway while away from the desktop app.
+
+The mobile app does not run the assistant by itself. The gateway still owns workspaces, threads, model calls, tools, MCP servers, skills, tasks, artifacts, settings, and durable storage.
+
+## What It Can Do
+
+The current mobile client includes:
+
+| Area | Mobile behavior |
+| --- | --- |
+| Gateways | Add, validate, activate, update, and remove remote gateway entries. |
+| Tokens | Store gateway access tokens in the platform secure store. |
+| Workspaces | Bootstrap, switch, create, and rename workspaces on the connected gateway. |
+| Threads | Load the thread tree, open thread timelines, send messages, stop turns, and keep an active thread projection. |
+| Models | List workspace API providers and supported CLI-backed model sources in one selector. |
+| CLI-backed turns | Show pending approvals or input requests for supported CLI-backed turns. |
+| Composer | Attach files, attach skills and MCP capabilities, and send text turns. |
+| AGENTS.md | Read, save, and archive thread-tree instruction files. |
+| Preferences | Configure mobile UI preferences such as theme and language. |
+
+## Saved Gateways And Tokens
+
+Mobile keeps a local list of saved gateways and stores gateway tokens separately in the platform secure store.
+
+That means the visible gateway entry can be edited or removed without showing the raw token back in the UI. If a token is rotated on the gateway, update the saved mobile connection with the new token.
+
+## Remote Gateway First
+
+The mobile app currently manages remote gateway entries. It does not install, start, or supervise a local gateway process on the phone.
+
+For mobile usage, run a gateway on a computer, workstation, server, or other reachable host, then add that gateway in the mobile app with its address and bearer token.
+
+<Warning>
+  Tool calls, local paths, MCP servers, provider requests, and task execution happen on the gateway host, not on the phone.
+</Warning>
+
+## Consistency With Desktop
+
+Desktop and mobile use the same product concepts. A gateway, workspace, thread, provider, skill, MCP server, task, and artifact mean the same thing in both clients.
+
+The main difference is responsibility. Desktop can help install, start, and manage a local gateway. Mobile connects to gateways that already exist.
+
+## Builds And Locales
+
+The mobile app targets iOS and Android and uses the same eight UI locales as desktop: English, German, Spanish, French, Hindi, Japanese, Russian, and Chinese.
+
+## Related Pages
+
+- [Desktop App Overview](/desktop/overview) explains the desktop client and local gateway management.
+- [Client Architecture](/architecture/clients) explains the shared client core and mobile shell boundary.
+- [Gateway Architecture](/architecture/gateway) explains what the mobile app connects to.
+- [Protocol Layer](/architecture/protocol) explains the client/gateway contract used by mobile and other clients.
+- [Protocol Introduction](/protocol/introduction) explains the protocol used by custom clients.
+- [CLI Runtime API](/protocol/cli-runtime) documents Codex CLI runtime listing, model selection, approvals, and steering.

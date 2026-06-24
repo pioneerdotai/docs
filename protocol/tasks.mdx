@@ -536,18 +536,20 @@ Task notifications use the same event names as durable task events:
 |---|---|
 | `task/created`, `task/scheduled`, `task/queued` | Task lifecycle entered created/scheduled/queued state. |
 | `task/run/created`, `task/run/started`, `task/progress` | Run lifecycle and progress updates. |
-| `task/run/completed`, `task/run/failed`, `task/run/cancelled` | Run terminal updates. |
+| `task/run/completed`, `task/run/failed`, `task/run/blocked`, `task/run/cancelled` | Run terminal or recoverable blocked updates. |
 | `task/run/retry_scheduled`, `task/run/retry_exhausted` | Retry lifecycle updates. |
-| `task/run/turn/started`, `task/run/turn/completed`, `task/run/turn/failed` | Initial, revision, recovery, and review turn lifecycle. |
+| `task/run/thread_binding/created` | A task run was linked to its executor, reviewer, or recovery thread. |
+| `task/run/turn/started`, `task/run/turn/completed`, `task/run/turn/failed`, `task/run/turn/blocked` | Initial, revision, recovery, and review turn lifecycle. |
 | `task/run/entered_review` | A run has a pending result candidate and is waiting for review. |
 | `task/result_candidate/created`, `task/result_candidate/accepted`, `task/result_candidate/rejected`, `task/result_candidate/cancelled` | Candidate lifecycle for child outputs. |
 | `task/result_review_event/recorded` | Parent-agent, user, review-agent, runtime-auto, or system review event was recorded. |
-| `task/completed`, `task/failed`, `task/cancelled` | Task terminal updates. |
+| `task/revision/requested` | A review decision requested another child-thread revision turn. |
+| `task/completed`, `task/failed`, `task/blocked`, `task/cancelled` | Task terminal or recoverable blocked updates. |
 | `task/detached`, `task/updated`, `task/rescheduled`, `task/paused`, `task/resumed` | Manual lifecycle and editable task contract changes. |
 | `task/tree/changed` | Parent/child structure, dependencies, or child thread linkage changed. |
 | `task/recovered` | Runtime recovered task state. |
 | `task/delivery/queued`, `task/delivery/started`, `task/delivery/delivered`, `task/delivery/failed`, `task/delivery/cancelled` | Result delivery lifecycle. |
-| `task/write_lock/acquired`, `task/write_lock/released`, `task/write_lock/blocked`, `task/write_lock/expired` | Write-lock lifecycle. |
+| `task/write_lock/acquired`, `task/write_lock/extended`, `task/write_lock/released`, `task/write_lock/blocked`, `task/write_lock/expired` | Write-lock lifecycle. |
 
 Notification params include a `context` object with `workspaceId`, `taskId`, optional `runId`, optional parent/root ids, optional thread/turn ids, `eventId`, and `sequence`. Treat notifications as streaming state changes and use read methods to rebuild exact state when needed.
 

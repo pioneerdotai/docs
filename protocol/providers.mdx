@@ -3,7 +3,9 @@ title: "Providers API"
 description: "Listing workspace providers, listing provider models, and managing workspace-scoped API keys through the gateway."
 ---
 
-Provider methods are deliberately small. The gateway owns provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. Provider configuration is workspace-scoped: every provider method takes `workspace_id`, and API keys are stored under workspace-specific secret ids. A desktop app, CLI, mobile app, or custom client should not talk directly to every model provider just to build a model picker.
+Provider methods are deliberately small. The gateway owns API provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. Provider configuration is workspace-scoped: every provider method takes `workspace_id`, and API keys are stored under workspace-specific secret ids. A desktop app, mobile app, CLI, or custom client should not talk directly to every model provider just to build a model picker.
+
+CLI-backed agent runtimes are not provider adapters. Use [CLI Runtime API](/protocol/cli-runtime) for runtime listing, runtime model catalogs, approvals, and `cliAgentRuntime` turn execution.
 
 Use these methods when a client needs to show available providers for a workspace, fetch model catalogs, or update the API key used by that workspace.
 
@@ -179,4 +181,4 @@ Deleting a key does not delete threads or turns that already used that provider.
 
 Provider setup is workspace-local inside a gateway. A client connected to three gateways should show provider status for the selected workspace on the selected gateway, because each workspace may have different keys and each gateway may have different local runtime availability and network access.
 
-For thread creation and turn execution, pass the selected provider id through `model_provider` and the selected model id through `model`. See [Threads API](/protocol/threads) and [Turns API](/protocol/turns).
+For ordinary API-provider thread creation and turn execution, pass the selected provider id through `model_provider` and the selected model id through `model`. For CLI-backed turns, pass the selected runtime through `execution_backend` instead. See [Threads API](/protocol/threads), [Turns API](/protocol/turns), and [CLI Runtime API](/protocol/cli-runtime).

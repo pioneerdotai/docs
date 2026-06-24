@@ -10,17 +10,19 @@ Pioneer has a few terms that are worth understanding before you go deep. This pa
 
 The gateway is the center of Pioneer. When something important happens, it usually happens in the gateway.
 
-It talks to model providers, stores Pioneer data, stores gateway secrets in `keystore.db`, keeps editable identity files in runtime home, runs tools, manages skills and MCP servers, owns tasks, and streams results back to connected clients. You can run a gateway on the same computer as the desktop app, or on another machine.
+It talks to model providers, stores Pioneer data and secrets, runs tools, manages skills and MCP servers, owns tasks, and streams results back to connected clients. You can run a gateway on the same computer as the desktop app, or on another machine.
 
-A good rule: the gateway is where work happens. The desktop app is how you control it.
+A good rule: the gateway is where work happens. The client app is how you control it.
 
 That rule matters because tools run on the gateway host. If the gateway is on your laptop, tools touch your laptop environment. If the gateway is on a server, tools touch the server environment.
 
-## Desktop App And Other Clients
+## Desktop, Mobile, And Other Clients
 
-The desktop app is the main Pioneer client today. It gives you the UI for gateway connections, workspaces, threads, providers, skills, MCP servers, tasks, and settings. It can also start and manage a local gateway when you use Pioneer on one computer.
+The desktop app gives you the full native UI for gateway connections, workspaces, threads, providers, skills, MCP servers, tasks, and settings. It can also start and manage a local gateway when you use Pioneer on one computer.
 
-Pioneer is not limited to the desktop app. The gateway exposes a protocol that other clients can use too. That means custom clients can be built on top of Pioneer, and mobile clients can connect to gateways in the same product model.
+The mobile app connects iOS and Android devices to existing gateways. It stores remote gateway tokens in platform secure storage and does not start a local gateway process on the phone.
+
+Pioneer is not limited to the official apps. The gateway exposes a protocol that other clients can use too. That means custom clients can be built on top of Pioneer in the same product model.
 
 ## Gateways And Workspaces
 
@@ -44,7 +46,7 @@ Each thread has a timeline. The timeline shows messages, model output, tool call
 
 Agent memory is durable context that can be useful beyond the current thread. Pioneer can remember stable facts, preferences, recurring instructions, communication style, and project decisions, then recall them in later agent-mode turns.
 
-Memory is different from thread history. Thread history is the conversation transcript. Memory is a smaller set of durable facts stored by the gateway and searched through the memory service. Agent mode can register memory tools and add a `Memory Recall` prompt section; preflight or `request_tools` decides which memory tools are visible in a given turn. Chat mode does not mutate memory.
+Memory is different from thread history. Thread history is the conversation transcript. Memory is a smaller set of durable facts stored by the gateway and recalled when they are useful. Chat mode does not mutate memory.
 
 If you ask Pioneer to forget something, memory creates a tombstone so stale search payloads are suppressed later.
 
@@ -65,7 +67,7 @@ Thread context is bounded and best-effort. It helps continuity, but it is not a 
 
 Artifacts are files owned by the gateway: uploaded images, PDFs, CSVs, logs, generated reports, screenshots, and agent-created outputs.
 
-Artifacts matter because Pioneer may run on a different machine than your desktop. A local file path from your laptop is not useful to a remote gateway. Uploading a file as an artifact gives the gateway a real copy with a stable id, metadata, versions, previews, and download support.
+Artifacts matter because Pioneer may run on a different machine than your desktop. A local file path from your laptop is not useful to a remote gateway. Uploading a file as an artifact gives the gateway a real copy that can stay linked to the thread.
 
 Pioneer also uses artifact references for continuity. If a recent history message or recalled thread snippet had an attached file, the model can see a compact reference to that file. It does not automatically receive every old file. If it needs the content, it can request the artifact tool domain and read that specific artifact.
 
@@ -73,11 +75,11 @@ That means follow-ups like "look again at the car photo" can work without attach
 
 ## Providers And Models
 
-A provider is where models come from. Anthropic, OpenAI, Google, OpenRouter, Azure OpenAI, Bedrock, Ollama, and local OpenAI-compatible servers are all provider choices.
+A provider is where API-backed models come from. Anthropic, OpenAI, Google, OpenRouter, Azure OpenAI, Bedrock, Ollama, and supported OpenAI-compatible endpoints are provider choices. CLI-backed agent tools such as Codex CLI are configured separately from ordinary API providers.
 
 A model is the specific model you choose for a thread or task. Models differ in speed, cost, context size, reasoning ability, and tool behavior. You can use one model for quick chats and another for more careful work.
 
-Provider credentials are configured on the gateway and stored in that gateway's keystore. If you connect to a second gateway, it needs its own provider setup.
+Provider credentials and CLI runtime settings are configured on the gateway. Provider secrets are stored in that gateway's keystore. If you connect to a second gateway, it needs its own provider and runtime setup.
 
 ## Tools
 
@@ -105,7 +107,7 @@ MCP servers connect Pioneer to external tools and resources through Model Contex
 
 Think of MCP as a way to bring an existing system into the gateway: a database, a company API, a project management tool, a filesystem helper, or a SaaS integration. Once connected, the gateway can expose those MCP tools to agents according to the current gateway and workspace configuration.
 
-MCP install rows keep redacted configuration and secret refs. The actual secret values from `env` and `headers` live in the gateway keystore.
+MCP configuration can include secrets such as environment variables or HTTP headers. Pioneer stores the secret values in the gateway keystore instead of showing them back in ordinary configuration.
 
 MCP servers are also explicit-only by default. In a thread, attach a server or specific tools from the composer add button when you want that capability for the next turn.
 
@@ -118,3 +120,19 @@ Subagents are agents created by the task system. In many workflows you do not ma
 For attached subagent work, the parent agent reviews the candidate result before it becomes final. It can accept the result or ask the same subagent to revise the work with specific feedback.
 
 Tasks are useful when the work has shape: check this repo every morning, summarize a feed, run a repeated research pass, prepare a report, or coordinate several smaller agent steps.
+
+## Go Deeper
+
+Use this page for product vocabulary. Use Architecture when you want the implementation model.
+
+| Concept | Architecture page |
+| --- | --- |
+| Gateway, runtime ownership, sessions | [Gateway](/architecture/gateway) |
+| Desktop, mobile, and shared client code | [Client Architecture](/architecture/clients) |
+| Turns, prompt construction, tools, retries | [Agent Loop](/architecture/agent-loop) |
+| Durable memory | [Memory Architecture](/architecture/memory) |
+| Thread episodic context | [Thread Episodic Context](/architecture/thread-episodic-context) |
+| Artifacts and file continuity | [Artifacts Architecture](/architecture/artifacts) |
+| Skills | [Skills Architecture](/architecture/skills) |
+| MCP servers | [MCP Architecture](/architecture/mcp) |
+| Tasks and subagents | [Tasks Architecture](/architecture/tasks) |
