@@ -42,6 +42,8 @@ Provider construction is centralized in `create_provider`. That function maps pr
 
 The provider registry is deliberately gateway-side. Clients can list providers, set/delete keys, and request model lists, but they should not instantiate provider adapters or hold raw provider credentials.
 
+Model listing returns normalized `ProviderModelInfo` records. Besides ids, names, limits, pricing, lifecycle state, and modalities, capabilities can include reasoning metadata: whether reasoning is supported, which effort values are available, the default effort, whether effort is mandatory, whether a reasoning token budget is supported, and where the metadata came from. Shared client code turns that metadata into model selector rows.
+
 ## Current Adapter Families
 
 | Family | Examples | Notes |
@@ -114,6 +116,8 @@ Implementation checklist:
 6. Add model-listing support when the upstream API supports it.
 7. Add attachment support through the attachment pipeline when needed.
 8. Update gateway/client provider lists, docs, icons, and generated client contracts if the provider becomes user-selectable.
+
+If the provider exposes reasoning controls, populate `ProviderModelReasoningCapabilities` rather than hard-coding picker behavior in a client shell. Use provider metadata when available; otherwise use static registry or config override data only when the behavior is stable enough for users.
 
 ## Related Pages
 

@@ -88,6 +88,14 @@ Response shape:
         "json_output": true,
         "streaming": true,
         "thinking": true,
+        "reasoning": {
+          "supported": true,
+          "effort_options": ["low", "medium", "high"],
+          "default_effort": "medium",
+          "mandatory": false,
+          "supports_token_budget": true,
+          "source": "provider_metadata"
+        },
         "fine_tuning": null,
         "input_modalities": ["text", "image"],
         "output_modalities": ["text"]
@@ -123,6 +131,21 @@ Model metadata is advisory. Providers differ in how much information they expose
 | `lifecycle_status` | Optional provider-specific lifecycle marker. |
 
 The important client rule is simple: choose by `id`, display by `name` when present, and never require a metadata field that may be `null`.
+
+## Reasoning Metadata
+
+`ProviderModelCapabilities.reasoning` describes model-level reasoning controls when the provider or runtime can report them.
+
+| Field | Meaning |
+|---|---|
+| `supported` | Whether reasoning/effort control is supported. `null` means unknown. |
+| `effort_options` | Canonical effort values the UI may offer, such as `low`, `medium`, or `high`. |
+| `default_effort` | Provider/runtime default when known. |
+| `mandatory` | Whether a client should choose an effort explicitly. |
+| `supports_token_budget` | Whether a separate reasoning token budget is supported. |
+| `source` | Metadata source: `provider_metadata`, `cli_metadata`, `static_registry`, `config_override`, or `unknown`. |
+
+Shared client helpers normalize effort labels and order known values for model selectors. Clients should only show a reasoning effort picker when `supported` is true and `effort_options` is non-empty. If the user changes provider or model, clear the selected effort unless a resolved thread selection explicitly carries one.
 
 ## Setting An API Key
 
@@ -182,3 +205,5 @@ Deleting a key does not delete threads or turns that already used that provider.
 Provider setup is workspace-local inside a gateway. A client connected to three gateways should show provider status for the selected workspace on the selected gateway, because each workspace may have different keys and each gateway may have different local runtime availability and network access.
 
 For ordinary API-provider thread creation and turn execution, pass the selected provider id through `model_provider` and the selected model id through `model`. For CLI-backed turns, pass the selected runtime through `execution_backend` instead. See [Threads API](/protocol/threads), [Turns API](/protocol/turns), and [CLI Runtime API](/protocol/cli-runtime).
+
+When a client has a selected reasoning effort, include it in the thread or turn model selection path that supports reasoning effort. Do not invent effort values: use the canonical values returned in model metadata or normalized by shared client helpers.

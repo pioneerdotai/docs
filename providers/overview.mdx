@@ -40,6 +40,8 @@ Use this flow for any supported provider:
 
 Some providers can list models automatically. Others require you to enter the exact model ID. If model listing does not work, copy the model ID from the provider dashboard or runtime and test it with a small prompt.
 
+When a listed model exposes reasoning controls, Pioneer can show a reasoning effort selector next to the model selection. Changing effort affects the next turn that uses that model selection. If the model does not advertise reasoning effort options, the selector is hidden and Pioneer sends the turn without an explicit effort value.
+
 ## Supported Providers
 
 Pioneer supports dedicated provider integrations, local runtimes, OpenAI-compatible endpoints, and separate CLI agent runtimes.
@@ -59,6 +61,8 @@ Use [Supported Providers](/providers/others) when you need the broader compatibi
 Use the provider you already have access to. If your organization manages a specific cloud account, start there. If you want local model execution, use a local runtime available from the gateway host. If you want a broad model catalog behind one integration, use a router or another compatible endpoint.
 
 Do not assume every model source behaves the same way. Before using a model for tool-heavy work or scheduled tasks, confirm that your account can access it, that the model or runtime supports the kind of tool use you need, and that cost, latency, authentication, and context size are acceptable.
+
+For models with reasoning controls, start with the provider's default effort unless you know the tradeoff you want. Higher effort can improve harder reasoning tasks, but it may also increase latency or cost depending on the provider.
 
 <AccordionGroup>
   <Accordion title="The provider does not appear in a thread">

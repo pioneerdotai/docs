@@ -79,6 +79,7 @@ Good candidates for `pioneer-client` include:
 - gateway registry planning and remote endpoint validation;
 - workspace bootstrap/switch/create/rename workflows;
 - provider and CLI runtime model selector helpers;
+- reasoning effort option normalization and model selector effort rows;
 - composer attachment, skill, and MCP capability planning;
 - artifact transfer/cache helpers behind platform traits;
 - AGENTS.md state machines and save/archive helpers;
@@ -118,6 +119,8 @@ Composer helpers live in `crates/client/src/composer`. They convert user-selecte
 
 The gateway still enforces policy. Client composer planning is a presentation and preflight layer that makes invalid choices visible early; it is not an authorization boundary.
 
+Model selection state includes provider, model, optional selected reasoning effort, and whether the selection was manually chosen. When the selected provider or model changes, shared client logic clears the selected reasoning effort so stale effort values from a previous model are not sent to the gateway. If the selection is resolved from an existing thread, the resolved effort can be carried forward.
+
 ## FFI And Schemas
 
 `pioneer-client-ffi` exposes JSON methods such as:
@@ -125,6 +128,7 @@ The gateway still enforces policy. Client composer planning is a presentation an
 - `gateway_connect`, `gateway_next_events`, `gateway_disconnect`;
 - `workspace_bootstrap`, `workspace_switch`, `workspace_create`, `workspace_rename`;
 - `provider_list`, `provider_list_models`, `provider_model_display`;
+- `reasoning_effort_rows` for model-specific reasoning effort picker rows;
 - `cli_runtime_list`, `cli_runtime_list_models`, `cli_runtime_thread_binding_get`, `cli_runtime_turn_steer`;
 - `composer_*` helpers for attachments, skills, and MCP capabilities;
 - `thread_tree_refresh`, `agents_doc_get`, `agents_doc_save`, `active_thread_*`.
@@ -142,7 +146,9 @@ Generated client schemas have two jobs. First, they make TypeScript bindings rev
 
 ## Generated Mobile Contracts
 
-`pioneer-app/src/client/generated` and `pioneer-app/src/client/schema` are generated from the Rust client/FFI contract. They include DTOs for gateway registry plans, active-thread snapshots, composer rows, provider/model selection, CLI runtime pending requests, settings, MCP catalog rows, skill diagnostics, task review display, timeline rows, and workspace bootstrap.
+`pioneer-app/src/client/generated` and `pioneer-app/src/client/schema` are generated from the Rust client/FFI contract. They include DTOs for gateway registry plans, active-thread snapshots, composer rows, provider/model selection, reasoning effort rows, CLI runtime pending requests, settings, MCP catalog rows, skill diagnostics, task review display, timeline rows, and workspace bootstrap.
+
+Current model-selection and reasoning DTOs include `composer_model_selection`, `composer_model_selection_candidate`, `composer_model_selection_state`, `provider_model_reasoning_capabilities`, `reasoning_capability_source`, `reasoning_effort_row`, `reasoning_effort_rows_request`, `reasoning_effort_rows_response`, and `turn_reasoning_selection`.
 
 When changing a shared client DTO:
 

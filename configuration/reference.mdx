@@ -109,6 +109,17 @@ Artifacts are gateway-owned durable files and generated outputs.
 | `gateway.artifacts.readable_copy_ttl_secs` | `86400` | Time-to-live for readable artifact copies. |
 | `gateway.artifacts.quota_warn_at_percent` | `80` | Workspace quota warning threshold. |
 
+## Resilience settings
+
+Command execution resilience settings control how long command execution leases can stay active and how long recovery can keep trying to reconcile command execution state.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `gateway.resilience.command_execution.lease_secs` | `600` | Lease duration for command execution ownership. |
+| `gateway.resilience.command_execution.idle_secs` | `1800` | Idle duration after which command execution can be treated as stale. |
+| `gateway.resilience.command_execution.hard_secs` | `3600` | Hard maximum duration for command execution before recovery treats it as overdue. |
+| `gateway.resilience.command_execution.recovery_max_wall_clock_secs` | `3600` | Maximum wall-clock time allowed for command execution recovery. |
+
 ## Agent memory settings
 
 | Key | Default | Purpose |
@@ -344,6 +355,7 @@ Execution windows bound long agent turns in smaller windows and also keep total-
 | `gateway.cli_agent_runtime.event_channel_capacity` | `2048` | Internal runtime event channel capacity. |
 | `gateway.cli_agent_runtime.stderr_ring_lines` | `200` | Number of recent stderr lines retained for diagnostics. |
 | `gateway.cli_agent_runtime.debug_native_events` | `false` | Include extra native runtime event diagnostics. |
+| `gateway.cli_agent_runtime.command_heartbeat.interval_secs` | `60` | Heartbeat interval for CLI runtime command execution state. |
 
 Named instances can be configured under `[gateway.cli_agent_runtimes.<id>]`:
 
