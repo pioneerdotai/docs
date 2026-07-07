@@ -81,16 +81,16 @@
           },
           {
             "group": "Core Systems",
-                        "pages": [
-                            "architecture/gateway",
-                            "architecture/clients",
-                            "architecture/agent-loop",
-                            "architecture/cli-runtime",
-                            "architecture/hooks",
-                            "architecture/protocol",
-                            "architecture/permissions",
-                            "architecture/tools"
-                        ]
+            "pages": [
+              "architecture/gateway",
+              "architecture/clients",
+              "architecture/agent-loop",
+              "architecture/cli-runtime",
+              "architecture/hooks",
+              "architecture/protocol",
+              "architecture/permissions",
+              "architecture/tools"
+            ]
           },
           {
             "group": "Subsystems",
@@ -102,12 +102,12 @@
               "architecture/mcp",
               "architecture/memory",
               "architecture/thread-episodic-context",
-                            "architecture/persistence",
-                            "architecture/secrets",
-                            "architecture/remote-access",
-                            "architecture/prompt",
-                            "architecture/agents-md"
-                        ]
+              "architecture/persistence",
+              "architecture/secrets",
+              "architecture/remote-access",
+              "architecture/prompt",
+              "architecture/agents-md"
+            ]
           },
           {
             "group": "Contributing",
