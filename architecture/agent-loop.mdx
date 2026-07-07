@@ -3,7 +3,7 @@ title: "Agent Loop"
 description: "How a Pioneer turn becomes provider calls, tool calls, durable events, and a final answer."
 ---
 
-The agent loop lives in `crates/agent`. It is the execution engine for a thread turn after the gateway has accepted `turn/start`, persisted the initial state, selected the provider/model, and materialized the turn permission profile.
+The agent loop lives in `crates/agent`. It is the execution engine for a thread turn after the gateway has accepted `turn/start`, persisted the initial state, selected the provider/model, materialized the turn permission profile, and resolved the turn execution security snapshot.
 
 The gateway does not call the provider directly for normal turns. It delegates to `AgentManager`, which owns a per-thread runtime task. That task receives commands such as `StartTurn`, runs one active turn at a time, and publishes durable events and live progress back to the gateway.
 
@@ -52,7 +52,7 @@ sequenceDiagram
   participant Tools
   participant Store
 
-  Gateway->>Agent: StartTurn(history, input, capabilities, model, provider, permission_profile)
+  Gateway->>Agent: StartTurn(history, input, capabilities, model, provider, permission_profile, security_snapshot)
   Agent->>Hooks: turn.pre_policy
   Agent->>Hooks: turn.pre_prompt_context
   Agent->>Agent: resolve skills, MCP, task/turn tools
@@ -66,7 +66,7 @@ sequenceDiagram
   loop provider/tool rounds
     Agent->>Provider: ChatRequest(messages, tools, compiled_prompt)
     Provider-->>Agent: text, reasoning, tool calls
-    Agent->>Tools: evaluate permissions and execute tool calls
+    Agent->>Tools: evaluate permissions, enforce security snapshot, execute tool calls
     Tools-->>Agent: model-visible tool results
     Agent-->>Gateway: item started/completed/progress events
   end
@@ -97,7 +97,7 @@ The provider receives a `ChatRequest` containing `messages`, optional `tools`, `
 
 The ordering is intentional. History comes from the gateway because it is persisted thread state. Composer-selected skills and MCP entries arrive as turn capabilities, not message text. Skills, MCP tools, task tools, and hook contributions are resolved inside the agent because they are turn-scoped capabilities. Preflight runs after tool materialization so it can see a compact index of registered hidden-domain tools, but before prompt compilation so post-preflight memory context can still become part of the prompt. The prompt is compiled after those decisions because skills, task orchestration, memory, retries, and future domains can add dynamic prompt sections or context.
 
-The permission profile is also carried through this path. It is not a prompt-only hint: the tools runtime receives it in `PermissionEvaluationContext` and enforces `allow`, `ask`, or `deny` before side effects. The prompt section exists so the model can plan around user approval boundaries, not so the model becomes the enforcement mechanism.
+The permission profile and execution security snapshot are also carried through this path. They are not prompt-only hints: the tools runtime receives the profile in `PermissionEvaluationContext`, evaluates `allow`, `ask`, or `deny`, and enforces the snapshot's filesystem, network, process, and sandbox policy before side effects. The prompt section exists so the model can plan around user approval boundaries, not so the model becomes the enforcement mechanism.
 
 For the exact prompt sections and history compression rules, see [Prompt And Context](/architecture/prompt).
 
@@ -175,5 +175,5 @@ That is the reason tool permission evaluation and output policies live below the
 - [Provider System](/architecture/providers) explains how API-provider `ChatRequest` values reach OpenAI, Anthropic, Gemini, Ollama, Bedrock, and compatible endpoints.
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains the separate process/session path for Codex CLI-backed agent runtime turns.
 - [Tasks And Subagents](/architecture/tasks) explains the task tools and child-thread execution path.
-- [Permission System](/architecture/permissions) explains turn permission profiles, approval prompts, audit events, and task permission caps.
+- [Permission System](/architecture/permissions) explains turn permission profiles, execution security snapshots, sandbox/resource policy, approval prompts, audit events, and task permission caps.
 - [Tools System](/architecture/tools) explains routing, output projection, and retry classification.

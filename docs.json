@@ -137,6 +137,7 @@
               "protocol/tasks",
               "protocol/artifacts",
               "protocol/providers",
+              "protocol/voice",
               "protocol/cli-runtime",
               "protocol/settings",
               "protocol/skills",

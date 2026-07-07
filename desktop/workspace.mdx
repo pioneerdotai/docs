@@ -22,7 +22,7 @@ New threads are created in the active workspace. Provider setup, MCP installatio
 
 Use separate workspaces when the work should stay separate but can share the same gateway machine and execution environment. Common examples are clients, projects, experiments, or personal contexts that should have different threads, provider keys, MCP servers, skills, and tasks.
 
-Workspaces are project and policy boundaries inside one gateway. They separate threads, provider keys, MCP servers, skills, tasks, artifacts, and workspace settings. They do not move execution to a different OS account or machine. Use turn permission modes to ask before sensitive tool actions, and use a separate gateway when the execution environment itself should be different.
+Workspaces are project and policy boundaries inside one gateway. They separate threads, provider keys, MCP servers, skills, tasks, artifacts, and workspace settings. Turn permission modes and sandbox/resource policy constrain tool work inside that gateway. Use a separate gateway when the execution environment itself should be different.
 
 ## Use Gateways For Environment Separation
 
@@ -38,13 +38,13 @@ Use one thread for one goal. Start a new thread when the topic changes, when you
 
 For example, `Research MCP server options` is more useful than `Notes`, and `Fix gateway status on macOS` is more useful than `Bug`.
 
-<Warning>
-  A workspace is not a host sandbox. Permission modes can require approval before tool actions, but approved tools still run on the gateway host.
-</Warning>
+<Note>
+  A workspace is a gateway-scoped product boundary. Use permission modes for turn-level control, and choose separate gateways when work needs separate host environments or OS accounts.
+</Note>
 
 ## Go Deeper
 
 - [Gateway Architecture](/architecture/gateway) explains why workspaces belong to a gateway.
-- [Permission System](/architecture/permissions) explains turn permission modes and approval prompts.
+- [Permission System](/architecture/permissions) explains turn permission modes, sandbox/resource policy, and approval prompts.
 - [Persistence](/architecture/persistence) explains how workspace, thread, task, artifact, and event state is stored.
 - [Secret Storage](/architecture/secrets) explains how workspace-scoped provider and MCP secrets are stored.

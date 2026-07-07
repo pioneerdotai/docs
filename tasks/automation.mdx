@@ -47,7 +47,7 @@ Retries are useful for temporary failures such as provider timeouts, rate limits
 If several tasks can modify the same files or external target, use write locks. A lock tells Pioneer that only one run should write to that target at a time.
 
 <Warning>
-  Write locks coordinate Pioneer task runs. They are not an OS permission system and they do not sandbox tools.
+  Write locks coordinate Pioneer task runs. They are separate from turn permissions and sandbox/resource policy: use locks for concurrency, and permission modes for access control.
 </Warning>
 
 ## Delivery
@@ -69,5 +69,5 @@ Review this repository. Split the work into focused checks if needed. Use read-o
 ## Go Deeper
 
 - [Tasks Architecture](/architecture/tasks) explains dependencies, subagents, result candidates, review events, and write locks.
-- [Tools Architecture](/architecture/tools) explains why write locks are coordination, not sandboxing.
+- [Tools Architecture](/architecture/tools) explains tool execution, resource policy, and sandboxing.
 - [Artifacts Architecture](/architecture/artifacts) explains how task and subagent outputs are stored.

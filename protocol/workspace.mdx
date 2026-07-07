@@ -194,7 +194,7 @@ Important fields:
 | `thread_id` | Client-provided id. |
 | `workspace_id` | Workspace that owns the thread. |
 | `mode` | `Chat` disables tools; `Agent` enables the agent loop and tool orchestration. |
-| `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level tool approval behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
+| `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level permission and sandbox/resource behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
 | `origin_kind` | `user`, `task_run`, or `system`. Task subagents use hidden task-run threads. |
 | `sidebar_visibility` | `visible` or `hidden`. Hidden is used for internal/task threads. |
 | `agent_nickname`, `agent_role` | Optional labels for task/subagent threads. |

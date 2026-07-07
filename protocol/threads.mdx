@@ -54,7 +54,7 @@ Important fields:
 | `name` | Optional display name. |
 | `model`, `model_provider` | Optional defaults used by turns in this thread. |
 | `mode` | `Chat` or `Agent`. Chat is plain assistant conversation; Agent enables tool and task orchestration. |
-| `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level tool approval behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
+| `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level permission and sandbox/resource behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
 | `origin_kind` | `user`, `task_run`, or `system`. |
 | `sidebar_visibility` | `visible` or `hidden`. Hidden threads are useful for subagents and internal task runs. |
 | `agent_nickname`, `agent_role` | Optional labels for agent/subagent threads. |
@@ -148,7 +148,7 @@ Folder methods follow the same shape: create a folder under a workspace, move it
 }
 ```
 
-History events include turn starts, item starts, streamed deltas, item completions, retries, recovery events, tool-loop budget events, and terminal turn events. For current rendering, prefer [Turns API](/protocol/turns) `turn/timeline` when you already know the turn id; use `thread/history` when you need to rebuild from the thread level.
+History events include turn starts, item starts, streamed deltas, item completions, retries, recovery events, tool-loop budget events, and terminal turn events. For current rendering, prefer `thread/timeline/page` for semantic thread blocks and [Turns API](/protocol/turns) `turn/work/page` for expanded turn work; use `thread/history` when you need to rebuild from the thread level.
 
 `thread/history` is not the semantic recall API. It gives clients durable events so they can render and recover UI. It should not be used to dump an entire old thread into a model prompt.
 
@@ -219,4 +219,4 @@ Use this when a client closes a thread view but keeps the WebSocket connection o
 | `thread/agents_doc/changed` | A root or folder AGENTS.md file changed and affected tree summaries or effective instructions. |
 | `thread/timeline/blocks/changed` | A semantic timeline block page may be stale; reload affected blocks or the current page. |
 
-Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, or `turn/timeline` as needed.
+Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, `thread/timeline/page`, or `turn/work/page` as needed.

@@ -56,6 +56,14 @@ Provider keys, MCP secrets, remote-access keys, and gateway access tokens are tr
 
 Agents can use shell sessions, file reads and edits, patch application, grep, web search and fetch, URL downloads, computer use, MCP tool proxying, and dynamic skill tools.
 
+### Permissions And Sandboxing
+
+Each agent turn has a permission mode and resolved security policy. Pioneer can allow, ask, audit, or block tool actions; check filesystem roots and network policy; constrain process execution; and use native or provider sandbox backends where the selected execution path supports them.
+
+### Voice Input
+
+Mobile and shared client contracts support gateway-owned voice sessions. The client streams microphone chunks, the gateway transcribes, and successful sessions become normal turns with ordinary timeline and permission behavior.
+
 ### MCP Servers
 
 Install and manage servers compatible with [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro) per gateway and current workspace, track their health and catalog, and expose their tools to agents through the gateway. New servers are explicit-only by default and can be attached to a turn from the composer.

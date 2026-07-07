@@ -1,0 +1,293 @@
+---
+title: "Voice API"
+description: "Voice status, session control, binary audio chunks, and gateway-owned voice-to-turn materialization."
+---
+
+The Voice API lets clients stream microphone audio to the gateway and let the gateway create a normal turn after transcription.
+
+Voice is not a second conversation model. A successful voice session becomes an ordinary `turn/start` flow owned by the gateway:
+
+1. The client starts a voice session with minimal routing context.
+2. The client streams microphone PCM chunks over the WebSocket binary channel.
+3. The client finalizes with frozen composer context.
+4. The gateway transcribes audio.
+5. The gateway prepends the transcript as `UserInput::Text` and starts the normal turn.
+6. Clients render the result from existing turn and timeline notifications.
+
+Cancelled and no-speech sessions create no turn and no timeline user message.
+
+## Methods
+
+| Method | Params | Result | Purpose |
+| --- | --- | --- | --- |
+| `voice/status` | `VoiceStatusParams` | `VoiceStatusResponse` | Read gateway voice availability and active session state. |
+| `voice/session/start` | `VoiceSessionStartParams` | `VoiceSessionStartResponse` | Reserve a gateway voice session for one workspace/thread/turn context. |
+| `voice/session/finalize` | `VoiceSessionFinalizeParams` | `VoiceSessionFinalizeResponse` | Commit a session for transcription and turn materialization. |
+| `voice/session/cancel` | `VoiceSessionCancelParams` | `VoiceSessionCancelResponse` | Cancel a session without creating a turn. |
+
+## Notifications
+
+| Event | Params | Meaning |
+| --- | --- | --- |
+| `voice/chunk/ack` | `VoiceChunkAckNotification` | The gateway accepted an audio chunk sequence for a session. |
+| `voice/session/result` | `VoiceSessionResultNotification` | A voice session reached a terminal outcome. |
+
+`voice/session/result` does not carry transcript text. A successful transcript is visible through the normal `turn/started`, user-message, item, and timeline notifications for the created turn.
+
+## Status
+
+`voice/status` can be scoped by workspace:
+
+```json
+{
+  "method": "voice/status",
+  "params": {
+    "workspace_id": "ws_000000000000000001"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "status": "ready",
+  "active_session_id": null,
+  "error": null
+}
+```
+
+`VoiceStatus` values are:
+
+| Status | Meaning |
+| --- | --- |
+| `unavailable` | Voice is unavailable for this gateway/workspace. |
+| `model_downloading` | The gateway is downloading the voice model. |
+| `model_loading` | The gateway is loading the voice model. |
+| `ready` | The gateway can accept voice input. |
+| `busy` | The gateway cannot accept another session right now. |
+| `recording` | A session is receiving chunks. |
+| `transcribing` | A finalized session is being transcribed. |
+| `error` | Voice is in an error state; inspect `error`. |
+
+## Starting A Session
+
+`voice/session/start` uses a minimal `VoiceSessionStartContext` so capture can begin without waiting for all non-audio composer preparation:
+
+```json
+{
+  "method": "voice/session/start",
+  "params": {
+    "context": {
+      "workspace_id": "ws_000000000000000001",
+      "thread_id": "thr_000000000000000001",
+      "turn_id": "trn_000000000000000001"
+    },
+    "audio_format": {
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "encoding": "pcm_s16le"
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "session_id": "voice_session_000000000000000001",
+  "status": "recording"
+}
+```
+
+The gateway validates that `workspace_id`, `thread_id`, and `turn_id` are present and that the audio format matches the streaming target.
+
+## Audio Format
+
+The initial streaming contract is microphone PCM only:
+
+| Field | Required value |
+| --- | --- |
+| `encoding` | `pcm_s16le` |
+| `sample_rate_hz` | `16000` |
+| `channels` | `1` |
+| Target chunk duration | `20` ms |
+| Maximum chunk duration | `100` ms |
+| Target chunk size | `640` bytes |
+| Maximum chunk size | `3200` bytes |
+
+`pcm_f32le` is reserved in the enum for future adapters. The current streaming gateway contract accepts only `pcm_s16le`.
+
+## Binary Audio Chunks
+
+Audio chunks are sent as WebSocket binary frames, not JSON-RPC requests. Each frame uses the `VOC1` envelope:
+
+```text
+4 bytes   magic: VOC1
+4 bytes   big-endian JSON header length
+N bytes   JSON VoiceChunkFrameHeader
+M bytes   raw audio payload
+```
+
+`VoiceChunkFrameHeader` contains:
+
+| Field | Meaning |
+| --- | --- |
+| `session_id` | Gateway session id returned by `voice/session/start`. |
+| `sequence` | Monotonic chunk sequence number. |
+| `sample_rate_hz` | Must be `16000`. |
+| `channels` | Must be `1`. |
+| `encoding` | Must be `pcm_s16le`. |
+| `payload_len` | Raw payload byte length. |
+| `captured_at_unix_ms` | Optional capture timestamp. |
+| `duration_ms` | Optional chunk duration. |
+
+The frame header must not carry workspace, thread, turn, attachments, capabilities, text input, or permission data. Non-audio context belongs to finalize.
+
+When a chunk is accepted, the gateway can publish:
+
+```json
+{
+  "method": "voice/chunk/ack",
+  "params": {
+    "session_id": "voice_session_000000000000000001",
+    "sequence": 42
+  }
+}
+```
+
+## Finalizing
+
+Finalize commits the voice session and supplies the frozen non-audio composer context:
+
+```json
+{
+  "method": "voice/session/finalize",
+  "params": {
+    "session_id": "voice_session_000000000000000001",
+    "context": {
+      "workspace_id": "ws_000000000000000001",
+      "thread_id": "thr_000000000000000001",
+      "turn_id": "trn_000000000000000001",
+      "prepared_input": [],
+      "capabilities": [],
+      "model": "gpt-5.5",
+      "model_provider": "openai",
+      "mode": "Agent",
+      "permission_profile": {
+        "mode": "supervised"
+      }
+    }
+  }
+}
+```
+
+`VoiceTurnContext` can carry the same non-audio turn material as a normal composer send: prepared attachments/artifact references, capabilities, model, provider, thread mode, execution backend, reasoning, permission profile, and CLI runtime options.
+
+It must not contain the future transcript. The gateway owns transcription and inserts the transcript when it starts the turn.
+
+Response:
+
+```json
+{
+  "status": "transcribing"
+}
+```
+
+Clients should keep a finalizing UI until they receive `voice/session/result`.
+
+## Result
+
+Terminal outcomes are:
+
+| Outcome | Meaning |
+| --- | --- |
+| `turn_started` | The gateway transcribed speech and started the normal turn. |
+| `cancelled` | The session was cancelled and no turn was created. |
+| `no_speech` | The gateway found no speech and no turn was created. |
+| `failed` | Transcription or turn materialization failed. |
+
+Example:
+
+```json
+{
+  "method": "voice/session/result",
+  "params": {
+    "session_id": "voice_session_000000000000000001",
+    "outcome": "turn_started",
+    "turn_id": "trn_000000000000000001",
+    "error": null
+  }
+}
+```
+
+For `turn_started`, clients should render the new work from normal turn notifications plus thread timeline-page and turn work-page APIs. For `cancelled` and `no_speech`, clear the voice composer state without creating a message.
+
+## Cancelling
+
+```json
+{
+  "method": "voice/session/cancel",
+  "params": {
+    "session_id": "voice_session_000000000000000001",
+    "reason": "user_cancelled"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "cancelled": true
+}
+```
+
+The gateway also publishes `voice/session/result` with outcome `cancelled`.
+
+## Permissions
+
+Voice has two permission layers:
+
+| Layer | Owner | Meaning |
+| --- | --- | --- |
+| Platform microphone permission | Client OS/platform | Controls whether the client can capture microphone audio. No gateway turn exists before capture succeeds. |
+| Pioneer agent permission profile | Gateway turn | Controls tools, filesystem, network, process policy, MCP, skills, computer use, and subagents for the eventual turn. |
+
+Do not map microphone permission prompts to `turn/permission/request/respond`. Agent permission prompts still use the normal turn permission API after the voice-created turn starts.
+
+## Generated Schemas
+
+- `/schemas/voice_status.json`
+- `/schemas/voice_status_params.json`
+- `/schemas/voice_status_response.json`
+- `/schemas/voice_audio_encoding.json`
+- `/schemas/voice_audio_format.json`
+- `/schemas/voice_chunk_frame_header.json`
+- `/schemas/voice_chunk_ack_notification.json`
+- `/schemas/voice_error.json`
+- `/schemas/voice_error_kind.json`
+- `/schemas/voice_turn_context.json`
+- `/schemas/voice_session_start_context.json`
+- `/schemas/voice_session_start_params.json`
+- `/schemas/voice_session_start_response.json`
+- `/schemas/voice_session_finalize_params.json`
+- `/schemas/voice_session_finalize_response.json`
+- `/schemas/voice_session_cancel_params.json`
+- `/schemas/voice_session_cancel_response.json`
+- `/schemas/voice_session_outcome.json`
+- `/schemas/voice_session_result_notification.json`
+- `/schemas/client/prepare_voice_composer_snapshot_request.json`
+- `/schemas/client/prepared_voice_composer_snapshot.json`
+- `/schemas/client/voice_composer_lock_state.json`
+- `/schemas/client/voice_composer_snapshot_discard_reduction.json`
+- `/schemas/client/voice_finalize_response_reduction.json`
+- `/schemas/client/voice_finalize_ui_action.json`
+- `/schemas/client/voice_session_result_reduction.json`
+
+## Related Pages
+
+- [Turns API](/protocol/turns) explains normal turn creation and permission profiles.
+- [Client Architecture](/architecture/clients) explains the shared Rust client core and mobile shell boundary.
+- [Permission System](/architecture/permissions) explains agent permission profiles and turn sandbox/resource policy.

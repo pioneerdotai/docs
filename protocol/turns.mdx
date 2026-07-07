@@ -14,7 +14,6 @@ A turn is one unit of assistant execution inside a thread. The client creates a 
 | `turn/resume` | `TurnResumeParams` | `TurnResumeResponse` | Resume a blocked turn through a recovery job. |
 | `turn/get` | `TurnGetParams` | `TurnGetResponse` | Load one turn model. |
 | `turn/items` | `TurnItemsParams` | `TurnItemsResponse` | Load persisted item events for one turn. |
-| `turn/timeline` | `TurnTimelineParams` | `TurnTimelineResponse` | Load a composed timeline, optionally including task/child-turn events. |
 | `turn/work/page` | `TurnWorkPageParams` | `TurnWorkPageResponse` | Load paginated work items inside one semantic turn work block. |
 | `turn/permission/request/respond` | `TurnPermissionRequestRespondParams` | `TurnPermissionRequestRespondResponse` | Resolve an open native tool permission request. |
 
@@ -79,7 +78,7 @@ Important fields:
 | `execution_backend` | Optional explicit execution backend. Use `apiProvider` for a remote model API provider, `cliAgentRuntime` for a configured CLI runtime, or `acpAgentRuntime` for an ACP runtime id. |
 | `cli_runtime_options` | Optional runtime-specific options for CLI runtime turns, such as sandbox policy, effort, personality, summary, or whether to steer an active turn. |
 | `permission_profile` | Optional Pioneer turn permission profile. Current modes are `full_access`, `auto_accept_edits`, and `supervised`. If omitted, the gateway defaults to `full_access`. |
-| `sandbox_policy` | Legacy optional sandbox policy object. Current public shape is `{ "mode": "FullAccess" }`; use `permission_profile` for Pioneer tool approval behavior. |
+| `sandbox_policy` | Legacy optional thread-era sandbox policy object. Current public shape is `{ "mode": "FullAccess" }`; use `permission_profile` for current turn permission and sandbox/resource behavior. |
 | `mode` | Optional per-turn thread mode override, `Chat` or `Agent`. |
 
 Response:
@@ -180,6 +179,27 @@ The gateway stores a `TurnPermissionProfileSnapshot` with:
 
 `ToolPermissionPolicySnapshot` contains `default_behavior`, `file_read`, `file_write`, `shell_command`, `network`, `mcp_read`, `mcp_write_or_unknown`, `dynamic_skill_tool`, `computer_use`, `task_subagent`, and optional `allowed_tools`, `denied_tools`, and `allowed_paths`.
 
+The gateway also resolves a `TurnExecutionSecuritySnapshot` for runtime enforcement. That snapshot includes:
+
+| Area | Meaning |
+| --- | --- |
+| `permission_profile` | The materialized permission profile used by the tool evaluator. |
+| `sandbox` | `unrestricted`, `workspace_write`, or `read_only`, plus cwd, filesystem entries, temp policy, network mirror, backend requirement, and backend preference. |
+| `process` | Shell policy, environment filtering, timeout cap, and command risk rules. |
+| `network` | `enabled`, `restricted`, or `disabled`, with allow/deny domain policy. |
+| `approval` | Approval scopes available for this turn. Built-in restricted modes allow `allow_once` and `allow_for_turn`. |
+| `backend` | Native, Codex CLI, or Claude CLI execution backend plus sandbox backend and backend capabilities. |
+| `enforcement` | `active`, `partially_active`, or `unavailable`, with degraded capability details when needed. |
+| `parent_cap` | Optional parent/task cap for child turns. |
+
+Built-in mode mapping:
+
+| Mode | Sandbox mode | Resource policy |
+| --- | --- | --- |
+| `full_access` | `unrestricted` | Filesystem unrestricted, network enabled, process unrestricted. |
+| `auto_accept_edits` | `workspace_write` | Resolved workspace/project roots writable, app read roots read-only, network disabled until granted, restricted process environment. |
+| `supervised` | `read_only` | Resolved workspace/project/app roots read-only, network disabled until granted, restricted process environment. |
+
 When a native Pioneer tool action requires approval, the gateway publishes:
 
 | Event | Params | Meaning |
@@ -188,7 +208,7 @@ When a native Pioneer tool action requires approval, the gateway publishes:
 | `turn/permission/request/resolved` | `TurnPermissionRequestResolvedNotification` | The pending request was resolved, cancelled, or expired. |
 | `turn/permission/audit` | `TurnPermissionAuditEvent` | Durable audit event for profile selection, allowed/denied decisions, approval requests, and approval resolutions. |
 
-An approval request includes `request_id`, `workspace_id`, `thread_id`, `turn_id`, `tool_name`, `action`, `scope_hash`, `reason`, optional `summary`, and display `details`.
+An approval request includes `request_id`, `workspace_id`, `thread_id`, `turn_id`, optional `visible_thread_ids`, `tool_name`, `action`, `scope_hash`, `reason`, optional `summary`, and display `details`.
 
 Resolve it with:
 
@@ -212,6 +232,17 @@ Generated permission schemas:
 - `/schemas/turn_permission_profile_selection.json`
 - `/schemas/turn_permission_profile_snapshot.json`
 - `/schemas/tool_permission_policy_snapshot.json`
+- `/schemas/turn_execution_security_snapshot.json`
+- `/schemas/turn_sandbox_snapshot.json`
+- `/schemas/turn_sandbox_mode.json`
+- `/schemas/turn_filesystem_sandbox_policy.json`
+- `/schemas/turn_filesystem_sandbox_entry.json`
+- `/schemas/turn_network_policy_snapshot.json`
+- `/schemas/turn_process_policy_snapshot.json`
+- `/schemas/turn_security_backend_snapshot.json`
+- `/schemas/turn_security_enforcement_status.json`
+- `/schemas/turn_security_degradation.json`
+- `/schemas/turn_security_parent_cap_snapshot.json`
 - `/schemas/permission_behavior.json`
 - `/schemas/turn_permission_approval_request.json`
 - `/schemas/turn_permission_approval_resolution.json`
@@ -355,32 +386,17 @@ Result:
 }
 ```
 
-## Composed Timeline
+## Semantic Timeline And Turn Work
 
-`turn/timeline` is the richer read API. It can compose parent turn events with task events and child-agent events.
+The current semantic timeline API is split by level:
 
-```json
-{
-  "method": "turn/timeline",
-  "params": {
-    "threadId": "thr_000000000000000001",
-    "turnId": "trn_000000000000000001",
-    "composeTasks": true,
-    "includeCollapsedTaskEvents": false,
-    "maxChildItemsPerTask": 100
-  }
-}
-```
+| API | Use it for |
+| --- | --- |
+| `thread/timeline/page` | Top-level paginated conversation blocks for a thread. |
+| `turn/work/page` | Paginated work items inside one `turn_work` block. |
+| `turn/items` | Raw persisted event replay for one turn. |
 
-Timeline items carry an `origin`:
-
-| Origin kind | Meaning |
-|---|---|
-| `parent_turn` | Item came from the requested turn. |
-| `task_event` | Item came from a task created/attached to the turn. |
-| `child_turn` | Item came from a task subagent child thread. |
-
-Use `turn/timeline` when rendering a task-aware conversation timeline. Use `turn/items` when you only need raw events for the parent turn.
+Use [Threads API](/protocol/threads) `thread/timeline/page` when rendering a scrollable conversation. Use `turn/work/page` when the user expands or paginates the detailed work for a single turn.
 
 ## Turn Work Page
 
@@ -454,7 +470,7 @@ Turn execution is observed through notifications:
 | `turn/completed` | `TurnCompletedNotification` | Turn completed successfully. |
 | `turn/failed` | `TurnFailedNotification` | Turn failed or was interrupted. |
 | `turn/blocked` | `TurnBlockedNotification` | Turn stopped in a recoverable blocked state. |
-| `turn/timeline/changed` | `TurnTimelineChangedNotification` | Composed timeline should be reloaded. |
+| `thread/timeline/blocks/changed` | `ThreadTimelineBlocksChangedNotification` | Semantic thread timeline pages may be stale and should be reloaded. |
 | `turn/work/items/changed` | `TurnWorkItemsChangedNotification` | Work items within a semantic turn work block changed. |
 | `turn/work/state/changed` | `TurnWorkStateChangedNotification` | A semantic turn work block changed state or counts. |
 | `turn/permission/request/opened` | `TurnPermissionRequestOpenedNotification` | A native tool action needs approval before it can run. |
@@ -514,6 +530,12 @@ The gateway also publishes detailed recovery events:
 | `context/compressed` | History compression finished. |
 
 Clients can render these as timeline diagnostics or use them to trigger a timeline refresh.
+
+## Voice-Created Turns
+
+Voice input is controlled by the [Voice API](/protocol/voice), but successful voice sessions become normal turns. The gateway owns transcription and starts the final turn with the transcript as the first `UserInput::Text` item. Clients should render the resulting user message, assistant work, permission prompts, and terminal state from the normal turn and timeline notifications.
+
+Cancelled and no-speech voice sessions do not create a turn or a timeline user message. Voice platform microphone permission is client-side capture state; it is separate from Pioneer agent `permission_profile` and turn sandbox/resource policy.
 
 ## Prompt Manifest
 

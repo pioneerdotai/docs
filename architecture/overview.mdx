@@ -141,7 +141,7 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 
   <Accordion title="Executing tools">
-    In agent mode, provider tool calls are routed through `pioneer-tools`. Built-in tools, MCP tools, skill tools, and task orchestration tools are presented through one router. Before side effects run, the tools runtime evaluates the turn permission profile and either allows the action, opens a user approval request, or rejects it. Tool and permission events are forwarded back to the gateway as durable item events, audit events, and progress events. Tool outputs are projected differently for the model, timeline, storage, and recovery evidence.
+    In agent mode, provider tool calls are routed through `pioneer-tools`. Built-in tools, MCP tools, skill tools, and task orchestration tools are presented through one router. Before side effects run, the tools runtime evaluates the turn permission profile, checks the execution security snapshot, and either allows the action, opens a user approval request, applies scoped grants, or rejects it. Tool and permission events are forwarded back to the gateway as durable item events, audit events, and progress events. Tool outputs are projected differently for the model, timeline, storage, and recovery evidence.
   </Accordion>
   <Accordion title="Running through a CLI runtime">
     A turn can select a CLI agent runtime backend instead of an API provider. The gateway maps the Pioneer thread to a native runtime thread, starts or resumes the CLI session, forwards runtime events into Pioneer turn items, handles pending approvals and user-input requests, and exposes runtime-specific operations such as model listing, compaction, fork, review start, and steering when supported.
@@ -174,11 +174,11 @@ The practical reason is failure handling. A turn can stream text, call a shell c
 
 For details, read [Persistence Layer](/architecture/persistence) after this overview. For the event producer side, read [Agent Loop](/architecture/agent-loop) and [Tasks And Subagents](/architecture/tasks).
 
-## Current Important Limitations
+## Current Scope And Boundaries
 
-Pioneer is still moving quickly. Some protocol and storage shapes are ahead of every client UI. Workspace creation, switching, and renaming are exposed, but workspace deletion, archival, and cross-workspace thread moves are not part of the current desktop or mobile workflow.
+Some protocol and storage shapes intentionally lead client UI. Workspace creation, switching, and renaming are exposed, while workspace deletion, archival, and cross-workspace thread moves are not part of the current desktop or mobile workflow.
 
-Pioneer now has turn permission profiles, tool approval requests, and durable permission audit events. This gives tools, MCP, skills, computer use, and task/subagent launches a shared application-level permission boundary. It is not the same as OS, VM, or container isolation: tool processes still execute on the gateway host under the gateway OS account. Use separate gateways or host-level isolation when a stronger machine, filesystem, credential, or network boundary is required.
+Pioneer now has turn permission profiles, execution security snapshots, tool approval requests, sandbox/resource policy, backend enforcement status, and durable permission audit events. This gives tools, MCP, skills, computer use, shell execution, web access, and task/subagent launches a shared gateway-owned security model. Use separate gateways when the work should live on a separate host, account, filesystem, credential set, or network.
 
 ## Related Pages
 
@@ -187,7 +187,7 @@ Pioneer now has turn permission profiles, tool approval requests, and durable pe
 - [Client Architecture](/architecture/clients) explains the shared Rust client core, FFI, desktop shell, and mobile shell.
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains Codex-style runtime sessions, thread/turn bindings, requests, steering, and recovery.
 - [Hook Runtime](/architecture/hooks) explains how lifecycle phases and typed contributions keep domain logic out of the agent loop.
-- [Permission System](/architecture/permissions) explains turn permission profiles, policy evaluation, approvals, audit events, and CLI runtime mapping.
+- [Permission System](/architecture/permissions) explains turn permission profiles, security snapshots, sandbox/resource policy, approvals, audit events, and CLI runtime mapping.
 - [Prompt And Context](/architecture/prompt) explains how history, prompt sections, skills, memory, retries, and runtime facts become model input.
 - [AGENTS.md Architecture](/architecture/agents-md) explains thread-tree instruction files, inheritance, and hook-based prompt injection.
 - [Tools System](/architecture/tools), [MCP Architecture](/architecture/mcp), and [Skills Architecture](/architecture/skills) explain the three main ways the model gets capabilities beyond plain chat.

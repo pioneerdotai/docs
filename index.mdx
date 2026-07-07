@@ -8,12 +8,12 @@ Pioneer is a local-first AI workspace for running an assistant on your own machi
 
 The basic flow is: connect to a gateway, choose or create a workspace, add a model provider, and start a thread. As your setup grows, you can add reusable skills, connect MCP servers, attach files as artifacts, enable memory, or schedule repeatable tasks.
 
-<Warning>
-  Pioneer is moving quickly. Test new workflows on low-risk projects first, especially before exposing a gateway outside your machine or letting agents work unattended.
-</Warning>
+<Note>
+  Pioneer is built around gateway-owned execution with turn permission modes, sandbox policy, resource checks, durable audit events, and keystore-backed secrets. Choose the gateway deliberately: local work runs locally, remote work runs on the remote gateway.
+</Note>
 
 <Note>
-  Agent turns have permission modes. Use **Supervised** when you want Pioneer to ask before commands and file changes, or **Auto-accept edits** when file edits are okay but other actions should still ask. Tools still run on the gateway host, so use a separate gateway when you need a separate machine or account boundary.
+  Agent turns have permission modes. Use **Supervised** when you want Pioneer to ask before sensitive actions, or **Auto-accept edits** when file edits are expected but commands, network, MCP writes, skills, computer use, and subagents should still ask.
 </Note>
 
 ## Gateway And Clients

@@ -14,7 +14,7 @@ The important thing to remember is that the desktop app is a client. It gives yo
 
 For a single-machine setup, the desktop app can start and manage a local gateway. This is the easiest way to try Pioneer: install the app, start the local gateway when prompted, add a model provider, and create a thread.
 
-In this setup, tool calls happen on your computer. If an agent lists files, it lists files visible to your local gateway. If it runs a shell command, it runs on your machine as the gateway user.
+In this setup, tool calls happen through the local gateway. If an agent lists files, it lists files visible to your local gateway. If it runs a shell command, Pioneer applies the selected turn permission and sandbox/resource policy before spawning on your machine.
 
 ## Multiple Gateways And Other Clients
 
@@ -26,9 +26,9 @@ Switching gateways is more than changing a label in the sidebar. You are switchi
 
 The mobile app can connect to those same gateways, but it does not manage a local gateway process on the phone. Use desktop when you need local gateway installation/start/stop flows; use mobile when you need a remote client into an already running gateway.
 
-<Warning>
-  When you connect to a remote gateway, tools run on the remote machine, not on the computer running the desktop app.
-</Warning>
+<Note>
+  When you connect to a remote gateway, tool work is owned by the remote gateway. The selected permission mode and sandbox/resource policy are enforced there, not by the desktop app process.
+</Note>
 
 ## What You Do In The App
 

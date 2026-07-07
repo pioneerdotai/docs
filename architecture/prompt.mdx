@@ -213,14 +213,14 @@ When model behavior looks wrong, check these in order:
 4. Were relevant skills resolved, disabled, or non-implicit? See [Skills Architecture](/architecture/skills).
 5. Did memory hooks contribute recall context or memory tools? See [Memory Architecture](/architecture/memory).
 6. Which tools were model-visible for that provider round? See [Tools System](/architecture/tools).
-7. Which permission profile was active, and did the model receive a `Current Permissions` section? See [Permission System](/architecture/permissions).
+7. Which permission profile and execution security snapshot were active, and did the model receive a `Current Permissions` section? See [Permission System](/architecture/permissions).
 8. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
 
 ## Related Pages
 
 - [Gateway](/architecture/gateway) explains where history loading is triggered.
 - [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.
-- [Permission System](/architecture/permissions) explains the effective profile that produces current permission guidance.
+- [Permission System](/architecture/permissions) explains the effective profile and security snapshot that produce current permission guidance.
 - [Hook Runtime](/architecture/hooks) explains how hook contributions become prompt context and prompt sections.
 - [Memory Architecture](/architecture/memory) explains the memory prompt contract and post-turn extractor prompt.
 - [Thread Episodic Context](/architecture/thread-episodic-context) explains recalled conversation snippets and artifact refs.

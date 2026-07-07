@@ -152,7 +152,7 @@ When the user selects such a row, fetch models with `cli_runtime/list_models`, t
 }
 ```
 
-`permission_profile` is the Pioneer-level permission mode. The gateway maps it into the runtime-specific approval policy before starting the native runtime turn. For Codex, `full_access` maps to `never`, `supervised` maps to `on-request`, and `auto_accept_edits` currently uses `on-request` as a stricter fallback. For Claude-style runtimes, `full_access` maps to `bypassPermissions`, `auto_accept_edits` maps to `acceptEdits`, and `supervised` maps to `default`.
+`permission_profile` is the Pioneer-level permission mode. The gateway resolves it into the turn security snapshot and maps it into the runtime-specific approval/sandbox policy before starting the native runtime turn. For Codex, `full_access` maps to `never`, `supervised` maps to `on-request`, and `auto_accept_edits` currently uses `on-request` as a stricter fallback. For Claude-style runtimes, `full_access` maps to `bypassPermissions`, `auto_accept_edits` maps to `acceptEdits`, and `supervised` maps to `default`.
 
 `cli_runtime_options` remains runtime-specific for options such as `sandbox`, `effort`, `personality`, `summary`, and `steer_if_active`. Clients should not send a separate runtime approval policy here; use `permission_profile` so Pioneer can persist one permission profile and audit model for the turn.
 
@@ -257,6 +257,6 @@ Generated schemas include:
 ## Related Pages
 
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains session management, native thread/turn bindings, pending requests, and restart recovery.
-- [Permission System](/architecture/permissions) explains how Pioneer permission modes map into CLI runtime approval policies.
+- [Permission System](/architecture/permissions) explains how Pioneer permission modes and security snapshots map into CLI runtime approval and sandbox policies.
 - [Provider System](/architecture/providers) explains why CLI-backed runtimes are separate from API provider adapters.
 - [Client Architecture](/architecture/clients) explains how desktop and mobile consume runtime projections.

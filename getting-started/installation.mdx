@@ -10,12 +10,12 @@ For personal use on one computer, install the desktop app. It can bring up a loc
 
 For a shared machine, a server, or a machine that should keep working while your laptop is closed, install the gateway directly. Then connect to it from the desktop app.
 
-<Warning>
-  Start new setups with low-risk projects first. Move important work into Pioneer after you understand which gateway you are connected to, which provider keys are configured there, and how permission prompts behave for your tools.
-</Warning>
+<Note>
+  Before important work, confirm which gateway you are connected to, which provider keys are configured there, and which permission mode is selected for the turn. Pioneer enforces turn permissions and sandbox/resource policy on the gateway that owns the work.
+</Note>
 
 <Note>
-  Tool approval prompts are controlled per turn by permission modes. **Supervised** asks before commands and file changes; **Auto-accept edits** allows file edits but still asks for other external actions. Tools execute on the gateway host, so use a separate gateway when you need a separate machine, filesystem, account, or network boundary.
+  Tool approval prompts are controlled per turn by permission modes. **Supervised** asks before sensitive tool actions; **Auto-accept edits** allows file edits but still asks for commands, network, MCP writes, skill tools, computer use, and subagents.
 </Note>
 
 ## Local Desktop Install
@@ -144,7 +144,7 @@ pioneer issue-superuser-token
 
 Then add a gateway connection in the desktop app using the gateway host, port, and token. Give it a plain name you will recognize later, such as `Work Gateway`, `Home Server`, or `Sandbox`.
 
-Remember that the desktop app is only the client. If you connect to a gateway on a server, tools run on that server and see that server's files, environment variables, network, and OS account permissions. Use the turn permission mode to control when Pioneer asks before tool actions.
+Remember that the desktop app is only the client. If you connect to a gateway on a server, tools run on that server. Turn permission modes and sandbox/resource policy control what Pioneer allows, asks about, audits, and blocks within that gateway environment.
 
 Saved desktop gateway tokens are stored in the desktop keystore. The desktop registry stores token refs, not raw bearer tokens.
 
@@ -218,6 +218,6 @@ Once the gateway is running, go to [Quick Start](/getting-started/quickstart) an
 - [Permission Modes](/getting-started/permissions) explains how to choose Supervised, Auto-accept edits, or Full access.
 - [Gateway Architecture](/architecture/gateway) explains what the gateway service owns at runtime.
 - [Client Architecture](/architecture/clients) explains why desktop and mobile apps are clients of a gateway.
-- [Permission System](/architecture/permissions) explains turn permission modes, approval requests, and audit events.
+- [Permission System](/architecture/permissions) explains turn permission modes, sandbox/resource policy, approval requests, and audit events.
 - [Secret Storage](/architecture/secrets) explains where gateway tokens, provider keys, MCP secrets, and remote-access keys live.
 - [Configuration Overview](/configuration/overview) explains when to use app config files instead of in-app settings.

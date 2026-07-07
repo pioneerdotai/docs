@@ -97,7 +97,7 @@ When `task/wait` returns review-required candidates, the task tool provider expo
 
 Child agent turns run through the same agent loop as foreground agent turns, including turn preflight before the child main provider request. They receive a task runtime hook context so memory policy and post-turn extraction can distinguish task-owned context from ordinary user-thread context.
 
-Child turns also receive a permission profile derived from the parent turn or task permission cap. The cap is restrictive: policy intersection keeps `deny` stricter than `ask`, `ask` stricter than `allow`, and the effective mode cannot become broader than the parent/task contract. A subagent can therefore do delegated work without silently gaining more access than the turn or task allowed.
+Child turns also receive a permission profile and security cap derived from the parent turn or task policy. The cap is restrictive: policy intersection keeps `deny` stricter than `ask`, `ask` stricter than `allow`, and the effective mode cannot become broader than the parent/task contract. Filesystem roots, network policy, process policy, and sandbox mode are also intersected so delegated work cannot silently gain more access than the parent turn or task allowed.
 
 ## Retries, Locks, And Deliveries
 
@@ -109,6 +109,6 @@ Startup reconciliation repairs tasks and runs that were active when the gateway 
 
 - [Gateway](/architecture/gateway) explains how the gateway starts the task runtime and bridges task events.
 - [Agent Loop](/architecture/agent-loop) explains how task tools are exposed during a turn.
-- [Permission System](/architecture/permissions) explains task permission caps and turn permission profile inheritance.
+- [Permission System](/architecture/permissions) explains task permission caps, security caps, and turn permission profile inheritance.
 - [Prompt And Context](/architecture/prompt) explains the task orchestration prompt section.
 - [Persistence Layer](/architecture/persistence) explains task events and task projectors.

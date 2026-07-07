@@ -5,13 +5,13 @@ description: "Built-in tools, dynamic tool bundles, routing, output policies, an
 
 `crates/tools` is the runtime layer that turns model tool calls into real actions. The agent loop asks it to build a tool runtime for a turn, then routes each provider tool call through that runtime.
 
-Tool execution is protected by the turn permission system. Each turn carries an effective permission profile, and the tools runtime evaluates side-effecting actions before execution. Depending on policy, a tool action is allowed, blocked, or converted into a client approval request.
+Tool execution is protected by the turn permission and sandboxing system. Each turn carries an effective permission profile and a `TurnExecutionSecuritySnapshot`. The tools runtime evaluates side-effecting actions before execution, checks the relevant filesystem, network, and process policy, and then either executes, rejects, or opens a client approval request.
 
 The tools layer is where Pioneer crosses from language into side effects. Reading a file, running a command, calling an MCP server, applying a patch, or using computer control is no longer just "model output." It is gateway-host execution.
 
-<Warning>
-  Permission profiles are an application-level policy boundary, not a separate OS sandbox. A remote gateway means the tool runs on the remote host. A local gateway means it runs as the local OS user. Use gateway separation or host-level isolation when the machine boundary matters.
-</Warning>
+<Note>
+  A remote gateway means the tool runs on the remote host; a local gateway means it runs on the local host. Within that host, Pioneer applies turn permission profiles, resource policies, scoped approval grants, and the selected native or provider sandbox backend.
+</Note>
 
 ## Why This Layer Exists
 
@@ -34,7 +34,7 @@ At the same time, Pioneer needs consistent behavior after execution: timeline ev
 
 ## Permission Evaluation
 
-Every tool invocation receives a `PermissionEvaluationContext` containing the workspace, thread, turn, and `TurnPermissionProfileSnapshot`. Before execution, the orchestrator extracts a `PermissionIntent`, classifies the action kind, and evaluates it against the profile's `ToolPermissionPolicySnapshot`.
+Every tool invocation receives a `PermissionEvaluationContext` containing the workspace, thread, turn, and `TurnPermissionProfileSnapshot`, plus the turn's `TurnExecutionSecuritySnapshot`. Before execution, the orchestrator extracts a `PermissionIntent`, classifies the action kind, and evaluates it against the profile's `ToolPermissionPolicySnapshot`.
 
 Supported action kinds are:
 
@@ -62,6 +62,20 @@ Policy evaluation returns one of three behaviors:
 Approval requests include a normalized request key and scope hash. If the user chooses `allow_for_turn`, the tools runtime caches that request key for the rest of the turn so matching actions can proceed without repeated prompts. `allow_once` applies only to the current request.
 
 The tools layer emits permission audit events for profile decisions, approval requests, approval resolutions, cached approvals, and denied actions. The gateway persists those events through the same durable turn-event path as ordinary tool lifecycle events.
+
+## Sandbox And Resource Policy
+
+Permission approval is not the only gate. The orchestrator and handlers also enforce the execution security snapshot:
+
+| Resource | Enforcement path |
+| --- | --- |
+| Filesystem | `FilePolicyChecker` verifies reads and writes against resolved sandbox roots, access mode, canonical paths, missing write parents, and symlink escapes. |
+| Network | `NetworkPolicyChecker` verifies HTTP/HTTPS access against enabled, disabled, or restricted network policy before search, fetch, or download. |
+| Process | `build_process_spawn_plan` checks shell policy, command risk, cwd access, environment filtering, and timeout caps before a shell command spawns. |
+| Native sandbox | Shell execution prepares the selected backend (`nono` on Linux/macOS or Windows restricted token) when the snapshot requires it. |
+| Provider sandbox | CLI-backed runtimes report provider-native sandbox and approval capabilities through the same backend capability snapshot. |
+
+Scoped approvals can extend a restricted snapshot for the current invocation or the rest of the turn. For example, approving a specific download can add both the network grant and destination write grant needed for that operation without switching the whole turn to full access.
 
 ## Built-In Tools
 
@@ -92,9 +106,9 @@ Artifact tools are lazy-domain tools. `artifact_prepare` gives the model a safe 
 
 Shell execution uses unified sessions. `exec_command` can start a process and return either final output or a session id. `write_stdin` can continue an existing session. Active sessions are bounded and buffered so long-running commands do not grow memory without limit.
 
-Filesystem tools are intentionally direct: read files, list directories, search with grep-style behavior, and apply patches. Manual patch edits in Pioneer are routed through the patch tool path rather than ad hoc file rewriting.
+Filesystem tools are intentionally direct: read files, list directories, search with grep-style behavior, and apply patches. Manual patch edits in Pioneer are routed through the patch tool path rather than ad hoc file rewriting. These handlers call the file policy checker before opening paths when a turn security snapshot is present.
 
-Web tools are optional at runtime and controlled by gateway configuration. They can search, fetch, and download with limits.
+Web tools are optional at runtime and controlled by gateway configuration. They can search, fetch, and download with limits. They call the network policy checker before network access; downloads also call the file policy checker before creating the destination file.
 
 Computer use uses native automation/screenshot dependencies where available. It is part of the same tool router, not a special client-side channel, but the `computer_use` schema is hidden until preflight or `request_tools` reveals the `computer_use` domain.
 
@@ -154,7 +168,7 @@ MCP server lifecycle belongs in [MCP Architecture](/architecture/mcp). Skills in
 ## Related Pages
 
 - [Agent Loop](/architecture/agent-loop) explains when tools are exposed and called.
-- [Permission System](/architecture/permissions) explains turn permission modes, approval requests, and audit events.
+- [Permission System](/architecture/permissions) explains turn permission modes, security snapshots, sandbox/resource policy, approval requests, and audit events.
 - [MCP Architecture](/architecture/mcp) explains MCP-backed dynamic tools.
 - [Skills Architecture](/architecture/skills) explains skill-backed dynamic tools.
 - [Tasks And Subagents](/architecture/tasks) explains task orchestration tools.

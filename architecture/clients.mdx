@@ -9,7 +9,7 @@ The current client stack has three layers:
 
 | Layer | Code | Responsibility |
 | --- | --- | --- |
-| Shared client core | `crates/client` | Shell-neutral Rust logic for gateway transport, protocol requests, notification reduction, read models, selectors, timeline rows, composer planning, permission-mode display, provider/model helpers, MCP/skill presentation, settings, artifacts, AGENTS.md, tasks, and DTO contracts. |
+| Shared client core | `crates/client` | Shell-neutral Rust logic for gateway transport, protocol requests, notification reduction, read models, selectors, timeline rows, composer and voice turn planning, permission-mode display, provider/model helpers, MCP/skill presentation, settings, artifacts, AGENTS.md, tasks, and DTO contracts. |
 | Native boundary | `crates/client-ffi` | C ABI and JSON method boundary for shells that cannot link Rust APIs directly. It wraps `pioneer-client`, catches panics, serializes tagged JSON responses, exposes generated DTO schemas, and records client diagnostics. |
 | Shells | `crates/desktop`, `pioneer-app` | UI rendering, navigation, storage, native dialogs, local gateway process management where supported, platform permissions, localization, and OS integration. |
 
@@ -66,7 +66,7 @@ Desktop may manage a local gateway process because it runs on a workstation-clas
 
 Mobile stores its gateway registry in MMKV-backed local storage and bearer tokens in Expo SecureStore. It connects to remote gateways; it does not currently supervise a local gateway process on the phone.
 
-Mobile should call through the Nitro module for shared behavior rather than reimplementing Rust reducers in TypeScript. TypeScript owns screens, navigation, local store orchestration, platform permissions, localization, file picker behavior, and presentation glue.
+Mobile should call through the Nitro module for shared behavior rather than reimplementing Rust reducers in TypeScript. TypeScript owns screens, navigation, local store orchestration, platform permissions, localization, file picker behavior, microphone capture, and presentation glue.
 
 ## Shared Client Core
 
@@ -83,6 +83,7 @@ Good candidates for `pioneer-client` include:
 - composer permission mode options and `TurnPermissionProfileSelection` planning;
 - composer attachment, skill, and MCP capability planning;
 - artifact transfer/cache helpers behind platform traits;
+- voice session command wrappers, frozen voice composer snapshot preparation, result reductions, and binary voice frame helpers;
 - AGENTS.md state machines and save/archive helpers;
 - public DTOs and schema export.
 
@@ -124,6 +125,17 @@ The gateway still enforces policy. Client composer planning is a presentation an
 
 Model selection state includes provider, model, optional selected reasoning effort, and whether the selection was manually chosen. Permission mode state is per composer draft and maps directly to `TurnPermissionProfileSelection`. When the selected provider or model changes, shared client logic clears the selected reasoning effort so stale effort values from a previous model are not sent to the gateway. If the selection is resolved from an existing thread, the resolved effort can be carried forward.
 
+## Voice Planning
+
+Voice input uses the same gateway-owned turn model as text input. The shell owns platform microphone permission and audio capture. The shared client core owns the voice protocol helpers:
+
+- `voice/status`, `voice/session/start`, `voice/session/finalize`, and `voice/session/cancel` command wrappers;
+- `VOC1` binary audio chunk frame encoding;
+- frozen `VoiceTurnContext` preparation for attachments, capabilities, model selection, reasoning, permission profile, and CLI runtime options;
+- result reductions that tell shells whether to keep finalizing, clear state, show no-speech, or show an error.
+
+The client must not insert gateway transcription text into the draft. Successful voice sessions are rendered from normal turn notifications plus thread timeline-page and turn work-page APIs after the gateway starts the turn.
+
 ## FFI And Schemas
 
 `pioneer-client-ffi` exposes JSON methods such as:
@@ -133,6 +145,7 @@ Model selection state includes provider, model, optional selected reasoning effo
 - `provider_list`, `provider_list_models`, `provider_model_display`;
 - `reasoning_effort_rows` for model-specific reasoning effort picker rows;
 - `cli_runtime_list`, `cli_runtime_list_models`, `cli_runtime_thread_binding_get`, `cli_runtime_turn_steer`;
+- `voice_status`, `voice_session_start`, `voice_audio_chunk`, `voice_session_finalize`, `voice_session_cancel`, and `prepare_voice_composer_snapshot`;
 - `composer_*` helpers for attachments, skills, MCP capabilities, permission modes, and turn preparation;
 - `thread_tree_refresh`, `agents_doc_get`, `agents_doc_save`, `active_thread_*`.
 
@@ -151,7 +164,7 @@ Generated client schemas have two jobs. First, they make TypeScript bindings rev
 
 `pioneer-app/src/client/generated` and `pioneer-app/src/client/schema` are generated from the Rust client/FFI contract. They include DTOs for gateway registry plans, active-thread snapshots, composer rows, permission mode options, provider/model selection, reasoning effort rows, CLI runtime pending requests, settings, MCP catalog rows, skill diagnostics, task review display, timeline rows, and workspace bootstrap.
 
-Current model-selection and reasoning DTOs include `composer_model_selection`, `composer_model_selection_candidate`, `composer_model_selection_state`, `provider_model_reasoning_capabilities`, `reasoning_capability_source`, `reasoning_effort_row`, `reasoning_effort_rows_request`, `reasoning_effort_rows_response`, and `turn_reasoning_selection`.
+Current model-selection, reasoning, security, and voice DTOs include `composer_model_selection`, `composer_model_selection_candidate`, `composer_model_selection_state`, `provider_model_reasoning_capabilities`, `reasoning_capability_source`, `reasoning_effort_row`, `reasoning_effort_rows_request`, `reasoning_effort_rows_response`, `turn_reasoning_selection`, `client_turn_security_summary`, `client_security_diagnostic`, `voice_composer_lock_state`, `voice_finalize_response_reduction`, and `voice_session_result_reduction`.
 
 When changing a shared client DTO:
 

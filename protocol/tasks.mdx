@@ -555,6 +555,6 @@ Notification params include a `context` object with `workspaceId`, `taskId`, opt
 
 ## How Tasks Relate To Turns
 
-Agent turns can create tasks, tasks can create child threads, and child turns can report results back to parent tasks. For rendering a conversation that includes delegated work, combine [Turns API](/protocol/turns) `turn/timeline` with `task/tree` and `task/events`.
+Agent turns can create tasks, tasks can create child threads, and child turns can report results back to parent tasks. For rendering a conversation that includes delegated work, combine [Threads API](/protocol/threads) `thread/timeline/page`, [Turns API](/protocol/turns) `turn/work/page`, `task/tree`, and `task/events`.
 
 For a task automation screen, use `task/agenda`, `task/list`, `task/get`, and `task/deliveries`. For an agent orchestration screen, use `task/tree`, `task/events`, and child thread links.

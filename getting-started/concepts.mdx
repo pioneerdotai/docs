@@ -14,7 +14,7 @@ It talks to model providers, stores Pioneer data and secrets, runs tools, manage
 
 A good rule: the gateway is where work happens. The client app is how you control it.
 
-That rule matters because tools run on the gateway host. If the gateway is on your laptop, tools touch your laptop environment. If the gateway is on a server, tools touch the server environment.
+That rule matters because the gateway owns execution and enforcement. If the gateway is on your laptop, tool work is planned and checked against your laptop environment. If the gateway is on a server, the same permission and sandbox/resource policy applies to the server environment.
 
 ## Desktop, Mobile, And Other Clients
 
@@ -86,10 +86,10 @@ Provider credentials and CLI runtime settings are configured on the gateway. Pro
 Tools let agents do work outside plain text. Depending on what you enable, tools can read files, search directories, run shell commands, apply patches, fetch web pages, download URLs, call MCP tools, or use dynamic tools from skills.
 
 <Warning>
-  Treat tool access as real access to the gateway machine. Permission modes let Pioneer ask before commands, file writes, network actions, skill tools, MCP writes, computer use, and subagent launches, but the action still runs on the gateway host when approved.
+  Treat tool access as real work inside the gateway environment. Permission modes and sandbox/resource policy let Pioneer ask, allow, audit, or block file writes, commands, network actions, skill tools, MCP writes, computer use, and subagent launches.
 </Warning>
 
-Start with read-only requests in **Supervised** mode. After you trust the behavior, test write operations in a disposable folder before using them in important projects.
+Start with read-only requests in **Supervised** mode. When edits are expected, use **Auto-accept edits** so normal file changes can proceed while commands, network, and other sensitive actions still require approval.
 
 ## Skills
 
@@ -130,7 +130,7 @@ Use this page for product vocabulary. Use Architecture when you want the impleme
 | Gateway, runtime ownership, sessions | [Gateway](/architecture/gateway) |
 | Desktop, mobile, and shared client code | [Client Architecture](/architecture/clients) |
 | Turns, prompt construction, tools, retries | [Agent Loop](/architecture/agent-loop) |
-| Permission modes and approval prompts | [Permission System](/architecture/permissions) |
+| Permission modes, sandbox policy, and approval prompts | [Permission System](/architecture/permissions) |
 | Durable memory | [Memory Architecture](/architecture/memory) |
 | Thread episodic context | [Thread Episodic Context](/architecture/thread-episodic-context) |
 | Artifacts and file continuity | [Artifacts Architecture](/architecture/artifacts) |

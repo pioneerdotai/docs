@@ -1,11 +1,21 @@
 ---
-title: "Permission System"
-description: "Turn permission profiles, policy evaluation, approval requests, audit events, and CLI runtime permission mapping."
+title: "Permission & Sandboxing System"
+description: "Turn permission profiles, execution security snapshots, sandbox policy, approval requests, audit events, and CLI runtime permission mapping."
 ---
 
-Pioneer has a turn-scoped permission system for agent work. A client selects a permission profile when starting a turn, the gateway compiles it into an effective tool policy, the tools runtime evaluates each side-effecting action against that policy, and clients receive approval requests when the policy says to ask.
+Pioneer has a turn-scoped security model for agent work. A client selects a permission profile when starting a turn, the gateway resolves it into a `TurnExecutionSecuritySnapshot`, and the tools runtime enforces that snapshot before side effects run.
 
-This is an application-level permission boundary. It controls which actions Pioneer allows, asks about, denies, audits, and describes to the model. It is not a separate OS, VM, or container sandbox: tool processes still run on the gateway host under the gateway OS account. Use separate gateways or host-level isolation when the machine, credentials, filesystem, or network boundary must be different.
+The snapshot combines user-visible permission behavior with concrete execution controls:
+
+- tool actions can be allowed, denied, or routed through an approval prompt;
+- file tools are checked against resolved read/write roots before opening paths;
+- web tools are checked against the turn network policy before network access;
+- shell commands receive a process policy for cwd, environment filtering, timeout, and command risk;
+- native shell execution can use the `nono` sandbox backend on Linux/macOS or a restricted-token backend on Windows when the resolved snapshot requires a native sandbox;
+- CLI-backed runtimes use their provider-native sandbox and approval capabilities when available;
+- every decision is auditable through durable turn events.
+
+This page describes the gateway-side security contract. The user-facing overview is [Permission Modes](/getting-started/permissions), and the protocol shape is documented in [Turns API](/protocol/turns).
 
 ## Main Types
 
@@ -15,20 +25,26 @@ The public protocol types live in `crates/protocol/src/turn.rs`, with policy com
 | --- | --- |
 | `TurnPermissionProfileSelection` | Client request shape in `turn/start`. Currently selects a `mode`. |
 | `TurnPermissionProfileSnapshot` | Materialized profile stored on the `Turn`, including `mode`, `source`, and `effective_policy`. |
+| `TurnExecutionSecuritySnapshot` | Resolved execution contract for one turn: permission profile, sandbox, filesystem, network, process, approval, backend, enforcement status, and optional parent cap. |
+| `TurnSandboxSnapshot` | Sandbox mode, cwd, filesystem entries, temporary-directory policy, network policy mirror, backend requirement, and backend preference. |
+| `TurnNetworkPolicySnapshot` | Network mode plus allow/deny domain data. |
+| `TurnProcessPolicySnapshot` | Shell enablement, environment inheritance/filtering, timeout cap, and command-risk rules. |
+| `TurnSecurityBackendSnapshot` | Execution backend, sandbox backend, backend provider id, and backend security capabilities. |
+| `TurnSecurityEnforcementStatus` | Whether the resolved security policy is active, partially active with degradations, or unavailable. |
 | `ToolPermissionPolicySnapshot` | Effective `allow`, `ask`, or `deny` behavior per action kind plus optional tool/path allow and deny lists. |
 | `TurnPermissionApprovalRequest` | Client-visible request opened when a tool action needs user approval. |
 | `TurnPermissionAuditEvent` | Durable audit row for profile selection, allowed decisions, denied decisions, approval requests, and approval resolutions. |
-| `TurnPermissionProfileCap` | Permission cap passed to task/subagent execution so child turns cannot silently broaden the parent policy. |
+| `TurnPermissionProfileCap` / `TaskAgentSecurityCap` | Caps passed to task/subagent execution so child turns cannot silently broaden parent permissions, filesystem roots, network policy, sandbox mode, or process policy. |
 
 ## Permission Modes
 
 The desktop composer exposes the same three protocol modes in this order:
 
-| Mode | UI label | Default policy |
-| --- | --- | --- |
-| `full_access` | Full access | Allows file reads, file writes, shell commands, network, MCP, skill tools, computer use, and task/subagent launches without Pioneer approval prompts. This is the default when no profile is selected. |
-| `auto_accept_edits` | Auto-accept edits | Allows file reads, file writes, and MCP reads. Shell commands, network, MCP writes or unknown MCP calls, dynamic skill tools, computer use, task/subagent launches, and unknown actions ask for approval. |
-| `supervised` | Supervised | Allows file reads and MCP reads. File writes, shell commands, network, MCP writes or unknown MCP calls, dynamic skill tools, computer use, task/subagent launches, and unknown actions ask for approval. |
+| Mode | UI label | Sandbox mode | Default policy |
+| --- | --- | --- | --- |
+| `full_access` | Full access | `unrestricted` | Allows file reads, file writes, shell commands, network, MCP, skill tools, computer use, and task/subagent launches without Pioneer approval prompts. This is the default when no profile is selected. |
+| `auto_accept_edits` | Auto-accept edits | `workspace_write` | Allows file reads, file writes, and MCP reads. Shell commands, network, MCP writes or unknown MCP calls, dynamic skill tools, computer use, task/subagent launches, and unknown actions ask for approval. Filesystem policy grants write access to resolved workspace/project roots and read access to app runtime roots. Network starts disabled until approved or granted. |
+| `supervised` | Supervised | `read_only` | Allows file reads and MCP reads. File writes, shell commands, network, MCP writes or unknown MCP calls, dynamic skill tools, computer use, task/subagent launches, and unknown actions ask for approval. Filesystem policy grants read access to resolved workspace/project/app roots. Network starts disabled until approved or granted. |
 
 The policy vocabulary is intentionally small:
 
@@ -39,6 +55,34 @@ The policy vocabulary is intentionally small:
 | `deny` | Reject the action before execution. |
 
 Current built-in modes use `allow` and `ask`; the protocol and evaluator also support `deny`.
+
+## Execution Security Snapshot
+
+`TurnExecutionSecuritySnapshot` is the executable form of the permission choice. The gateway builds it in `crates/gateway/src/turn_security.rs` before the agent turn runs and attaches it to tool invocations.
+
+| Snapshot area | What it controls |
+| --- | --- |
+| `permission_profile` | The compiled `TurnPermissionProfileSnapshot` used by the tool permission evaluator and prompt runtime section. |
+| `sandbox.mode` | `unrestricted`, `workspace_write`, or `read_only`. |
+| `sandbox.cwd` | The resolved working directory for relative paths and process cwd checks. |
+| `sandbox.filesystem.entries` | Read/write roots such as workspace root, project roots, and runtime app read roots. Entries record provenance: workspace, project, runtime, task cap, system, or composer selection. |
+| `sandbox.tmp` | Host or isolated temp policy. Restricted modes use isolated temp policy. |
+| `network` | `enabled`, `restricted`, or `disabled`, with domain allow/deny lists and localhost/socket flags. Restricted built-in modes start with network disabled and can receive grants through approved requests. |
+| `process` | Shell enabled flag, stdin/session inheritance flags, environment filtering, max duration, denied commands, and allowed command families. Restricted modes filter token/secret/password-like environment names. |
+| `approval` | Which approval scopes are allowed. Built-in restricted modes allow `allow_once` and `allow_for_turn`; they do not allow session-wide or always grants. |
+| `backend` | Native, Codex CLI, or Claude CLI execution backend plus the sandbox backend selected for that turn. |
+| `enforcement` | `active`, `partially_active`, or `unavailable`. Degradations name missing backend capabilities such as filesystem, network, process, approval, or sandbox backend. |
+| `parent_cap` | Present when a task/subagent turn inherits a narrower parent/task security cap. |
+
+The built-in resolver maps modes to snapshots as follows:
+
+| Permission mode | Sandbox mode | Filesystem | Network | Process | Backend requirement |
+| --- | --- | --- | --- | --- | --- |
+| `full_access` | `unrestricted` | Unrestricted | Enabled | Unrestricted | Optional |
+| `auto_accept_edits` | `workspace_write` | Workspace/project roots writable; app read roots read-only | Disabled until granted | Restricted env and timeout policy | Required |
+| `supervised` | `read_only` | Workspace/project/app roots read-only | Disabled until granted | Restricted env and timeout policy | Required |
+
+For native API-provider turns, restricted modes use the native sandbox backend: `nono` on Linux/macOS and Windows restricted tokens on Windows. For CLI-backed turns, the gateway records the runtime provider's sandbox and approval capabilities and marks enforcement active, partially active, or unavailable based on what that runtime can enforce.
 
 ## Profile Sources
 
@@ -68,12 +112,14 @@ sequenceDiagram
 
   Client->>Gateway: turn/start(permission_profile)
   Gateway->>Gateway: compile TurnPermissionProfileSnapshot
-  Gateway->>Store: persist turn start + profile_selected audit
-  Gateway->>Agent: StartTurn(permission_profile)
-  Agent->>Tools: execute tool call with PermissionEvaluationContext
+  Gateway->>Gateway: resolve TurnExecutionSecuritySnapshot
+  Gateway->>Store: persist turn start + security/profile audit
+  Gateway->>Agent: StartTurn(permission_profile, security_snapshot)
+  Agent->>Tools: execute tool call with PermissionEvaluationContext + security snapshot
   Tools->>Tools: classify action and evaluate policy
   alt allow
     Tools->>Store: permission audit decision_allowed
+    Tools->>Tools: enforce file/network/process policy
     Tools->>Tools: execute action
   else ask
     Tools->>Store: permission audit approval_requested
@@ -82,6 +128,7 @@ sequenceDiagram
     Client->>Gateway: turn/permission/request/respond
     Gateway->>Client: turn/permission/request/resolved
     Tools->>Store: permission audit approval_resolved
+    Tools->>Tools: apply scoped grant if approved
     Tools->>Tools: execute or reject
   else deny
     Tools->>Store: permission audit decision_denied
@@ -103,7 +150,19 @@ The evaluator classifies tool calls into `TurnPermissionActionKind`:
 - `internal`
 - `unknown`
 
-Approval requests include the tool name, action kind, a normalized `scope_hash`, a machine-readable reason, an optional summary, and display details. The `scope_hash` is used for the `allow_for_turn` cache: if the user allows the same normalized action scope for the rest of the turn, later matching asks can proceed without opening another prompt.
+Approval requests include the tool name, action kind, a normalized `scope_hash`, a machine-readable reason, an optional summary, display details, and `visible_thread_ids` when the approval UI should associate the request with more than one visible thread. The `scope_hash` is used for the `allow_for_turn` cache: if the user allows the same normalized action scope for the rest of the turn, later matching asks can proceed without opening another prompt.
+
+## Filesystem, Network, And Process Enforcement
+
+The permission evaluator answers "may this kind of tool action proceed now?" The security snapshot answers "what resource boundary applies if it proceeds?"
+
+Filesystem tools call `FilePolicyChecker` before reading, listing, grepping, writing, editing, applying patches, or writing downloads. The checker resolves relative paths against `sandbox.cwd`, canonicalizes existing paths, handles new write targets through the canonical parent directory, rejects paths outside allowed roots, rejects write attempts under read-only roots, and rejects symlink escapes.
+
+Web tools call `NetworkPolicyChecker` before search, fetch, or download. It accepts HTTP and HTTPS URLs only, checks denied domains before allow rules, rejects disabled network access, and supports restricted allowlists plus localhost policy. `download_url` also checks the destination path through the filesystem policy before opening the network request.
+
+Shell execution builds a `ProcessSpawnPlan` from the snapshot before spawning. The plan enforces shell enablement, denied/allowed command-family rules, cwd access, environment filtering, and timeout caps. Native shell execution then prepares the native sandbox backend when one is selected. A provider-native sandbox snapshot is rejected on the native shell path because that backend can protect provider-runtime execution, not a Pioneer-spawned local process.
+
+Approval can also add scoped grants. If the user approves a filesystem or network action once, the current invocation receives the grant. If the user approves it for the turn, matching grants are cached for the same turn and merged into later invocations without widening unrelated scopes.
 
 ## Approval Responses
 
@@ -155,17 +214,17 @@ CLI runtime requests opened by the native runtime still use the CLI runtime pend
 
 ## Tasks And Subagents
 
-Task-backed child turns receive a permission cap. The task runtime can derive a `TurnPermissionProfileCap` from the parent profile or task policy, and child runs are materialized with source `task_permission_cap` or inherited source data.
+Task-backed child turns receive a security cap. The task runtime can derive a `TurnPermissionProfileCap` and `TaskAgentSecurityCap` from the parent profile or task policy, and child runs are materialized with source `task_permission_cap` or inherited source data.
 
-Policy intersection is restrictive: `deny` wins over `ask`, `ask` wins over `allow`, and the most restrictive mode wins in the order `supervised`, `auto_accept_edits`, `full_access`. This prevents delegated or scheduled child work from silently expanding access beyond the parent/task contract.
+Policy intersection is restrictive: `deny` wins over `ask`, `ask` wins over `allow`, and the most restrictive mode wins in the order `supervised`, `auto_accept_edits`, `full_access`. Sandbox mode, network policy, process policy, and filesystem roots are also intersected against the parent/task cap. This prevents delegated or scheduled child work from silently expanding access beyond the parent/task contract.
 
 ## Developer Rules
 
 - Treat permission profiles as part of `turn/start` semantics, not client-only UI state.
-- Persist profile selection and permission audit events before depending on in-memory execution state.
+- Resolve and persist the execution security snapshot before depending on in-memory execution state.
 - Route side-effecting tool calls through the tools runtime so action classification, approval, audit, retry, and output policy stay consistent.
 - Do not implement one-off approval prompts inside a tool handler. Add action classification and use the shared approval broker instead.
-- Keep user-facing safety copy precise: Pioneer has permission modes and approval gates, but not a separate host sandbox for tool processes.
+- Keep user-facing safety copy precise: permission modes, sandbox snapshots, native/provider sandbox backends, file policy, network policy, process policy, and audit events are real enforcement layers; stronger deployment boundaries still come from choosing the right gateway host and OS account.
 - When adding a protocol field, action kind, decision reason, or notification, update protocol schemas, client reducers/FFI projections, and [Turns API](/protocol/turns).
 
 ## Related Pages
