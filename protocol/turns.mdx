@@ -15,6 +15,8 @@ A turn is one unit of assistant execution inside a thread. The client creates a 
 | `turn/get` | `TurnGetParams` | `TurnGetResponse` | Load one turn model. |
 | `turn/items` | `TurnItemsParams` | `TurnItemsResponse` | Load persisted item events for one turn. |
 | `turn/timeline` | `TurnTimelineParams` | `TurnTimelineResponse` | Load a composed timeline, optionally including task/child-turn events. |
+| `turn/work/page` | `TurnWorkPageParams` | `TurnWorkPageResponse` | Load paginated work items inside one semantic turn work block. |
+| `turn/permission/request/respond` | `TurnPermissionRequestRespondParams` | `TurnPermissionRequestRespondResponse` | Resolve an open native tool permission request. |
 
 ## Starting A Turn
 
@@ -27,6 +29,9 @@ A turn is one unit of assistant execution inside a thread. The client creates a 
     "thread_id": "thr_000000000000000001",
     "turn_id": "trn_000000000000000001",
     "mode": "Agent",
+    "permission_profile": {
+      "mode": "supervised"
+    },
     "sandbox_policy": {
       "mode": "FullAccess"
     },
@@ -72,8 +77,9 @@ Important fields:
 | `capabilities` | Optional turn-scoped skills and MCP selections. Use this for composer-selected skills, MCP servers, and MCP tools. |
 | `model`, `model_provider` | Optional per-turn override. If omitted, the thread model/provider is used. |
 | `execution_backend` | Optional explicit execution backend. Use `apiProvider` for a remote model API provider, `cliAgentRuntime` for a configured CLI runtime, or `acpAgentRuntime` for an ACP runtime id. |
-| `cli_runtime_options` | Optional runtime-specific options for CLI runtime turns, such as approval policy, sandbox policy, effort, personality, summary, or whether to steer an active turn. |
-| `sandbox_policy` | Optional sandbox policy object. Current shape is `{ "mode": "FullAccess" }`. |
+| `cli_runtime_options` | Optional runtime-specific options for CLI runtime turns, such as sandbox policy, effort, personality, summary, or whether to steer an active turn. |
+| `permission_profile` | Optional Pioneer turn permission profile. Current modes are `full_access`, `auto_accept_edits`, and `supervised`. If omitted, the gateway defaults to `full_access`. |
+| `sandbox_policy` | Legacy optional sandbox policy object. Current public shape is `{ "mode": "FullAccess" }`; use `permission_profile` for Pioneer tool approval behavior. |
 | `mode` | Optional per-turn thread mode override, `Chat` or `Agent`. |
 
 Response:
@@ -83,7 +89,23 @@ Response:
   "turn": {
     "id": "trn_000000000000000001",
     "status": "InProgress",
-    "prompt_manifest": null
+    "prompt_manifest": null,
+    "permission_profile": {
+      "mode": "supervised",
+      "source": "composer",
+      "effective_policy": {
+        "default_behavior": "ask",
+        "file_read": "allow",
+        "file_write": "ask",
+        "shell_command": "ask",
+        "network": "ask",
+        "mcp_read": "allow",
+        "mcp_write_or_unknown": "ask",
+        "dynamic_skill_tool": "ask",
+        "computer_use": "ask",
+        "task_subagent": "ask"
+      }
+    }
   }
 }
 ```
@@ -113,8 +135,10 @@ For CLI-backed turns, use `cliAgentRuntime`:
     "runtime_id": "codex",
     "runtime_kind": "codex"
   },
+  "permission_profile": {
+    "mode": "supervised"
+  },
   "cli_runtime_options": {
-    "approval_policy": "untrusted",
     "effort": "high",
     "personality": "concise",
     "steer_if_active": true
@@ -122,9 +146,80 @@ For CLI-backed turns, use `cliAgentRuntime`:
 }
 ```
 
-`approval_policy` and `sandbox` are transparent protocol wrappers because policy values are runtime-specific. A client should fetch runtime capabilities and model catalogs through the [CLI Runtime API](/protocol/cli-runtime) before offering a CLI runtime in a model selector.
+`permission_profile` is the Pioneer-level approval policy. The gateway maps it into the runtime-specific approval policy before starting the native runtime turn. `cli_runtime_options` is still runtime-specific for options such as sandbox, effort, personality, summary, or steering. A client should fetch runtime capabilities and model catalogs through the [CLI Runtime API](/protocol/cli-runtime) before offering a CLI runtime in a model selector.
 
 When a CLI runtime turn is active, the runtime can open pending requests for command approvals, file-change approvals, or user input. Clients resolve those through `cli_runtime/request/respond`, not `turn/start`.
+
+## Permission Profiles And Approval Requests
+
+Pioneer tool permissions are represented by `permission_profile` on `turn/start` and by the materialized `permission_profile` on every `Turn`.
+
+```json
+{
+  "permission_profile": {
+    "mode": "auto_accept_edits"
+  }
+}
+```
+
+Supported modes:
+
+| Mode | Meaning |
+| --- | --- |
+| `full_access` | Allow tool actions without Pioneer approval prompts. This is the default when no profile is provided. |
+| `auto_accept_edits` | Allow file reads, file writes, and MCP reads; ask for shell commands, network, MCP writes/unknown calls, skill tools, computer use, task/subagent launches, and unknown actions. |
+| `supervised` | Allow file reads and MCP reads; ask for file writes, shell commands, network, MCP writes/unknown calls, skill tools, computer use, task/subagent launches, and unknown actions. |
+
+The gateway stores a `TurnPermissionProfileSnapshot` with:
+
+| Field | Meaning |
+| --- | --- |
+| `mode` | The selected or inherited permission mode. |
+| `source` | `composer`, `defaulted`, `inherited_from_parent_turn`, `task_permission_cap`, or `system`. |
+| `effective_policy` | A `ToolPermissionPolicySnapshot` with `allow`, `ask`, or `deny` behavior for each action kind. |
+
+`ToolPermissionPolicySnapshot` contains `default_behavior`, `file_read`, `file_write`, `shell_command`, `network`, `mcp_read`, `mcp_write_or_unknown`, `dynamic_skill_tool`, `computer_use`, `task_subagent`, and optional `allowed_tools`, `denied_tools`, and `allowed_paths`.
+
+When a native Pioneer tool action requires approval, the gateway publishes:
+
+| Event | Params | Meaning |
+| --- | --- | --- |
+| `turn/permission/request/opened` | `TurnPermissionRequestOpenedNotification` | A tool action is waiting for user/client approval. |
+| `turn/permission/request/resolved` | `TurnPermissionRequestResolvedNotification` | The pending request was resolved, cancelled, or expired. |
+| `turn/permission/audit` | `TurnPermissionAuditEvent` | Durable audit event for profile selection, allowed/denied decisions, approval requests, and approval resolutions. |
+
+An approval request includes `request_id`, `workspace_id`, `thread_id`, `turn_id`, `tool_name`, `action`, `scope_hash`, `reason`, optional `summary`, and display `details`.
+
+Resolve it with:
+
+```json
+{
+  "method": "turn/permission/request/respond",
+  "params": {
+    "request_id": "perm_000000000000000001",
+    "resolution": "allow_for_turn"
+  }
+}
+```
+
+Resolutions are `allow_once`, `allow_for_turn`, `deny`, `cancelled`, and `expired`. `allow_for_turn` lets later matching requests with the same normalized scope proceed during the same turn without opening another approval request.
+
+CLI runtime-native approvals use the CLI runtime request API. Native Pioneer tool permissions use the turn permission API described here.
+
+Generated permission schemas:
+
+- `/schemas/turn_permission_mode.json`
+- `/schemas/turn_permission_profile_selection.json`
+- `/schemas/turn_permission_profile_snapshot.json`
+- `/schemas/tool_permission_policy_snapshot.json`
+- `/schemas/permission_behavior.json`
+- `/schemas/turn_permission_approval_request.json`
+- `/schemas/turn_permission_approval_resolution.json`
+- `/schemas/turn_permission_request_opened_notification.json`
+- `/schemas/turn_permission_request_resolved_notification.json`
+- `/schemas/turn_permission_request_respond_params.json`
+- `/schemas/turn_permission_request_respond_response.json`
+- `/schemas/turn_permission_audit_event.json`
 
 ## User Input
 
@@ -287,6 +382,41 @@ Timeline items carry an `origin`:
 
 Use `turn/timeline` when rendering a task-aware conversation timeline. Use `turn/items` when you only need raw events for the parent turn.
 
+## Turn Work Page
+
+`turn/work/page` loads the paginated work items inside one semantic turn work block. It is the detail API paired with [Threads API](/protocol/threads) `thread/timeline/page`.
+
+```json
+{
+  "method": "turn/work/page",
+  "params": {
+    "threadId": "thr_000000000000000001",
+    "turnId": "trn_000000000000000001",
+    "anchor": { "kind": "newest" },
+    "limit": 100
+  }
+}
+```
+
+The response includes `workspaceId`, `threadId`, `turnId`, `projectionVersion`, `work`, `items`, and `page`.
+
+| Field | Meaning |
+| --- | --- |
+| `work` | `TurnWorkBlock` summary: presentation, state, counts, cursors, and elapsed time. |
+| `items` | `TurnWorkItem` rows containing the underlying `TurnItem`, status, item type, order key, timestamps, and optional metadata. |
+| `page` | Cursor and `hasMoreBefore` / `hasMoreAfter` pagination state. |
+
+Use `turn/work/page` when expanding or paginating the work under a turn. Use `turn/items` for raw persisted event replay.
+
+Generated turn-work schemas:
+
+- `/schemas/turn_work_block.json`
+- `/schemas/turn_work_item.json`
+- `/schemas/turn_work_page_params.json`
+- `/schemas/turn_work_page_response.json`
+- `/schemas/turn_work_items_changed_notification.json`
+- `/schemas/turn_work_state_changed_notification.json`
+
 ## Turn Items
 
 `TurnItem` is the timeline object that clients render. Main variants:
@@ -325,6 +455,11 @@ Turn execution is observed through notifications:
 | `turn/failed` | `TurnFailedNotification` | Turn failed or was interrupted. |
 | `turn/blocked` | `TurnBlockedNotification` | Turn stopped in a recoverable blocked state. |
 | `turn/timeline/changed` | `TurnTimelineChangedNotification` | Composed timeline should be reloaded. |
+| `turn/work/items/changed` | `TurnWorkItemsChangedNotification` | Work items within a semantic turn work block changed. |
+| `turn/work/state/changed` | `TurnWorkStateChangedNotification` | A semantic turn work block changed state or counts. |
+| `turn/permission/request/opened` | `TurnPermissionRequestOpenedNotification` | A native tool action needs approval before it can run. |
+| `turn/permission/request/resolved` | `TurnPermissionRequestResolvedNotification` | A native tool permission request was resolved. |
+| `turn/permission/audit` | `TurnPermissionAuditEvent` | Permission profile, decision, request, or resolution audit event. |
 
 Delta notifications include `stream`: `agent_message`, `stdout`, `stderr`, `tool_progress`, `file_change`, or `generic`.
 
@@ -374,6 +509,7 @@ The gateway also publishes detailed recovery events:
 | `item/tool/retry_resolved` | Tool retry resolved. |
 | `item/tool/retry_exhausted` | Tool retry budget exhausted. |
 | `turn/tool_loop/budget_exceeded` | Agent tool loop hit round/tool-call budget. |
+| `turn/permission/audit` | Permission profile selection, allowed decision, denied decision, approval request, or approval resolution was recorded. |
 | `context/compressing` | Gateway is compressing thread history. |
 | `context/compressed` | History compression finished. |
 

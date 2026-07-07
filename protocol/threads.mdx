@@ -15,6 +15,7 @@ The protocol separates thread data from sidebar layout. Use `thread/get` for one
 | `thread/get` | `ThreadGetParams` | `ThreadGetResponse` | Load one thread. |
 | `thread/tree` | `ThreadTreeParams` | `ThreadTreeResponse` | Load threads, folders, and placements for a workspace. |
 | `thread/history` | `ThreadHistoryParams` | `ThreadHistoryResponse` | Replay persisted thread events. |
+| `thread/timeline/page` | `ThreadTimelinePageParams` | `ThreadTimelinePageResponse` | Load a paginated semantic timeline block page for a thread. |
 | `thread/move` | `ThreadMoveParams` | `ThreadMoveResponse` | Move a thread within the tree. |
 | `thread/folder/create` | `ThreadFolderCreateParams` | `ThreadFolderCreateResponse` | Create a folder. |
 | `thread/folder/move` | `ThreadFolderMoveParams` | `ThreadFolderMoveResponse` | Move a folder. |
@@ -53,7 +54,7 @@ Important fields:
 | `name` | Optional display name. |
 | `model`, `model_provider` | Optional defaults used by turns in this thread. |
 | `mode` | `Chat` or `Agent`. Chat is plain assistant conversation; Agent enables tool and task orchestration. |
-| `sandbox` | Current value is `FullAccess`. Tool runs are not isolated yet. |
+| `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level tool approval behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
 | `origin_kind` | `user`, `task_run`, or `system`. |
 | `sidebar_visibility` | `visible` or `hidden`. Hidden threads are useful for subagents and internal task runs. |
 | `agent_nickname`, `agent_role` | Optional labels for agent/subagent threads. |
@@ -153,6 +154,45 @@ History events include turn starts, item starts, streamed deltas, item completio
 
 For agent-side "what did we discuss earlier?" behavior, Pioneer uses thread episodic context internally: visible conversation material is indexed, searched, filtered, and inserted as bounded prompt snippets when recall decides it is useful. That layer is configured through settings and described in [Thread Episodic Context](/architecture/thread-episodic-context).
 
+## Semantic Timeline Page
+
+`thread/timeline/page` is the paginated, semantic timeline read API used by shared client timeline reducers. It returns display-oriented blocks rather than raw event rows.
+
+```json
+{
+  "method": "thread/timeline/page",
+  "params": {
+    "threadId": "thr_000000000000000001",
+    "anchor": { "kind": "newest" },
+    "limit": 40
+  }
+}
+```
+
+`anchor` is a `TimelinePageAnchor`: `newest`, `oldest`, `before`, `after`, or `around`. Cursor-based anchors carry a `cursor.value`.
+
+The response includes `workspaceId`, `threadId`, `projectionVersion`, `blocks`, and `page`. Blocks can represent:
+
+| Block kind | Meaning |
+| --- | --- |
+| `user_message` | User input, text, and attachment chips. |
+| `turn_work` | Collapsible work block for a turn, with state and pagination cursors. |
+| `assistant_message` | Assistant-visible answer block. |
+| `turn_state` | Terminal or intermediate turn state block. |
+| `pending_request` | Runtime-native pending request block, such as a CLI approval/input prompt. |
+
+Use `thread/timeline/page` for scrollable client timelines. Use `thread/history` when you need durable event replay.
+
+Generated schemas:
+
+- `/schemas/thread_timeline_page_params.json`
+- `/schemas/thread_timeline_page_response.json`
+- `/schemas/thread_timeline_blocks_changed_notification.json`
+- `/schemas/timeline_page_anchor.json`
+- `/schemas/timeline_page_info.json`
+- `/schemas/timeline_block.json`
+- `/schemas/timeline_block_kind.json`
+
 ## Unsubscribing
 
 ```json
@@ -177,5 +217,6 @@ Use this when a client closes a thread view but keeps the WebSocket connection o
 | `thread/closed` | Thread was closed. |
 | `thread/tree/changed` | The workspace thread tree changed and should be reloaded. |
 | `thread/agents_doc/changed` | A root or folder AGENTS.md file changed and affected tree summaries or effective instructions. |
+| `thread/timeline/blocks/changed` | A semantic timeline block page may be stale; reload affected blocks or the current page. |
 
 Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, or `turn/timeline` as needed.

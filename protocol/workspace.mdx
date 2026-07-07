@@ -161,6 +161,7 @@ The gateway sends `workspace/changed` when a workspace is created, updated, or w
 | `thread/get` | `ThreadGetParams` | `ThreadGetResponse` | Load one thread. |
 | `thread/tree` | `ThreadTreeParams` | `ThreadTreeResponse` | Load workspace threads, folders, and placements. |
 | `thread/history` | `ThreadHistoryParams` | `ThreadHistoryResponse` | Replay durable history events for a thread. |
+| `thread/timeline/page` | `ThreadTimelinePageParams` | `ThreadTimelinePageResponse` | Load a paginated semantic timeline block page. |
 | `thread/move` | `ThreadMoveParams` | `ThreadMoveResponse` | Move a thread into or out of a folder. |
 | `thread/folder/create` | `ThreadFolderCreateParams` | `ThreadFolderCreateResponse` | Create a folder. |
 | `thread/folder/move` | `ThreadFolderMoveParams` | `ThreadFolderMoveResponse` | Move a folder under another folder or to root. |
@@ -193,7 +194,7 @@ Important fields:
 | `thread_id` | Client-provided id. |
 | `workspace_id` | Workspace that owns the thread. |
 | `mode` | `Chat` disables tools; `Agent` enables the agent loop and tool orchestration. |
-| `sandbox` | Currently `FullAccess` only. Tool runs are not separately sandboxed yet. |
+| `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level tool approval behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
 | `origin_kind` | `user`, `task_run`, or `system`. Task subagents use hidden task-run threads. |
 | `sidebar_visibility` | `visible` or `hidden`. Hidden is used for internal/task threads. |
 | `agent_nickname`, `agent_role` | Optional labels for task/subagent threads. |

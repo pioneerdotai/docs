@@ -100,6 +100,8 @@ Provider calls can fail before the first chunk, between chunks, during tool-call
 
 Context-length failures are detected from provider error messages and treated specially because they usually require context compression or prompt reduction rather than a simple retry.
 
+Streaming output is also covered by gateway resilience timeouts. `[gateway.resilience.provider_stream_items]` configures lease, idle, and hard deadlines for provider stream items that may need reconciliation after interruption or restart. These deadlines are separate from provider transport timeouts such as `first_chunk_timeout_secs` and `inter_chunk_idle_timeout_secs`.
+
 Error normalization is one of the most important responsibilities of this crate. A raw HTTP error tells the user little and gives the gateway little to recover from. A classified provider failure can say whether the problem happened before generation, during streaming, while parsing tool calls, or because the context was too large.
 
 ## Adding A Provider

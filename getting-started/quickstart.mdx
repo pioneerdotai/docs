@@ -6,9 +6,9 @@ icon: "bolt"
 
 This page assumes Pioneer is installed and you can open the desktop app. The goal is to get one real thread working without configuring every advanced feature up front.
 
-<Warning>
-  Tools are not sandboxed yet. Start with read-only prompts and test in a safe folder before letting an agent modify important files.
-</Warning>
+<Note>
+  Start your first agent turns in **Supervised** mode so Pioneer asks before commands and file changes. After you understand the tool timeline, use **Auto-accept edits** or **Full access** only for gateways and projects you trust.
+</Note>
 
 ## Connect To A Gateway
 
@@ -52,7 +52,7 @@ See [Providers](/providers/overview) for the full supported provider list.
 
 ## Start Your First Thread
 
-Create a new thread, choose the provider and model you configured, and send something deliberately simple:
+Create a new thread, choose the provider and model you configured, choose **Supervised** as the permission mode for the first turn, and send something deliberately simple:
 
 ```text
 Explain what you can do in this Pioneer workspace.
@@ -66,7 +66,7 @@ Once basic chat works, test a read-only tool request:
 List the files in this workspace root and summarize what kind of project it looks like. Do not modify any files.
 ```
 
-If that behaves as expected, move slowly toward write operations. Use a temporary folder or throwaway repository first.
+If that behaves as expected, move slowly toward write operations. Supervised mode will ask before file changes and commands; use a temporary folder or throwaway repository first.
 
 ## What To Add Next
 
@@ -92,6 +92,8 @@ Use [Skills](/skills/overview) when you want reusable instructions or specialize
 ## Go Deeper
 
 - [Gateway Architecture](/architecture/gateway) explains why provider calls and tools run on the gateway host.
+- [Permission Modes](/getting-started/permissions) explains which mode to use for supervised, edit-friendly, or full-access turns.
+- [Permission System](/architecture/permissions) explains Supervised, Auto-accept edits, Full access, and approval prompts.
 - [Providers Architecture](/architecture/providers) explains how provider adapters turn Pioneer messages into model API calls.
 - [Tools Architecture](/architecture/tools) explains shell, web, dynamic, and artifact-facing tools.
 - [Agent Loop](/architecture/agent-loop) explains what happens after you send a turn.

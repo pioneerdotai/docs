@@ -47,7 +47,7 @@ Composer-selected skills do not paste the full `SKILL.md` body into the prompt. 
 Installing a skill should not be treated like pasting a harmless prompt. Skills can include dynamic tools, dependency expectations, and workflow instructions that affect what agents do.
 
 <Warning>
-  Skill tools run through the gateway, and tool runs are not sandboxed yet. Test unfamiliar skills on a sandbox gateway first.
+  Skill tools run through the gateway and follow the turn permission mode. Test unfamiliar skills in **Supervised** mode first, and use a separate gateway when the skill should not share the same host environment.
 </Warning>
 
 Before trusting a skill, look at what it adds, what commands or services it expects, and whether it asks for broad file or network access. Then try it with a low-risk prompt before using it on important work.
@@ -74,5 +74,6 @@ Install the skill, review validation results, fix missing dependencies if needed
 ## Go Deeper
 
 - [Skills Architecture](/architecture/skills) explains parsing, validation, dependency checks, policy, and dynamic tools.
+- [Permission System](/architecture/permissions) explains how turn permission modes apply to dynamic skill tools.
 - [Tools Architecture](/architecture/tools) explains why skill-provided tools need trust and policy.
 - [Agent Loop](/architecture/agent-loop) explains where selected skills enter a turn.

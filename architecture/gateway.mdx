@@ -26,7 +26,7 @@ The gateway owns:
 - runtime home preparation, including `SOUL.md` and `IDENTITY.md` identity files
 - gateway settings and keystore-backed secret storage
 - workspace and thread lifecycle
-- turn lifecycle and agent runtime wiring
+- turn lifecycle, permission profile materialization, approval requests, and agent runtime wiring
 - provider model listing and provider cache invalidation
 - CLI agent runtime listing, probing, thread binding, approvals, login, review, compaction, fork, and steering
 - MCP installation, runtime processes, catalogs, status, and tool materialization
@@ -75,7 +75,7 @@ Incoming WebSocket messages are JSON-RPC requests or notifications. Dispatch is 
 |---|---|
 | Workspaces | `message/workspace_handlers.rs` |
 | Threads | `message/thread_handlers.rs` |
-| Turns | `message/turn_handlers.rs`, `message/agent_runtime.rs` |
+| Turns | `message/turn_handlers.rs`, `message/agent_runtime.rs`, `message/permission_handlers.rs` |
 | Providers | `message/provider_handlers.rs` |
 | CLI runtimes | `cli_runtime/*` |
 | Skills | `message/skills/*` |
@@ -108,7 +108,7 @@ sequenceDiagram
     `turn_handlers.rs` checks required identifiers, selected execution backend, and delegates thread mutation to `ThreadManager::turn_start`.
   </Step>
   <Step title="Persist initial state">
-    The gateway calls `CrudStore::materialize_turn_start`, which writes the thread, sandbox policy, turn, turn input, and status history.
+    The gateway materializes the effective `TurnPermissionProfileSnapshot` and calls the turn-start persistence path that writes the thread, sandbox policy, turn, turn input, status history, and profile-selected permission audit event.
   </Step>
   <Step title="Prepare agent runtime">
     `AgentManager::ensure_thread` creates or reuses a per-thread agent runtime. The gateway starts a listener task for durable agent events and live progress events.
@@ -117,7 +117,7 @@ sequenceDiagram
     The gateway loads conversation history with `load_conversation_history`. It also loads workspace skill policy records so the agent can resolve skills with gateway/workspace overrides.
   </Step>
   <Step title="Dispatch execution">
-    `AgentManager::start_turn` receives thread mode, provider/model or CLI runtime backend, input, history, and skill policy. From this point the agent runtime owns the turn execution.
+    `AgentManager::start_turn` receives thread mode, provider/model or CLI runtime backend, input, history, skill policy, and the permission profile. From this point the agent runtime owns the turn execution.
   </Step>
   <Step title="Notify clients">
     The gateway sends the `turn/start` response, broadcasts `turn/started`, emits the user message item lifecycle, and may start background title generation for a new user-origin thread.
@@ -126,11 +126,11 @@ sequenceDiagram
 
 The important detail is that persistence happens before agent execution. The gateway first records that the turn exists, then dispatches it. That makes a partially failed turn visible and recoverable instead of disappearing because execution failed before the UI heard about it.
 
-After the agent starts, the gateway mostly becomes an event bridge and durability layer for that turn. Durable agent events arrive from `AgentManager`, the gateway persists them through `CrudStore`, and only then are committed notifications published to clients.
+After the agent starts, the gateway mostly becomes an event bridge and durability layer for that turn. Durable agent events arrive from `AgentManager`, the gateway persists them through `CrudStore`, and only then are committed notifications published to clients. Native tool permission requests are bridged through `message/permission_handlers.rs`, which publishes `turn/permission/request/opened`, accepts `turn/permission/request/respond`, and publishes `turn/permission/request/resolved`.
 
 ## Notification Model
 
-The gateway sends JSON-RPC responses for direct requests and JSON-RPC notifications for state changes. A successful `turn/start` response only means the gateway accepted the turn. The actual assistant work is observed through notifications: item started, item deltas, item completed, retries, recovery, task events, and terminal turn state.
+The gateway sends JSON-RPC responses for direct requests and JSON-RPC notifications for state changes. A successful `turn/start` response only means the gateway accepted the turn. The actual assistant work is observed through notifications: item started, item deltas, item completed, permission approval requests, permission audit events, retries, recovery, task events, and terminal turn state.
 
 This split matters for client authors. A client should not wait for a long `turn/start` response containing the final assistant message. It should subscribe to the thread timeline and render notifications as they arrive.
 
@@ -148,6 +148,7 @@ The gateway can run on the same machine as the desktop app or on a remote server
 
 - [Protocol Layer](/architecture/protocol) describes the request and notification contract exposed by the gateway.
 - [Agent Loop](/architecture/agent-loop) explains what happens after the gateway dispatches a turn.
+- [Permission System](/architecture/permissions) explains turn permission profiles, approval brokers, and audit events.
 - [CLI Runtime Architecture](/architecture/cli-runtime), [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Tasks And Subagents](/architecture/tasks) describe the subsystems the gateway owns.
 - [Persistence Layer](/architecture/persistence) explains how gateway events become durable read models.
 - [Secret Storage](/architecture/secrets) explains `keystore.db`, secret refs, and maintenance commands.

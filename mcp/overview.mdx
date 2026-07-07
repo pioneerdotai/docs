@@ -37,7 +37,7 @@ Enabled MCP servers can be **implicit** or **not implicit**. An implicit MCP ser
 Newly installed MCP servers start not implicit by default. Use implicit mode only for trusted servers whose tools are safe and useful across many threads. Keep sensitive, destructive, noisy, or rarely needed MCP servers not implicit.
 
 <Warning>
-  MCP tools can affect whatever the MCP server can reach. Combined with the current lack of tool sandboxing, you should test new MCP servers carefully.
+  MCP tools can affect whatever the MCP server can reach. Test new servers in **Supervised** mode first, and keep destructive or sensitive servers explicit-only until you trust their behavior.
 </Warning>
 
 ## How It Feels In Use
@@ -63,4 +63,5 @@ For local processes, Pioneer uses stdio. For network services, it uses HTTP.
 
 - [MCP Architecture](/architecture/mcp) explains installation, runtime supervision, catalogs, policy, and tool binding.
 - [Secret Storage](/architecture/secrets) explains how MCP env/header secrets are stored.
+- [Permission System](/architecture/permissions) explains how MCP read and write/unknown tool actions are evaluated.
 - [Tools Architecture](/architecture/tools) explains how MCP tools become model-visible tools during a turn.

@@ -20,7 +20,7 @@ The current mobile client includes:
 | Threads | Load the thread tree, open thread timelines, send messages, stop turns, and keep an active thread projection. |
 | Models | List workspace API providers and supported CLI-backed model sources in one selector. |
 | CLI-backed turns | Show pending approvals or input requests for supported CLI-backed turns. |
-| Composer | Attach files, attach skills and MCP capabilities, and send text turns. |
+| Composer | Attach files, attach skills and MCP capabilities, choose a permission mode, and send text turns. |
 | AGENTS.md | Read, save, and archive thread-tree instruction files. |
 | Preferences | Configure mobile UI preferences such as theme and language. |
 
@@ -37,7 +37,7 @@ The mobile app currently manages remote gateway entries. It does not install, st
 For mobile usage, run a gateway on a computer, workstation, server, or other reachable host, then add that gateway in the mobile app with its address and bearer token.
 
 <Warning>
-  Tool calls, local paths, MCP servers, provider requests, and task execution happen on the gateway host, not on the phone.
+  Tool calls, local paths, MCP servers, provider requests, and task execution happen on the gateway host, not on the phone. Permission modes control when Pioneer asks before tool actions, but they do not move execution onto the mobile device.
 </Warning>
 
 ## Consistency With Desktop
@@ -53,6 +53,7 @@ The mobile app targets iOS and Android and uses the same eight UI locales as des
 ## Related Pages
 
 - [Desktop App Overview](/desktop/overview) explains the desktop client and local gateway management.
+- [Permission Modes](/getting-started/permissions) explains Supervised, Auto-accept edits, and Full access.
 - [Client Architecture](/architecture/clients) explains the shared client core and mobile shell boundary.
 - [Gateway Architecture](/architecture/gateway) explains what the mobile app connects to.
 - [Protocol Layer](/architecture/protocol) explains the client/gateway contract used by mobile and other clients.

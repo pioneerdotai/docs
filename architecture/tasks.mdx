@@ -51,7 +51,7 @@ The handle is the executor's durable output channel. It can mark a run started, 
 
 ## Subagents
 
-Subagents are task-backed child turns. When a task has `TaskAgentSpec`, `TaskAgentExecutor` creates or restores a hidden task thread, creates a hidden turn, records child-thread lineage and run/thread bindings, and starts the agent loop with the spec's model, provider, prompt, context policy, tool policy, and result contract.
+Subagents are task-backed child turns. When a task has `TaskAgentSpec`, `TaskAgentExecutor` creates or restores a hidden task thread, creates a hidden turn, records child-thread lineage and run/thread bindings, and starts the agent loop with the spec's model, provider, prompt, context policy, tool policy, permission cap, and result contract.
 
 Context policy controls what the child receives from the parent: empty context, custom context, recent parent context, summary-style context, or inherited context depending on the spec. When the child turn completes, its output is extracted into a result candidate. That candidate is then accepted, revised, cancelled, or auto-accepted according to the review policy and task lifecycle.
 
@@ -97,6 +97,8 @@ When `task/wait` returns review-required candidates, the task tool provider expo
 
 Child agent turns run through the same agent loop as foreground agent turns, including turn preflight before the child main provider request. They receive a task runtime hook context so memory policy and post-turn extraction can distinguish task-owned context from ordinary user-thread context.
 
+Child turns also receive a permission profile derived from the parent turn or task permission cap. The cap is restrictive: policy intersection keeps `deny` stricter than `ask`, `ask` stricter than `allow`, and the effective mode cannot become broader than the parent/task contract. A subagent can therefore do delegated work without silently gaining more access than the turn or task allowed.
+
 ## Retries, Locks, And Deliveries
 
 Retry policy can schedule retry runs after failures. Write locks prevent unsafe concurrent writes across task scopes. Delivery policy controls where task results go after terminal state, and delivery processing is run by the gateway background worker.
@@ -107,5 +109,6 @@ Startup reconciliation repairs tasks and runs that were active when the gateway 
 
 - [Gateway](/architecture/gateway) explains how the gateway starts the task runtime and bridges task events.
 - [Agent Loop](/architecture/agent-loop) explains how task tools are exposed during a turn.
+- [Permission System](/architecture/permissions) explains task permission caps and turn permission profile inheritance.
 - [Prompt And Context](/architecture/prompt) explains the task orchestration prompt section.
 - [Persistence Layer](/architecture/persistence) explains task events and task projectors.

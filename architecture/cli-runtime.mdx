@@ -86,6 +86,18 @@ A CLI-backed turn persists:
 
 This binding lets restart recovery reason about a turn that was in progress when the gateway stopped. It also lets client operations such as steering or request response route to the native turn rather than guessing from the active UI state.
 
+## Permission Mapping
+
+CLI runtime turns still start with Pioneer's `TurnPermissionProfileSelection`. The gateway resolves that into a normal `TurnPermissionProfileSnapshot`, stores it on the Pioneer turn, writes the profile-selected audit event, and then maps the Pioneer permission mode into the native runtime's approval policy.
+
+| Pioneer mode | Codex approval policy | Claude approval policy | Notes |
+| --- | --- | --- | --- |
+| `full_access` | `never` | `bypassPermissions` | Exact mapping. |
+| `auto_accept_edits` | `on-request` | `acceptEdits` | Codex uses `on-request` as a stricter fallback because it does not expose a separate auto-accept-edits policy. |
+| `supervised` | `on-request` | `default` | Exact mapping. |
+
+This mapping lives in `crates/gateway/src/cli_runtime/permissions.rs`. Runtime-specific pending requests are still exposed through the CLI runtime request surface and resolved with `cli_runtime/request/respond`. Native tool permission requests from Pioneer's ordinary tools runtime use the turn permission surface described in [Permission System](/architecture/permissions).
+
 ## Event Projection
 
 Codex app-server notifications are decoded in `crates/cli-agent-runtime` and projected by the gateway. Projection turns runtime-native events into Pioneer-visible timeline rows, system events, pending request snapshots, approval rows, and terminal turn state.
@@ -156,10 +168,12 @@ Do not collapse these into one generic provider error. They imply different user
 - Add protocol fields only when clients need them; keep raw runtime payloads diagnostic.
 - When adding a runtime kind, implement capability reporting honestly and keep unsupported operations explicit.
 - When changing request/approval flows, update gateway projection, `pioneer-client`, desktop, mobile generated schemas, and [CLI Runtime API](/protocol/cli-runtime) together.
+- When changing permission mapping, update `crates/gateway/src/cli_runtime/permissions.rs`, client permission-mode display, and this page together.
 
 ## Related Pages
 
 - [Protocol Layer](/architecture/protocol) explains how CLI runtime methods and notifications become public contract.
+- [Permission System](/architecture/permissions) explains Pioneer turn permission profiles and approval/audit semantics.
 - [Provider System](/architecture/providers) explains why ordinary API providers are separate.
 - [Client Architecture](/architecture/clients) explains how desktop and mobile consume runtime projections.
 - [Persistence Layer](/architecture/persistence) explains why bindings are stored in `gateway.db`.

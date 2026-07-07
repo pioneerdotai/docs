@@ -1,0 +1,65 @@
+---
+title: "Permission Modes"
+description: "Choose how much Pioneer should ask before tools run."
+icon: "shield"
+---
+
+Permission modes control how Pioneer handles tool actions during a turn. They are useful when an agent can read files, edit files, run commands, call MCP tools, use skills, browse the web, use computer control, or create subagents.
+
+Choose the mode in the composer before sending a turn. The selected mode applies to that turn and is recorded in the turn history.
+
+## The Three Modes
+
+| Mode | What to expect |
+| --- | --- |
+| **Full access** | Pioneer lets tool actions run without approval prompts. Use this only when you trust the gateway, workspace, prompt, and tools involved. |
+| **Auto-accept edits** | Pioneer allows file reads, file edits, and read-only MCP calls, but asks before commands, network actions, MCP writes or unknown MCP calls, skill tools, computer use, and subagent launches. |
+| **Supervised** | Pioneer allows file reads and read-only MCP calls, but asks before file edits, commands, network actions, MCP writes or unknown MCP calls, skill tools, computer use, and subagent launches. |
+
+When you are unsure, start with **Supervised**.
+
+## What A Prompt Looks Like
+
+If a tool action needs approval, Pioneer opens a request in the app. You can allow it once, allow the same kind of action for the rest of the turn, deny it, or cancel it.
+
+Use **allow once** when you want to inspect each action. Use **allow for turn** when the request is clearly part of the current task and you do not want repeated prompts for the same action scope.
+
+If you deny a request, the agent should continue with allowed alternatives or explain what it could not do.
+
+## What Permissions Do Not Change
+
+Permission modes do not move execution to another machine or OS account. Tools still run where the gateway runs:
+
+- a local gateway runs tools on your computer;
+- a remote gateway runs tools on the remote machine;
+- a scheduled task runs on the gateway even if your desktop app is closed.
+
+Use a separate gateway when you need a separate filesystem, account, network, credentials, or machine boundary.
+
+## Good Defaults
+
+Use **Supervised** for:
+
+- first runs in a new project;
+- unfamiliar skills or MCP servers;
+- remote gateways;
+- prompts that may run commands;
+- scheduled or task-backed work before you trust it.
+
+Use **Auto-accept edits** for:
+
+- known repositories where file edits are expected;
+- code cleanup or documentation edits where you still want command/network prompts;
+- workflows where reviewing every patch prompt is too noisy.
+
+Use **Full access** for:
+
+- trusted local projects;
+- throwaway environments;
+- repeatable workflows whose tool behavior you already reviewed.
+
+## Go Deeper
+
+- [Quick Start](/getting-started/quickstart) shows a first supervised thread.
+- [Workspace & Organization](/desktop/workspace) explains when to use workspaces versus separate gateways.
+- [Permission System](/architecture/permissions) explains the implementation: profiles, policy evaluation, approval requests, audit events, and task permission caps.

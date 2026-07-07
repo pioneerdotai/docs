@@ -9,12 +9,12 @@ Pioneer is a local-first AI workspace for running an assistant on your own machi
 The basic flow is: connect to a gateway, choose or create a workspace, add a model provider, and start a thread. As your setup grows, you can add reusable skills, connect MCP servers, attach files as artifacts, enable memory, or schedule repeatable tasks.
 
 <Warning>
-  Pioneer is in an extremely early stage of development. Expect rough edges, breaking changes, and incomplete flows. Use it carefully, and test it in a safe environment before trusting it with important work or exposing a gateway outside your machine.
+  Pioneer is moving quickly. Test new workflows on low-risk projects first, especially before exposing a gateway outside your machine or letting agents work unattended.
 </Warning>
 
-<Warning>
-  Tool runs are not sandboxed yet. Tools currently execute as the OS user running the gateway.
-</Warning>
+<Note>
+  Agent turns have permission modes. Use **Supervised** when you want Pioneer to ask before commands and file changes, or **Auto-accept edits** when file edits are okay but other actions should still ask. Tools still run on the gateway host, so use a separate gateway when you need a separate machine or account boundary.
+</Note>
 
 ## Gateway And Clients
 
@@ -41,6 +41,9 @@ For a multi-environment setup, install gateways wherever the work should live: a
   </Card>
   <Card title="Core Concepts" icon="book" href="/getting-started/concepts">
     Understand gateways, workspaces, threads, tools, skills, MCP, and tasks.
+  </Card>
+  <Card title="Permission Modes" icon="shield" href="/getting-started/permissions">
+    Choose when Pioneer should ask before tool actions.
   </Card>
   <Card title="Providers" icon="brain" href="/providers/overview">
     Connect model providers and understand where model settings are saved.
@@ -77,4 +80,4 @@ For conversation continuity, Pioneer also has thread context: a searchable layer
 
 Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Desktop](/desktop/overview) or [Mobile](/mobile/overview) for client-specific behavior, [Providers](/providers/overview) when you want to connect models, [Memory](/desktop/memory) when you want continuity across turns, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.
 
-If you want the technical version of how Pioneer is built, start with [Architecture Overview](/architecture/overview). The most useful deep dives after this page are [Gateway](/architecture/gateway), [Client Architecture](/architecture/clients), [Agent Loop](/architecture/agent-loop), and [Protocol Layer](/architecture/protocol).
+If you want the technical version of how Pioneer is built, start with [Architecture Overview](/architecture/overview). The most useful deep dives after this page are [Gateway](/architecture/gateway), [Client Architecture](/architecture/clients), [Agent Loop](/architecture/agent-loop), [Permission System](/architecture/permissions), and [Protocol Layer](/architecture/protocol).

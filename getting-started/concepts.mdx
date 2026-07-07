@@ -86,10 +86,10 @@ Provider credentials and CLI runtime settings are configured on the gateway. Pro
 Tools let agents do work outside plain text. Depending on what you enable, tools can read files, search directories, run shell commands, apply patches, fetch web pages, download URLs, call MCP tools, or use dynamic tools from skills.
 
 <Warning>
-  Tools are currently not sandboxed. Treat tool access as real access to the gateway machine.
+  Treat tool access as real access to the gateway machine. Permission modes let Pioneer ask before commands, file writes, network actions, skill tools, MCP writes, computer use, and subagent launches, but the action still runs on the gateway host when approved.
 </Warning>
 
-Start with read-only requests. After you trust the behavior, test write operations in a disposable folder before using them in important projects.
+Start with read-only requests in **Supervised** mode. After you trust the behavior, test write operations in a disposable folder before using them in important projects.
 
 ## Skills
 
@@ -130,6 +130,7 @@ Use this page for product vocabulary. Use Architecture when you want the impleme
 | Gateway, runtime ownership, sessions | [Gateway](/architecture/gateway) |
 | Desktop, mobile, and shared client code | [Client Architecture](/architecture/clients) |
 | Turns, prompt construction, tools, retries | [Agent Loop](/architecture/agent-loop) |
+| Permission modes and approval prompts | [Permission System](/architecture/permissions) |
 | Durable memory | [Memory Architecture](/architecture/memory) |
 | Thread episodic context | [Thread Episodic Context](/architecture/thread-episodic-context) |
 | Artifacts and file continuity | [Artifacts Architecture](/architecture/artifacts) |

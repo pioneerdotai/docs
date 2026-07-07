@@ -5,12 +5,12 @@ description: "Built-in tools, dynamic tool bundles, routing, output policies, an
 
 `crates/tools` is the runtime layer that turns model tool calls into real actions. The agent loop asks it to build a tool runtime for a turn, then routes each provider tool call through that runtime.
 
-Tools currently execute as the OS user running the gateway. There is not yet a separate sandbox for tool runs, so every tool implementation must be treated as security-sensitive.
+Tool execution is protected by the turn permission system. Each turn carries an effective permission profile, and the tools runtime evaluates side-effecting actions before execution. Depending on policy, a tool action is allowed, blocked, or converted into a client approval request.
 
 The tools layer is where Pioneer crosses from language into side effects. Reading a file, running a command, calling an MCP server, applying a patch, or using computer control is no longer just "model output." It is gateway-host execution.
 
 <Warning>
-  Tool code must be written as privileged runtime code. A remote gateway means the tool runs on the remote host. A local gateway means it runs as the local OS user. Until sandboxing lands, tool policy and output policy are the main safety boundaries.
+  Permission profiles are an application-level policy boundary, not a separate OS sandbox. A remote gateway means the tool runs on the remote host. A local gateway means it runs as the local OS user. Use gateway separation or host-level isolation when the machine boundary matters.
 </Warning>
 
 ## Why This Layer Exists
@@ -27,8 +27,41 @@ At the same time, Pioneer needs consistent behavior after execution: timeline ev
 | Tool router | Selects the handler for a raw tool call and controls which tools are visible to the model. |
 | Tool runtime | Executes calls, emits tool events, applies output projection, and returns model-visible results. |
 | Extension bundles | Add dynamic tools from MCP, skills, and tasks to the same runtime as built-ins. |
+| Permission evaluator | Classifies each tool action and applies the turn's effective permission policy. |
+| Approval broker | Opens user approval requests for actions whose policy behavior is `ask`. |
 | Output policy | Separates what the model sees from what the timeline, storage, and recovery systems retain. |
 | Retry classifier | Classifies tool failures as recoverable, fatal, partial, or successful so the agent can decide whether to retry. |
+
+## Permission Evaluation
+
+Every tool invocation receives a `PermissionEvaluationContext` containing the workspace, thread, turn, and `TurnPermissionProfileSnapshot`. Before execution, the orchestrator extracts a `PermissionIntent`, classifies the action kind, and evaluates it against the profile's `ToolPermissionPolicySnapshot`.
+
+Supported action kinds are:
+
+| Action kind | Typical source |
+| --- | --- |
+| `file_read` | `read_file`, directory listing, grep-style reads, artifact reads. |
+| `file_write` | `apply_patch`, generated output registration, file mutation tools. |
+| `shell_command` | `exec_command` and active shell sessions. |
+| `network` | Web fetch/search/download and network-capable tool handlers. |
+| `mcp_read` | MCP tools classified as read-only. |
+| `mcp_write_or_unknown` | MCP tools that mutate state or cannot be safely classified as read-only. |
+| `dynamic_skill_tool` | Skill-provided dynamic tools. |
+| `computer_use` | Native desktop automation and screenshot-driven interaction. |
+| `task_subagent` | Task creation, attached subagents, and delegated agent work. |
+| `internal` / `unknown` | Runtime-internal or unclassified actions. |
+
+Policy evaluation returns one of three behaviors:
+
+| Behavior | Runtime result |
+| --- | --- |
+| `allow` | Emit a permission audit event and execute the tool. |
+| `ask` | Emit an approval-request audit event, open `turn/permission/request/opened`, wait for `turn/permission/request/respond`, then execute or reject based on the resolution. |
+| `deny` | Emit a denied audit event and reject the tool call before side effects. |
+
+Approval requests include a normalized request key and scope hash. If the user chooses `allow_for_turn`, the tools runtime caches that request key for the rest of the turn so matching actions can proceed without repeated prompts. `allow_once` applies only to the current request.
+
+The tools layer emits permission audit events for profile decisions, approval requests, approval resolutions, cached approvals, and denied actions. The gateway persists those events through the same durable turn-event path as ordinary tool lifecycle events.
 
 ## Built-In Tools
 
@@ -96,6 +129,8 @@ The important architectural choice is that dynamic tools do not bypass the route
 
 Dynamic extension tools that are not in the built-in domain map are independent of preflight domain selection and `request_tools`. If an MCP server or skill contributes a turn-specific tool, including through an explicit composer capability, the final visibility pass keeps it available as a dynamic extension when it is registered and has a handler.
 
+Visibility is not authorization. A tool may be visible to the model and still require approval when called. The permission evaluator is the last policy gate before execution.
+
 ## Output Projection
 
 A tool call produces more than one view of output. The model-visible view may be shorter or structured differently from the timeline view. Storage may keep full output, a summary, metadata only, or nothing depending on policy. Recovery evidence can include exit status, error class, retry hints, excerpts, and fingerprints.
@@ -119,6 +154,7 @@ MCP server lifecycle belongs in [MCP Architecture](/architecture/mcp). Skills in
 ## Related Pages
 
 - [Agent Loop](/architecture/agent-loop) explains when tools are exposed and called.
+- [Permission System](/architecture/permissions) explains turn permission modes, approval requests, and audit events.
 - [MCP Architecture](/architecture/mcp) explains MCP-backed dynamic tools.
 - [Skills Architecture](/architecture/skills) explains skill-backed dynamic tools.
 - [Tasks And Subagents](/architecture/tasks) explains task orchestration tools.

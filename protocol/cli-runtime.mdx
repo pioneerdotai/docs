@@ -134,8 +134,10 @@ When the user selects such a row, fetch models with `cli_runtime/list_models`, t
       "runtime_id": "codex",
       "runtime_kind": "codex"
     },
+    "permission_profile": {
+      "mode": "supervised"
+    },
     "cli_runtime_options": {
-      "approval_policy": "untrusted",
       "effort": "high",
       "personality": "concise"
     },
@@ -150,7 +152,9 @@ When the user selects such a row, fetch models with `cli_runtime/list_models`, t
 }
 ```
 
-`cli_runtime_options` is runtime-specific. The protocol keeps `approval_policy` and `sandbox` as transparent values so a client can pass policies supported by the underlying CLI without the gateway inventing a lossy cross-runtime enum.
+`permission_profile` is the Pioneer-level permission mode. The gateway maps it into the runtime-specific approval policy before starting the native runtime turn. For Codex, `full_access` maps to `never`, `supervised` maps to `on-request`, and `auto_accept_edits` currently uses `on-request` as a stricter fallback. For Claude-style runtimes, `full_access` maps to `bypassPermissions`, `auto_accept_edits` maps to `acceptEdits`, and `supervised` maps to `default`.
+
+`cli_runtime_options` remains runtime-specific for options such as `sandbox`, `effort`, `personality`, `summary`, and `steer_if_active`. Clients should not send a separate runtime approval policy here; use `permission_profile` so Pioneer can persist one permission profile and audit model for the turn.
 
 ## Thread Binding And Steering
 
@@ -212,6 +216,8 @@ Resolve a request with:
 
 Other resolutions are `denied`, `cancelled`, `answered`, `expired`, and `error`.
 
+These are runtime-native pending requests. Native Pioneer tool permission prompts use `turn/permission/request/opened`, `turn/permission/request/respond`, and `turn/permission/request/resolved`; see [Turns API](/protocol/turns).
+
 ## Notifications
 
 CLI runtime notifications are:
@@ -251,5 +257,6 @@ Generated schemas include:
 ## Related Pages
 
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains session management, native thread/turn bindings, pending requests, and restart recovery.
+- [Permission System](/architecture/permissions) explains how Pioneer permission modes map into CLI runtime approval policies.
 - [Provider System](/architecture/providers) explains why CLI-backed runtimes are separate from API provider adapters.
 - [Client Architecture](/architecture/clients) explains how desktop and mobile consume runtime projections.

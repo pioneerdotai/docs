@@ -23,7 +23,7 @@ Run it manually. Read the result. Open the timeline. Check which tools were call
 Only after that should you add schedules, write access, dependencies, or multi-agent workflows. A task that runs by itself deserves more caution than a thread you are watching.
 
 <Warning>
-  Task tools run on the gateway host and are not sandboxed yet. A scheduled task has the same practical access as the gateway OS user.
+  Task tools run on the gateway host and follow the task or turn permission profile. Test manual runs in **Supervised** mode before adding schedules or unattended write-capable workflows.
 </Warning>
 
 ## Subagents
@@ -60,7 +60,7 @@ If a subagent says it created a file but the file is missing from the artifacts 
 
 Tasks run on the gateway. If the gateway is local, task tools run locally. If the gateway is remote, they run on the remote host.
 
-This affects file paths, credentials, network access, installed commands, and side effects. Before scheduling a task, make sure you are on the gateway where you actually want the work to happen.
+This affects file paths, credentials, network access, installed commands, and side effects. Before scheduling a task, make sure you are on the gateway where you actually want the work to happen and that the task's permission profile matches the level of supervision you expect.
 
 <Columns cols={2}>
   <Card title="Scheduling Tasks" icon="calendar" href="/tasks/scheduling">
@@ -75,4 +75,5 @@ This affects file paths, credentials, network access, installed commands, and si
 
 - [Tasks Architecture](/architecture/tasks) explains task records, runs, subagent threads, review, retries, and write locks.
 - [Agent Loop](/architecture/agent-loop) explains how task tools and child turns fit into ordinary turns.
+- [Permission System](/architecture/permissions) explains task permission caps and approval prompts.
 - [Artifacts Architecture](/architecture/artifacts) explains how subagent outputs become workspace artifacts.

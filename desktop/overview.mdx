@@ -40,6 +40,8 @@ The workspace selector at the top of the main thread sidebar shows the active wo
 
 Threads are where conversations happen. The thread timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When an agent changes something or a tool fails, the timeline is the first place to inspect.
 
+The composer permission mode controls how much Pioneer asks before tool actions in the next turn. Use **Supervised** for new or risky work, **Auto-accept edits** when file edits are expected, and **Full access** only when the gateway and workflow are trusted.
+
 ## Settings
 
 Settings are split between app-level preferences, gateway-owned configuration, and workspace-scoped configuration. Provider credentials, skills, MCP servers, and tasks belong to a workspace on the connected gateway. If you switch workspace or connect to another gateway, configure them there too.
@@ -75,4 +77,5 @@ The desktop UI includes English, German, Spanish, French, Hindi, Japanese, Russi
 
 - [Client Architecture](/architecture/clients) explains how desktop, mobile, and shared client code fit together.
 - [Gateway Architecture](/architecture/gateway) explains what the desktop app controls through the connected gateway.
+- [Permission Modes](/getting-started/permissions) explains the user-facing permission choices in the composer.
 - [Protocol Layer](/architecture/protocol) explains the client/gateway contract used by desktop and other clients.

@@ -7,7 +7,7 @@ Prompt construction is split across two layers:
 
 The gateway decides which previous conversation messages should be included. The agent compiles the system prompt and current turn runtime context. The provider adapter then maps the common `ChatRequest` into the provider-specific API shape.
 
-This split is deliberate. Conversation history is durable thread state, so the gateway owns loading, summarizing, and truncating it. Runtime instructions are turn-scoped, so the agent owns skills, memory prompt context, retry instructions, task orchestration policy, and runtime facts. Provider adapters should only translate the already-built request into API-specific payloads.
+This split is deliberate. Conversation history is durable thread state, so the gateway owns loading, summarizing, and truncating it. Runtime instructions are turn-scoped, so the agent owns skills, memory prompt context, permission guidance, retry instructions, task orchestration policy, and runtime facts. Provider adapters should only translate the already-built request into API-specific payloads.
 
 <Tip>
   If you are debugging "why did the model say that?", start here, then inspect the turn's `PromptManifest`, the thread history, and the provider request shape described in [Provider System](/architecture/providers).
@@ -79,6 +79,7 @@ The compiler builds ordered sections:
 | Identity Core | Stable | `IDENTITY.md` from runtime home when present. |
 | User Persona | Stable | `USER.md` if present. |
 | Tool Recovery Policy | Stable | Built-in policy when enabled. |
+| Current Permissions | Dynamic | Turn permission guidance rendered when the effective profile is restricted or narrowed. |
 | Task Orchestration | Dynamic | Built-in policy when task tools are materialized. |
 | Memory Recall | Dynamic | Memory prompt contract rendered from hook prompt context when memory policy allows it. |
 | Artifact References | Dynamic | Short policy section rendered only when the current compiled prompt contains artifact refs. |
@@ -186,6 +187,14 @@ The `Hidden Tool Domains` prompt section is only a compact catalog for `request_
 
 MCP follows the same boundary. Composer-selected MCP servers and tools do not create an MCP prompt section. They materialize as dynamic provider tools in `ChatRequest.tools` and are called through the gateway MCP service.
 
+## Current Permissions Prompt
+
+For restricted or narrowed permission profiles, the agent adds a dynamic `Current Permissions` section. It summarizes the selected mode and the action categories that may require approval, such as file writes, shell commands, network access, task/subagent launches, or other external actions.
+
+This section is guidance for the model, not the enforcement mechanism. Enforcement happens in `pioneer-tools` through `PermissionEvaluationContext` before a tool action executes. The prompt section exists so the model can avoid unnecessary blocked actions and continue with allowed alternatives when the user denies a request.
+
+The default unconstrained `full_access` profile does not render this section.
+
 ## Prompt Manifest
 
 Every prompt compilation emits a `PromptManifest` durable event with compiler version, profile, section ids, stable/dynamic/full fingerprints, and diagnostics. The gateway persists this metadata on the turn through `CrudStore::update_turn_prompt_manifest`.
@@ -204,12 +213,14 @@ When model behavior looks wrong, check these in order:
 4. Were relevant skills resolved, disabled, or non-implicit? See [Skills Architecture](/architecture/skills).
 5. Did memory hooks contribute recall context or memory tools? See [Memory Architecture](/architecture/memory).
 6. Which tools were model-visible for that provider round? See [Tools System](/architecture/tools).
-7. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
+7. Which permission profile was active, and did the model receive a `Current Permissions` section? See [Permission System](/architecture/permissions).
+8. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
 
 ## Related Pages
 
 - [Gateway](/architecture/gateway) explains where history loading is triggered.
 - [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.
+- [Permission System](/architecture/permissions) explains the effective profile that produces current permission guidance.
 - [Hook Runtime](/architecture/hooks) explains how hook contributions become prompt context and prompt sections.
 - [Memory Architecture](/architecture/memory) explains the memory prompt contract and post-turn extractor prompt.
 - [Thread Episodic Context](/architecture/thread-episodic-context) explains recalled conversation snippets and artifact refs.

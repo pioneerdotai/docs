@@ -111,7 +111,7 @@ Artifacts are gateway-owned durable files and generated outputs.
 
 ## Resilience settings
 
-Command execution resilience settings control how long command execution leases can stay active and how long recovery can keep trying to reconcile command execution state.
+Command execution resilience settings control how long command execution leases can stay active and how long recovery can keep trying to reconcile command execution state. Provider stream item resilience settings do the same for streamed provider items that may need reconciliation after interruption or restart.
 
 | Key | Default | Purpose |
 | --- | --- | --- |
@@ -119,6 +119,9 @@ Command execution resilience settings control how long command execution leases 
 | `gateway.resilience.command_execution.idle_secs` | `1800` | Idle duration after which command execution can be treated as stale. |
 | `gateway.resilience.command_execution.hard_secs` | `3600` | Hard maximum duration for command execution before recovery treats it as overdue. |
 | `gateway.resilience.command_execution.recovery_max_wall_clock_secs` | `3600` | Maximum wall-clock time allowed for command execution recovery. |
+| `gateway.resilience.provider_stream_items.lease_secs` | `960` | Lease duration for provider stream item ownership. |
+| `gateway.resilience.provider_stream_items.idle_secs` | `900` | Idle duration after which a provider stream item can be treated as stale. |
+| `gateway.resilience.provider_stream_items.hard_secs` | `1800` | Hard maximum duration for provider stream item reconciliation before recovery treats it as overdue. |
 
 ## Agent memory settings
 
@@ -260,7 +263,7 @@ You can override these if you want new threads to start with a different default
 | `gateway.tools.retry.max_same_tool_error_retries_per_episode` | `3` | Retry limit for repeated tool errors |
 | `gateway.tools.retry.max_retries_per_tool_name_per_episode` | `16` | Retry limit per tool name in one episode |
 
-These limits help stop runaway loops, but they are not a security sandbox.
+These limits help stop runaway loops. Permission modes control whether sensitive tool actions are allowed immediately or require approval. Approved tools still run on the gateway host.
 
 ## Execution window limits
 

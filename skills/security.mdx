@@ -9,14 +9,14 @@ Treat a skill like software you install into the gateway.
 That does not mean every skill is dangerous. It means the right habit is to inspect first, test in a small environment, and only then use it for important work.
 
 <Warning>
-  Pioneer does not yet run tools in a separate sandbox. Skill tools execute with the permissions of the OS user running the gateway.
+  Skill tools are subject to the turn permission mode, so Pioneer can ask before sensitive actions. They still run on the gateway host when approved, so review unfamiliar skills before using them on important gateways.
 </Warning>
 
 ## What A Skill Can Change
 
 A skill can influence how agents behave. If it exposes tools, those tools may be able to read files, write files, run commands, make network requests, or access environment variables available to the gateway process.
 
-This is why workspace and gateway separation matter. Test unfamiliar skills in a sandbox workspace, and use a sandbox gateway when the skill should not share the same machine, files, or credentials. Do not install random archives directly into your main work workspace.
+This is why workspace, permission mode, and gateway separation matter. Test unfamiliar skills in a sandbox workspace with **Supervised** turns, and use a sandbox gateway when the skill should not share the same machine, files, or credentials. Do not install random archives directly into your main work workspace.
 
 ## What To Trust
 
@@ -47,5 +47,6 @@ Keep skills in the workspace where they belong. A work-approved skill should liv
 ## Go Deeper
 
 - [Skills Architecture](/architecture/skills) explains trust levels, dependency checks, and runtime tool exposure.
-- [Tools Architecture](/architecture/tools) explains the current tool execution model and sandbox limitations.
+- [Permission System](/architecture/permissions) explains permission modes, approval prompts, and audit events.
+- [Tools Architecture](/architecture/tools) explains the current tool execution model and policy gates.
 - [Gateway Architecture](/architecture/gateway) explains why gateway separation is the stronger safety boundary.

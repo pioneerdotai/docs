@@ -5,7 +5,7 @@ description: "SQLite, SeaORM entities, CRUD repositories, projectors, events, ru
 
 Pioneer persists normal gateway state in `gateway.db` through SeaORM. Secret values are stored separately in `keystore.db`. The persistence layer is split into entity definitions, migrations, SQLite helpers, the `CrudStore` repository/projector facade, and a keystore boundary used by gateway and desktop secret flows.
 
-Persistence is not just storage for finished conversations. It is part of the runtime contract. The gateway uses it to make active turns visible, recover from interrupted work, audit which prompt and skills were used, track MCP catalogs, reconcile tasks, and keep clients in sync after reconnect.
+Persistence is not just storage for finished conversations. It is part of the runtime contract. The gateway uses it to make active turns visible, recover from interrupted work, audit which prompt, skills, MCP bindings, and permission profile were used, track MCP catalogs, reconcile tasks, and keep clients in sync after reconnect.
 
 <Tip>
   Read [Gateway](/architecture/gateway) first if you want to understand who calls the persistence layer. Read [Agent Loop](/architecture/agent-loop) and [Tasks And Subagents](/architecture/tasks) if you want to understand the main event producers.
@@ -40,7 +40,7 @@ The write coordinator is important because the gateway is async and can have con
 
 ## Turn Persistence
 
-Turns use durable event payloads and projected read models. `TurnEventPayload` includes turn start, item start, item completion, item updates, timeout/recovery events, retry events, tool-loop budget exhaustion, turn completion, and turn failure.
+Turns use durable event payloads and projected read models. `TurnEventPayload` includes turn start, item start, item completion, item updates, timeout/recovery events, retry events, tool-loop budget exhaustion, permission audit events, turn completion, and turn failure.
 
 `TurnProjector` writes or updates:
 
@@ -51,6 +51,7 @@ Turns use durable event payloads and projected read models. `TurnEventPayload` i
 - turn status history
 - turn items
 - turn item attempts
+- turn permission profile snapshots
 
 Prompt manifests, skill bindings, MCP bindings, and retained LLM context are persisted by gateway durable event handling around the core projector.
 
@@ -65,7 +66,7 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | Domain | Stored data |
 |---|---|
 | Workspaces and threads | workspace rows, thread rows, folder placement, thread lineage, sandbox policy, summaries |
-| Turns | turn rows, turn input, turn items, turn item attempts, status history, timeline events |
+| Turns | turn rows, turn input, turn items, turn item attempts, status history, timeline events, permission profile snapshots, permission audit events |
 | Prompt/context | prompt manifests, retained `turn_llm_context` rows during active recovery windows |
 | Artifacts/providers | artifact metadata, versions, bindings, projections, upload session rows, and provider external refs for attachment reuse |
 | Secrets | no raw values; domain rows store refs or redacted data only |

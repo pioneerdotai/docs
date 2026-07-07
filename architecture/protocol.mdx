@@ -42,8 +42,8 @@ Pioneer uses domain-specific unavailable/rejection DTOs heavily. Prefer returnin
 | Group | Examples |
 |---|---|
 | Workspaces | `workspace/list`, `workspace/create`, `workspace/default`, `workspace/select`, `workspace/update` |
-| Threads | `thread/start`, `thread/get`, `thread/history`, `thread/tree`, folder operations |
-| Turns | `turn/start`, `turn/cancel`, `turn/get`, `turn/items`, `turn/timeline` |
+| Threads | `thread/start`, `thread/get`, `thread/history`, `thread/tree`, `thread/timeline/page`, folder operations |
+| Turns | `turn/start`, `turn/cancel`, `turn/get`, `turn/items`, `turn/timeline`, `turn/work/page`, `turn/permission/request/respond` |
 | Providers | `provider/list`, `provider/models/list`, `provider/set_api_key`, `provider/delete_api_key` |
 | CLI runtimes | `cli_runtime/list`, `cli_runtime/refresh`, `cli_runtime/list_models`, `cli_runtime/thread_binding/get`, `cli_runtime/thread/fork`, `cli_runtime/thread/compact`, `cli_runtime/turn/steer`, `cli_runtime/review/start`, login and request-response methods |
 | Settings | `settings/get`, `settings/update` |
@@ -56,7 +56,7 @@ Pioneer uses domain-specific unavailable/rejection DTOs heavily. Prefer returnin
 
 ## Notification Groups
 
-The protocol includes notifications for thread changes, turn lifecycle, item lifecycle, tool retry and recovery, context compression, CLI runtime status/account/request/app changes, remote-access status changes, memory changes, skills changes, MCP status/catalog changes, task events, delivery state, and write locks.
+The protocol includes notifications for thread changes, timeline block changes, turn lifecycle, turn work state/items, item lifecycle, turn permission approval/audit, tool retry and recovery, context compression, CLI runtime status/account/request/app changes, remote-access status changes, memory changes, skills changes, MCP status/catalog changes, task events, delivery state, and write locks.
 
 The gateway treats durable agent events as the source for many notifications. A client can render live progress without knowing whether an event originated from the provider stream, a built-in tool, an MCP tool, a skill runtime tool, or the task scheduler.
 
@@ -147,6 +147,7 @@ Use this checklist before merging a protocol change:
 - schema export output updated;
 - `pioneer-client` reducers/selectors updated if clients consume it;
 - FFI and mobile generated contracts updated when the mobile shell needs the projection;
+- permission profiles, approval requests, and audit events updated when the method can trigger tool side effects;
 - protocol reference docs updated.
 
 ## Related Pages
@@ -154,4 +155,5 @@ Use this checklist before merging a protocol change:
 - [Gateway](/architecture/gateway) explains where protocol methods are dispatched.
 - [Persistence Layer](/architecture/persistence) explains how protocol-visible state maps to durable records.
 - [Client Architecture](/architecture/clients) explains how desktop and mobile shells consume protocol contracts through shared client code.
+- [Permission System](/architecture/permissions) explains `turn/permission/request/respond`, approval notifications, and permission audit events.
 - [CLI Runtime Architecture](/architecture/cli-runtime), [Memory Architecture](/architecture/memory), [Tasks And Subagents](/architecture/tasks), [MCP Architecture](/architecture/mcp), [Skills Architecture](/architecture/skills), and [Remote Access Architecture](/architecture/remote-access) explain large protocol surfaces.
