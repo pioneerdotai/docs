@@ -4,7 +4,7 @@ description: "Common Pioneer configuration keys for users and operators."
 icon: "list"
 ---
 
-This is an operator-facing reference for the default gateway configuration. If you only use the desktop app, start with [Configuration Overview](/configuration/overview) and change values here only when you need a gateway-level setting.
+This is an operator reference for the default gateway configuration. If you only use the desktop app, start with [Configuration Overview](/configuration/overview) and change these values only when you need a gateway-level setting.
 
 <Note>
   Most users do not need to read this page end to end. Use it when support, automation, or a deployment guide asks for a specific setting name.
@@ -122,6 +122,8 @@ Command execution resilience settings control how long command execution leases 
 | `gateway.resilience.provider_stream_items.lease_secs` | `960` | Lease duration for provider stream item ownership. |
 | `gateway.resilience.provider_stream_items.idle_secs` | `900` | Idle duration after which a provider stream item can be treated as stale. |
 | `gateway.resilience.provider_stream_items.hard_secs` | `1800` | Hard maximum duration for provider stream item reconciliation before recovery treats it as overdue. |
+
+Provider transport timeouts are configured separately under `[gateway.provider]`: `non_stream_request_timeout_secs`, `connect_timeout_secs`, `first_chunk_timeout_secs`, and `inter_chunk_idle_timeout_secs`. These control the provider request itself; the resilience leases above control ownership and recovery of persisted streamed items after interruption.
 
 ## Agent memory settings
 
@@ -359,6 +361,9 @@ Execution windows bound long agent turns in smaller windows and also keep total-
 | `gateway.cli_agent_runtime.stderr_ring_lines` | `200` | Number of recent stderr lines retained for diagnostics. |
 | `gateway.cli_agent_runtime.debug_native_events` | `false` | Include extra native runtime event diagnostics. |
 | `gateway.cli_agent_runtime.command_heartbeat.interval_secs` | `60` | Heartbeat interval for CLI runtime command execution state. |
+| `gateway.cli_agent_runtime.mcp_tools.max_tools` | `512` | Maximum MCP tools materialized for one CLI-backed turn. |
+| `gateway.cli_agent_runtime.mcp_tools.max_total_schema_bytes` | `3145728` | Maximum combined MCP tool-schema size, in bytes, for one CLI-backed turn. |
+| `gateway.cli_agent_runtime.mcp_tools.max_concurrent_calls_per_turn` | `16` | Maximum concurrent MCP tool calls in one CLI-backed turn. |
 
 Named instances can be configured under `[gateway.cli_agent_runtimes.<id>]`:
 
@@ -489,7 +494,7 @@ The same file also stores gateway-scoped runtime settings that users change thro
 | `desktop.gateway.local_gateway_id` | `local` | Reserved id for the desktop-managed local gateway |
 | `desktop.gateway.registry_version` | `1` | Desktop gateway registry schema version |
 
-## Go Deeper
+## Further reading
 
 - [Gateway Architecture](/architecture/gateway) explains how app config and runtime settings feed gateway systems.
 - [Persistence](/architecture/persistence) explains database and runtime-home state.

@@ -10,13 +10,13 @@ Pioneer connects to servers that implement [Model Context Protocol](https://mode
 
 Before you add one, decide where it belongs. A work MCP server should usually live on the work gateway. A personal helper should live on the home or local gateway. An unfamiliar server should be tested in a sandbox first.
 
-## Install From The Desktop App
+## Install from the desktop app
 
 In the desktop app, connect to the gateway where the MCP server should run. Click the MCP icon in the bottom bar, click **Install**, paste the MCP JSON config into the config field, and submit it.
 
 Pioneer reads the JSON, validates each server under `mcpServers`, stores secret values in the gateway secret store, saves redacted server settings, and starts or connects to enabled servers.
 
-## Stdio Servers
+## Stdio servers
 
 Use stdio when Pioneer should launch the MCP server as a local child process.
 
@@ -40,7 +40,7 @@ Paste a config with a top-level `mcpServers` object:
 
 The server name, such as `resend`, must use letters, numbers, `_`, or `-`. Use `command` for the executable, `args` for command arguments, and `env` for environment variables passed to that server. You can also set `cwd` when the command must start from a specific directory.
 
-## HTTP Servers
+## HTTP servers
 
 Use HTTP when the MCP server is already running as a service.
 
@@ -61,7 +61,7 @@ Start the service outside Pioneer, confirm the gateway can reach its URL, then i
 
 Use `url` for the MCP HTTP endpoint and `headers` for authentication or routing headers. The URL must use `http` or `https`. If the gateway is remote, test connectivity from the remote host.
 
-## Common Config Fields
+## Common config fields
 
 Every server config lives under `mcpServers` and uses the object key as the server name.
 
@@ -88,7 +88,7 @@ Pioneer stores secret values from `env`, `headers`, tokens, and authorization fi
 
 When you update or uninstall an MCP server, Pioneer cleans up stale MCP secret references after the server settings are updated. If you need to inspect or clean orphaned MCP secrets explicitly, use `pioneer secrets status` and `pioneer secrets garbage-collection`.
 
-## Health And First Test
+## Health and first test
 
 After saving a server, Pioneer should discover its tools, resources, templates, and prompts. If it fails, the most common causes are a missing command, invalid environment variable, auth failure, unreachable HTTP endpoint, or a server that starts but advertises no tools.
 
@@ -102,13 +102,13 @@ List the MCP tools available in this workspace and explain what each one can do.
 
 Then call one low-risk tool and inspect the timeline.
 
-## Use In A Thread
+## Use in a thread
 
 To use an explicit-only MCP capability, open a thread, click the composer add button, and choose **Add MCP**. Select either the whole server or specific tools. Selecting the server exposes that server's allowed tools for the turn; selecting tools exposes only those raw MCP tools.
 
 The selection appears as attachment chips in the composer and in the sent user message. It is sent as turn capability metadata, not as ordinary message text.
 
-## Go Deeper
+## Further reading
 
 - [MCP Architecture](/architecture/mcp) explains config parsing, runtime state, catalog refresh, and policy.
 - [Secret Storage](/architecture/secrets) explains how MCP secrets are redacted and referenced.

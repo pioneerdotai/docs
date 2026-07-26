@@ -13,13 +13,13 @@ This split is deliberate. Conversation history is durable thread state, so the g
   If you are debugging "why did the model say that?", start here, then inspect the turn's `PromptManifest`, the thread history, and the provider request shape described in [Provider System](/architecture/providers).
 </Tip>
 
-## Why Prompt Compilation Is A Separate Crate
+## Why prompt compilation is a separate crate
 
 Prompt behavior changes the product more than most internal refactors. Small wording changes can affect tool use, recovery, task delegation, and user trust. Keeping prompt compilation in `pioneer-promt` makes it testable and reviewable as its own layer instead of hiding it in the middle of the agent loop.
 
 The compiler also gives Pioneer stable/dynamic prompt separation. Stable sections can be fingerprinted and potentially cached by providers. Dynamic sections can change between rounds when skills, retry instructions, continuation hints, or runtime facts change.
 
-## Conversation History
+## Conversation history
 
 Historical context is loaded by `MessageProcessor::load_conversation_history` in `crates/gateway/src/message/provider_handlers.rs`.
 
@@ -48,7 +48,7 @@ When a retained history message had artifacts attached, Pioneer can append a com
 
 That placement is intentional. If the old message says "what car is this?" and has `car.jpg`, the reference belongs right next to that message. If the same thread also has 100 unrelated screenshots, those screenshots should not appear in the prompt unless their own messages are included or recalled.
 
-## Prompt Compiler
+## Prompt compiler
 
 The system prompt compiler lives in `crates/promt`. The crate name is intentionally `promt` in the current workspace.
 
@@ -67,7 +67,7 @@ The system prompt compiler lives in `crates/promt`. The crate name is intentiona
 | `extra_system` | Runtime facts such as local date/time and OS. |
 | `limits` | Character budgets for bootstrap files. |
 
-## Prompt Sections
+## Prompt sections
 
 The compiler builds ordered sections:
 
@@ -101,7 +101,7 @@ dynamic_system_text
 
 The provider receives both the split form and `full_system_text` through `CompiledPromptPayload`. Adapters can use this to support provider-side prompt caching where available.
 
-## Bootstrap Files
+## Bootstrap files
 
 For agent turns, bootstrap files are read from the gateway runtime home. The runtime home is the OS user home joined with `home_directory`, for example `~/.pioneer`.
 
@@ -130,13 +130,13 @@ That reminder is rendered into the prompt; it is not written into the files. The
 
 Each file is budgeted with a maximum per-file character limit and a total character limit. Missing files, read errors, file truncation, and total-budget truncation become prompt diagnostics. Missing `SOUL.md` or `IDENTITY.md` files do not fall back to Rust constants during compilation. The resulting prompt manifest is persisted on the turn so developers can audit what sections were compiled without storing the entire prompt text as the primary contract.
 
-## Skills Prompt
+## Skills prompt
 
 Skills are resolved before prompt compilation. `pioneer-skills` builds a compact `[Skills]` section listing active skills, their exact `read_skill` slug, and their descriptions.
 
 Composer-selected skills stay compact. They do not expand the full `SKILL.md` body into the prompt; the model must call `read_skill` with the exact slug before following specialized instructions. Full skill bodies are only eligible for path-matched skills when few skills are active and the prompt budget allows it. If the prompt budget is tight, the section includes a `read_skill` hint so the model can load exact skill instructions on demand.
 
-## Memory Prompt
+## Memory prompt
 
 Memory prompt content is contributed through hooks, not hard-coded in the compiler. In agent mode, memory hooks can:
 
@@ -149,7 +149,7 @@ The rendered memory section tells the model how to use memory proactively, when 
 
 The post-turn extractor uses a separate prompt renderer. It is not the main assistant prompt and does not include model-facing memory tools. Its job is to return strict JSON facts for the memory service after a completed turn.
 
-## Thread Context Prompt
+## Thread context prompt
 
 Thread episodic recall is separate from ordinary retained history. Retained history is loaded directly from recent completed conversation entries. Thread context is searched from indexed conversation snippets and injected only when recall decides a snippet is useful.
 
@@ -157,7 +157,7 @@ When thread context appears in the prompt, it is rendered as compact context, no
 
 The prompt should never contain a loose pile of artifact refs without the message or snippet they came from. Without that source text, the model cannot know why a file matters.
 
-## Artifact Reference Prompt
+## Artifact reference prompt
 
 Artifact refs in prompt context are an invitation to inspect a file, not the file itself.
 
@@ -171,23 +171,23 @@ When compiled prompt content includes one or more artifact refs, Pioneer adds a 
 
 The section is omitted when there are no artifact refs in the compiled prompt. A model should not be told to use `artifact_read` when there is nothing available to read.
 
-## AGENTS.md Prompt
+## AGENTS.md prompt
 
 AGENTS.md prompt content is also contributed through hooks. The gateway installs an internal hook package that resolves the effective active `AGENTS.md` for the current thread at `turn.pre_prompt_compile`.
 
 If no active file exists in the thread's folder ancestry, the hook contributes nothing. If a file exists, it becomes a dynamic `AGENTS.md` prompt section with hook source metadata in the prompt manifest. See [AGENTS.md Architecture](/architecture/agents-md) for the full storage, inheritance, and protocol model.
 
-## Tool Definitions Are Separate
+## Tool definitions are separate
 
 Tool definitions are not embedded as prompt prose. The agent passes model-visible tool definitions in `ChatRequest.tools`. The prompt can explain recovery or task orchestration policy, but the callable JSON schema for tools goes through the provider tool-calling interface.
 
-This distinction prevents two common bugs. First, a tool should not become callable just because its name appears in prompt text. Second, removing a tool from the model-visible tool list should actually remove the capability, not merely change an instruction sentence. Tool availability is enforced by the tool router described in [Tools System](/architecture/tools).
+This separation prevents two common bugs. A tool does not become callable because its name appears in prompt text, and removing it from the model-visible tool list removes the capability instead of changing only an instruction sentence. The tool router enforces availability; see [Tools System](/architecture/tools).
 
 The `Hidden Tool Domains` prompt section is only a compact catalog for `request_tools`. It lists domains such as `memory`, `task`, `artifact`, and `computer_use` with their exact tool names so the model knows which domain to request if a needed hidden tool is not currently visible. It does not include JSON schemas and does not make those tools callable by itself.
 
 MCP follows the same boundary. Composer-selected MCP servers and tools do not create an MCP prompt section. They materialize as dynamic provider tools in `ChatRequest.tools` and are called through the gateway MCP service.
 
-## Current Permissions Prompt
+## Current permissions prompt
 
 For restricted or narrowed permission profiles, the agent adds a dynamic `Current Permissions` section. It summarizes the selected mode and the action categories that may require approval, such as file writes, shell commands, network access, task/subagent launches, or other external actions.
 
@@ -195,7 +195,7 @@ This section is guidance for the model, not the enforcement mechanism. Enforceme
 
 The default unconstrained `full_access` profile does not render this section.
 
-## Prompt Manifest
+## Prompt manifest
 
 Every prompt compilation emits a `PromptManifest` durable event with compiler version, profile, section ids, stable/dynamic/full fingerprints, and diagnostics. The gateway persists this metadata on the turn through `CrudStore::update_turn_prompt_manifest`.
 
@@ -203,7 +203,7 @@ The manifest is the audit handle. It tells a developer which prompt shape was se
 
 The manifest intentionally stores metadata rather than turning the prompt into the only source of truth. The actual behavior is the combination of prompt sections, conversation messages, tool definitions, provider adapter behavior, and runtime policies.
 
-## Common Debugging Path
+## Common debugging path
 
 When model behavior looks wrong, check these in order:
 
@@ -216,7 +216,7 @@ When model behavior looks wrong, check these in order:
 7. Which permission profile and execution security snapshot were active, and did the model receive a `Current Permissions` section? See [Permission System](/architecture/permissions).
 8. Did the provider adapter map `compiled_prompt` in the expected way? See [Provider System](/architecture/providers).
 
-## Related Pages
+## Related pages
 
 - [Gateway](/architecture/gateway) explains where history loading is triggered.
 - [Agent Loop](/architecture/agent-loop) explains how prompt compilation fits into provider/tool rounds.

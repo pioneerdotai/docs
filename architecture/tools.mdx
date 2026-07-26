@@ -7,19 +7,19 @@ description: "Built-in tools, dynamic tool bundles, routing, output policies, an
 
 Tool execution is protected by the turn permission and sandboxing system. Each turn carries an effective permission profile and a `TurnExecutionSecuritySnapshot`. The tools runtime evaluates side-effecting actions before execution, checks the relevant filesystem, network, and process policy, and then either executes, rejects, or opens a client approval request.
 
-The tools layer is where Pioneer crosses from language into side effects. Reading a file, running a command, calling an MCP server, applying a patch, or using computer control is no longer just "model output." It is gateway-host execution.
+The tools layer is where model output becomes a side effect. Reading a file, running a command, calling an MCP server, applying a patch, and using computer control all execute on the gateway host.
 
 <Note>
   A remote gateway means the tool runs on the remote host; a local gateway means it runs on the local host. Within that host, Pioneer applies turn permission profiles, resource policies, scoped approval grants, and the selected native or provider sandbox backend.
 </Note>
 
-## Why This Layer Exists
+## Why this layer exists
 
 Tools need a common runtime because Pioneer has several capability sources: built-ins, MCP servers, skills, and task orchestration. The model should not need to know which subsystem owns a tool. It should see a clean tool name, JSON schema, and result.
 
 At the same time, Pioneer needs consistent behavior after execution: timeline events, model-visible output, storage output, recovery evidence, retries, and diagnostics. If every subsystem returned raw text directly to the model, context windows would explode and recovery would be unreliable.
 
-## Runtime Pieces
+## Runtime pieces
 
 | Piece | Responsibility |
 |---|---|
@@ -32,7 +32,7 @@ At the same time, Pioneer needs consistent behavior after execution: timeline ev
 | Output policy | Separates what the model sees from what the timeline, storage, and recovery systems retain. |
 | Retry classifier | Classifies tool failures as recoverable, fatal, partial, or successful so the agent can decide whether to retry. |
 
-## Permission Evaluation
+## Permission evaluation
 
 Every tool invocation receives a `PermissionEvaluationContext` containing the workspace, thread, turn, and `TurnPermissionProfileSnapshot`, plus the turn's `TurnExecutionSecuritySnapshot`. Before execution, the orchestrator extracts a `PermissionIntent`, classifies the action kind, and evaluates it against the profile's `ToolPermissionPolicySnapshot`.
 
@@ -63,7 +63,7 @@ Approval requests include a normalized request key and scope hash. If the user c
 
 The tools layer emits permission audit events for profile decisions, approval requests, approval resolutions, cached approvals, and denied actions. The gateway persists those events through the same durable turn-event path as ordinary tool lifecycle events.
 
-## Sandbox And Resource Policy
+## Sandbox and resource policy
 
 Permission approval is not the only gate. The orchestrator and handlers also enforce the execution security snapshot:
 
@@ -77,7 +77,7 @@ Permission approval is not the only gate. The orchestrator and handlers also enf
 
 Scoped approvals can extend a restricted snapshot for the current invocation or the rest of the turn. For example, approving a specific download can add both the network grant and destination write grant needed for that operation without switching the whole turn to full access.
 
-## Built-In Tools
+## Built-in tools
 
 The core built-ins are intentionally small and always eligible for agent turns when tool calling is available:
 
@@ -112,7 +112,7 @@ Web tools are optional at runtime and controlled by gateway configuration. They 
 
 Computer use uses native automation/screenshot dependencies where available. It is part of the same tool router, not a special client-side channel, but the `computer_use` schema is hidden until preflight or `request_tools` reveals the `computer_use` domain.
 
-## Lazy Visibility
+## Lazy visibility
 
 The router stores all specs for a turn, but the model only receives the currently visible subset.
 
@@ -129,7 +129,7 @@ Turn preflight is the first visibility selector. It receives a compact `Prefligh
 
 `domains` is an enum: `memory`, `task`, `artifact`, or `computer_use`. The handler expands each requested domain to every registered and available tool in that domain, reports already-visible and unavailable tools, and returns a compact result without embedding hidden schemas. The agent loop applies the result before the next provider round and keeps visibility monotonic for the rest of the turn.
 
-## Dynamic Tools
+## Dynamic tools
 
 Dynamic tools are exposed through `ToolExtensionBundle`.
 
@@ -139,25 +139,25 @@ Skill tools are declared by installed skills and validated by the skills runtime
 
 Task tools are injected when task orchestration is available. They let an agent create attached tasks, wait for them, cancel them, detach them, and observe terminal child task results.
 
-The important architectural choice is that dynamic tools do not bypass the router. They are added to the same runtime, use the same output projection path, and emit the same kind of tool events. This is what lets the agent loop treat a built-in shell command, an MCP call, and a skill-provided function as variations of the same execution contract.
+Dynamic tools do not bypass the router. They use the same runtime and output projection path, and emit the same tool events as built-in tools. The agent loop can therefore handle shell commands, MCP calls, and skill functions through one execution contract.
 
 Dynamic extension tools that are not in the built-in domain map are independent of preflight domain selection and `request_tools`. If an MCP server or skill contributes a turn-specific tool, including through an explicit composer capability, the final visibility pass keeps it available as a dynamic extension when it is registered and has a handler.
 
 Visibility is not authorization. A tool may be visible to the model and still require approval when called. The permission evaluator is the last policy gate before execution.
 
-## Output Projection
+## Output projection
 
 A tool call produces more than one view of output. The model-visible view may be shorter or structured differently from the timeline view. Storage may keep full output, a summary, metadata only, or nothing depending on policy. Recovery evidence can include exit status, error class, retry hints, excerpts, and fingerprints.
 
 This matters because a large shell output or MCP response should not automatically flood the LLM context window. Tool authors should define output policies deliberately.
 
-## Retry And Recovery
+## Retry and recovery
 
 Tool failures are normalized into `ToolOutcome` with status and error class. Recoverable errors can trigger another provider round with a retry instruction. Fatal errors are surfaced to the model or fail the turn depending on context.
 
 The agent does not blindly retry forever. Retry decisions are constrained by per-episode and per-tool budgets, and the tool loop itself has a separate round/call budget.
 
-## What Not To Put Here
+## What not to put here
 
 Provider-specific tool-call parsing belongs in [Provider System](/architecture/providers). The tools crate should receive normalized tool calls.
 
@@ -165,7 +165,7 @@ Prompt prose about when to use tools belongs in [Prompt And Context](/architectu
 
 MCP server lifecycle belongs in [MCP Architecture](/architecture/mcp). Skills installation and trust policy belong in [Skills Architecture](/architecture/skills). The tools layer only receives their already-materialized tool descriptors and handlers.
 
-## Related Pages
+## Related pages
 
 - [Agent Loop](/architecture/agent-loop) explains when tools are exposed and called.
 - [Permission System](/architecture/permissions) explains turn permission modes, security snapshots, sandbox/resource policy, approval requests, and audit events.

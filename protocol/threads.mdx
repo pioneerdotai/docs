@@ -3,7 +3,7 @@ title: "Threads API"
 description: "Starting threads, reading thread models and history, managing the thread tree, and handling thread notifications."
 ---
 
-Threads are the durable conversation containers in Pioneer. A thread belongs to a workspace, has a mode, stores its turns, and appears in the workspace tree unless it is hidden. Chat clients render threads directly; task and subagent flows often create hidden threads that are still fully durable and auditable.
+Threads are Pioneer's durable conversation containers. A thread belongs to a workspace, has a mode, stores its turns, and appears in the workspace tree unless it is hidden. Chat clients render threads directly; task and subagent flows often create hidden threads that remain durable and auditable.
 
 The protocol separates thread data from sidebar layout. Use `thread/get` for one thread, `thread/history` for replay, and `thread/tree` for the complete workspace tree.
 
@@ -22,9 +22,9 @@ The protocol separates thread data from sidebar layout. Use `thread/get` for one
 | `thread/folder/delete` | `ThreadFolderDeleteParams` | `ThreadFolderDeleteResponse` | Delete a folder. |
 | `thread/unsubscribe` | `ThreadUnsubscribeParams` | `ThreadUnsubscribeResponse` | Stop receiving live notifications for a thread. |
 
-## Starting A Thread
+## Starting a thread
 
-Clients provide the thread id. That keeps reconnect and optimistic UI flows simple: the client can create local UI state immediately and then reconcile with the gateway response.
+Clients provide the thread id. This supports reconnect and optimistic UI flows: the client can create local state immediately and reconcile it with the gateway response.
 
 ```json
 {
@@ -55,19 +55,31 @@ Important fields:
 | `model`, `model_provider` | Optional defaults used by turns in this thread. |
 | `mode` | `Chat` or `Agent`. Chat is plain assistant conversation; Agent enables tool and task orchestration. |
 | `sandbox` | Legacy thread sandbox display field. Current value is `FullAccess`; turn-level permission and sandbox/resource behavior is controlled by `permission_profile` in [Turns API](/protocol/turns). |
-| `origin_kind` | `user`, `task_run`, or `system`. |
+| `origin_kind` | `collaborative`, `direct_message`, `user`, `task_run`, or `system`. `collaborative` threads run Composer submissions as detached task work; the other origins use foreground Composer execution. |
 | `sidebar_visibility` | `visible` or `hidden`. Hidden threads are useful for subagents and internal task runs. |
 | `agent_nickname`, `agent_role` | Optional labels for agent/subagent threads. |
 
 `mode` and `sandbox` are PascalCase because they are Rust enum variants without snake-case renaming. `origin_kind` and `sidebar_visibility` are snake-case strings.
 
-## Thread Modes
+## Thread modes
 
 `Chat` and `Agent` are part of the thread model, not separate APIs. A client starts turns the same way in both modes through `turn/start`; the gateway decides which execution path to run.
 
 In `Chat` mode the gateway focuses on conversation with the selected model. In `Agent` mode the gateway can compile richer context, expose tools, call MCP servers, invoke skills, create tasks, and coordinate subagents. Clients should show the mode clearly because it changes what a user should expect from a turn.
 
-## Reading One Thread
+## Composer execution mode
+
+Thread origin also determines how a Composer submission is admitted:
+
+| Thread origin | Composer execution | Product meaning |
+|---|---|---|
+| `collaborative` | `detached_task` | Each submitted request runs independently in a child conversation. The parent timeline receives a live task card and the result is delivered back when ready. |
+| `direct_message` | `foreground_turn` | The Composer request runs in the current conversation. |
+| `user`, `task_run`, `system` | `foreground_turn` | Compatibility and internal origins that keep foreground Composer behavior. |
+
+Clients should render the resolved execution behavior from the thread contract. Do not infer it from sidebar visibility: a hidden task thread and a visible collaborative thread have different roles, but both are gateway-owned execution state.
+
+## Reading one thread
 
 ```json
 {
@@ -82,7 +94,7 @@ In `Chat` mode the gateway focuses on conversation with the selected model. In `
 
 Use `thread/get` when opening a thread by id or reconciling after a notification. The response contains the durable thread row with its workspace id, mode, model defaults, status fields, and timestamps.
 
-## Workspace Tree
+## Workspace tree
 
 `thread/tree` is the primary method for a sidebar or thread picker. It returns related collections: threads, folders, placements, and AGENTS.md summaries. Do not sort threads by timestamps and call it a tree; folder placement is stored separately.
 
@@ -113,7 +125,7 @@ Placements let the gateway preserve UI structure across clients. `agents_docs` c
 
 See [AGENTS.md API](/protocol/agents-md) for reading and editing full file content.
 
-## Moving Threads And Folders
+## Moving threads and folders
 
 Use move methods for tree edits instead of mutating local order and hoping the gateway catches up.
 
@@ -132,9 +144,9 @@ Use move methods for tree edits instead of mutating local order and hoping the g
 
 Folder methods follow the same shape: create a folder under a workspace, move it to a different parent, or delete it. Folder deletion is a layout operation; clients should refresh `thread/tree` afterward to render the gateway's resulting state.
 
-## Thread History
+## Thread history
 
-`thread/history` returns durable protocol events, not only final assistant messages. It is the replay API for rebuilding a thread timeline after reconnect, crash recovery, or opening a thread on another device.
+`thread/history` returns durable protocol events as well as final assistant messages. Use it to rebuild a thread timeline after reconnect, crash recovery, or opening a thread on another device.
 
 ```json
 {
@@ -154,7 +166,7 @@ History events include turn starts, item starts, streamed deltas, item completio
 
 For agent-side "what did we discuss earlier?" behavior, Pioneer uses thread episodic context internally: visible conversation material is indexed, searched, filtered, and inserted as bounded prompt snippets when recall decides it is useful. That layer is configured through settings and described in [Thread Episodic Context](/architecture/thread-episodic-context).
 
-## Semantic Timeline Page
+## Semantic timeline page
 
 `thread/timeline/page` is the paginated, semantic timeline read API used by shared client timeline reducers. It returns display-oriented blocks rather than raw event rows.
 
@@ -177,6 +189,7 @@ The response includes `workspaceId`, `threadId`, `projectionVersion`, `blocks`, 
 | --- | --- |
 | `user_message` | User input, text, and attachment chips. |
 | `turn_work` | Collapsible work block for a turn, with state and pagination cursors. |
+| `detached_task_run` | A background Composer request represented as a task card, with task status and child-conversation linkage. |
 | `assistant_message` | Assistant-visible answer block. |
 | `turn_state` | Terminal or intermediate turn state block. |
 | `pending_request` | Runtime-native pending request block, such as a CLI approval/input prompt. |
@@ -219,4 +232,4 @@ Use this when a client closes a thread view but keeps the WebSocket connection o
 | `thread/agents_doc/changed` | A root or folder AGENTS.md file changed and affected tree summaries or effective instructions. |
 | `thread/timeline/blocks/changed` | A semantic timeline block page may be stale; reload affected blocks or the current page. |
 
-Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, `thread/timeline/page`, or `turn/work/page` as needed.
+Thread notifications are not a replacement for read methods. Treat them as invalidation and streaming hints, then call `thread/get`, `thread/tree`, `thread/history`, `thread/timeline/page`, `turn/work/page`, or `turn/work/items/get` as needed.

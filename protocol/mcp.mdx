@@ -18,7 +18,7 @@ The gateway is the MCP host. If a desktop app is connected to a remote gateway, 
 | `mcp/uninstall` | `McpUninstallParams` | `McpUninstallResponse` | Remove one server installation. |
 | `mcp/server/details` | `McpServerDetailsParams` | `McpServerDetailsResponse` | Load catalog, health, audit, and recent binding details. |
 
-## Listing Servers
+## Listing servers
 
 ```json
 {
@@ -71,7 +71,7 @@ Response shape:
 
 Use `snapshot_version` together with `mcp/changed` and server status notifications to keep a client catalog fresh.
 
-## Installing Servers
+## Installing servers
 
 `mcp/install` accepts the same JSON shape users commonly put in MCP client config files: an object with `mcpServers`. Pass that JSON as a string in `config_json`.
 
@@ -107,7 +107,7 @@ The JSON inside `config_json` is parsed by the gateway. For HTTP servers, use a 
 
 Secret values from `env`, `headers`, tokens, and authorization fields are stored in the gateway keystore. Protocol responses use redacted transport/source data and secret refs; they do not echo raw secret values.
 
-## Install Result
+## Install result
 
 ```json
 {
@@ -178,7 +178,7 @@ MCP server policy mirrors skills policy:
 
 Omit `enabled` or `allow_implicit_invocation` to preserve the current value.
 
-## Explicit Turn Selection
+## Explicit turn selection
 
 An MCP server can remain not implicit and still be used in one turn through `turn/start.capabilities`:
 
@@ -211,7 +211,7 @@ or for one raw tool:
 
 Explicit MCP capabilities are materialized as provider tools for that turn only. They are audited through accepted/rejected capability diagnostics and MCP binding records; they are not injected into prompt text.
 
-## Runtime And Restart
+## Runtime and restart
 
 `runtime.state` reports process/service state. Known states are `not_started`, `disabled`, `starting`, `ready`, `degraded`, `auth_required`, `failed`, `stopping`, `stopped`, and `restarting`.
 
@@ -232,7 +232,7 @@ Restart a server when credentials, environment, or external dependencies changed
 
 The response means the restart was accepted. Watch `mcp/server/status_changed` for the actual runtime transition.
 
-## Server Details
+## Server details
 
 Use `mcp/server/details` for a detail panel, debug page, or agent-tool picker.
 

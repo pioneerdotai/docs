@@ -4,18 +4,18 @@ description: "How Pioneer remembers useful durable context and how you can contr
 icon: "brain"
 ---
 
-Pioneer has durable agent memory for facts and preferences that are useful beyond the current turn. It is designed for stable information such as your name, long-lived preferences, recurring instructions, communication style, and project decisions.
+Pioneer has durable agent memory for facts and preferences that remain useful after the current turn. Examples include your name, long-lived preferences, recurring instructions, communication style, and project decisions.
 
 Memory is enabled by default. You can control it from **Settings > Memory** in the desktop app.
 
-The important thing to understand is that Pioneer now has two different continuity layers:
+Pioneer has two continuity layers:
 
 - **Durable memory** remembers long-lived facts and decisions that should survive across threads.
 - **Thread context** indexes visible conversation history so Pioneer can search older discussion snippets when the current turn needs them.
 
 They work together, but they are not the same thing. Your name belongs in durable memory. A question like "what did you say earlier in this thread about the API design?" belongs to thread context.
 
-## What Memory Does
+## What memory does
 
 When memory is enabled, Pioneer can:
 
@@ -26,7 +26,7 @@ When memory is enabled, Pioneer can:
 - search indexed thread context when a turn needs older conversation snippets;
 - forget memory when explicitly asked.
 
-Memory is not a promise that every past token will always be available. Durable memory stores selected facts. Thread context is a bounded search layer over indexed conversation fragments. It is meant to recover useful prior discussion without stuffing whole transcripts into every prompt.
+Memory does not preserve every past token. Durable memory stores selected facts. Thread context searches indexed conversation fragments within a bounded budget, so Pioneer can recover useful prior discussion without adding whole transcripts to every prompt.
 
 ## Recall
 
@@ -39,7 +39,7 @@ Pioneer uses two recall paths:
 
 The recalled results are treated as context, not as instructions. Your current message wins if it conflicts with memory.
 
-## Thread Context
+## Thread context
 
 Thread context is the part that helps with follow-up questions like "what did we decide earlier?" or "show me the API plan from yesterday." Pioneer indexes visible user and assistant conversation items into a separate episodic store and can recall matching snippets later.
 
@@ -52,7 +52,13 @@ This is deliberately separate from durable memory:
 
 If an old message had file attachments, recalled snippets can include compact artifact references next to the snippet. The model can request the artifact domain and call `artifact_read` only when it actually needs the file content. That avoids re-attaching old photos, PDFs, or logs to every future turn.
 
-## Proactive Writes
+## Embedding models and recovery
+
+Thread context search uses an embedding model when vector search is enabled. Pioneer can use a configured remote embedding provider or a local model. In **Settings > Memory**, local model installation exposes download and preparation progress, so you can tell whether the model is ready before relying on semantic search.
+
+Indexing is resumable. If the gateway restarts, an embedding provider temporarily fails, or a refill is interrupted, Pioneer keeps completed work and resumes the unfinished jobs instead of rebuilding the entire index. Failed jobs and interrupted jobs are tracked separately, and recoverable provider or storage errors are retried according to the gateway's retry policy.
+
+## Proactive writes
 
 After a successful agent turn, Pioneer may run a post-turn extractor. The extractor can propose durable facts, but the memory service still decides what becomes active memory.
 
@@ -60,7 +66,7 @@ High-confidence durable facts can be stored automatically. Extremely weak, trans
 
 Pioneer does not rely on fixed phrases or one language to decide what can become memory. The extractor and quality gate use structured semantic fields, local validation, scoring, dedupe, and policy checks.
 
-## What Is Not Stored
+## What is not stored
 
 Pioneer should not store:
 
@@ -72,7 +78,7 @@ Pioneer should not store:
 - facts that only belong to a single short-lived task;
 - sensitive regulated information unless explicitly allowed and policy permits it.
 
-## Opt Out
+## Opt out
 
 You can disable memory from **Settings > Memory**.
 
@@ -96,7 +102,7 @@ You can also tell Pioneer not to use or save memory for a specific turn. Per-tur
 
 ## Limits
 
-Memory improves continuity, but it is not perfect:
+Memory helps with continuity, but it has limits:
 
 - not every useful fact is guaranteed to be saved;
 - not every saved fact is guaranteed to be recalled on every relevant turn;
@@ -105,7 +111,7 @@ Memory improves continuity, but it is not perfect:
 
 Use memory for durable context, not as the only record of important work.
 
-## Go Deeper
+## Further reading
 
 - [Memory Architecture](/architecture/memory) explains scopes, provenance, candidates, quality gates, and memvid-backed storage.
 - [Thread Episodic Context](/architecture/thread-episodic-context) explains searchable conversation-history recall.

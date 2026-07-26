@@ -4,9 +4,9 @@ description: "Review MCP server health, tools, resources, prompts, and audit his
 icon: "list"
 ---
 
-The MCP catalog shows what a connected MCP server exposes to Pioneer.
+The MCP catalog shows what each connected MCP server exposes to Pioneer.
 
-Use the catalog before allowing agents to use a server.
+Review the catalog before allowing agents to use a server.
 
 ## Catalog items
 
@@ -35,7 +35,7 @@ For each server, review:
 - policy state
 - recent audit activity
 
-## Enable, Disable, Or Change Implicit Mode
+## Enable, disable, or change implicit mode
 
 Keep MCP servers explicit-only until you understand what they expose. After they are trusted, decide whether they should be implicit.
 
@@ -72,7 +72,7 @@ Available actions may depend on transport and server state.
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Server is auth required">
+  <Accordion title="Server requires authentication">
     Add or refresh the required secret or token, then restart the server.
   </Accordion>
   <Accordion title="Server is degraded">
@@ -86,7 +86,7 @@ Available actions may depend on transport and server state.
   </Accordion>
 </AccordionGroup>
 
-## Go Deeper
+## Further reading
 
 - [MCP Architecture](/architecture/mcp) explains catalog snapshots, server health, and runtime supervision.
 - [Tools Architecture](/architecture/tools) explains how catalog tools become executable agent tools.

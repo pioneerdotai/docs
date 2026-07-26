@@ -3,7 +3,7 @@ title: "Client Architecture"
 description: "How desktop, mobile, shared Rust client code, FFI, and generated schemas fit around the gateway protocol."
 ---
 
-Pioneer clients are shells around a gateway-owned runtime. They render state, collect user input, store local client preferences, and call the gateway protocol, but they do not own assistant execution.
+Pioneer clients are shells around a gateway-owned runtime. They render state, collect input, store local preferences, and call the gateway protocol. Assistant execution remains in the gateway.
 
 The current client stack has three layers:
 
@@ -13,7 +13,7 @@ The current client stack has three layers:
 | Native boundary | `crates/client-ffi` | C ABI and JSON method boundary for shells that cannot link Rust APIs directly. It wraps `pioneer-client`, catches panics, serializes tagged JSON responses, exposes generated DTO schemas, and records client diagnostics. |
 | Shells | `crates/desktop`, `pioneer-app` | UI rendering, navigation, storage, native dialogs, local gateway process management where supported, platform permissions, localization, and OS integration. |
 
-## Runtime Boundary
+## Runtime boundary
 
 The gateway remains authoritative for:
 
@@ -23,9 +23,9 @@ The gateway remains authoritative for:
 
 Client shells should not duplicate those decisions. They should use shared client helpers when the behavior is protocol-facing or reusable across shells, and keep only platform-specific behavior in the shell.
 
-## Shared State Flow
+## Shared state flow
 
-The client architecture is event/reduction oriented:
+The client architecture uses protocol events and reducers:
 
 1. A shell starts or selects a gateway connection.
 2. `pioneer-client` opens the WebSocket transport and sends typed JSON-RPC requests.
@@ -33,9 +33,9 @@ The client architecture is event/reduction oriented:
 4. The shared client core reduces those events into shell-friendly state: connection status, workspace catalog, thread tree, active timeline, composer draft, selected permission mode, provider/model options, MCP/skill picker rows, settings snapshots, and task review state.
 5. The shell renders those projections and sends user actions back through shared helpers.
 
-The shell should not parse raw gateway events into UI state on its own when the same behavior matters to another client. Put reducers, selectors, display names, validation, and request planning in `crates/client` unless the code directly touches GPUI, React Native, OS APIs, app storage, or native dialogs.
+When behavior should match across clients, the shell should not parse raw gateway events into its own UI state. Put reducers, selectors, display names, validation, and request planning in `crates/client` unless the code touches GPUI, React Native, OS APIs, app storage, or native dialogs.
 
-## Desktop Shell
+## Desktop shell
 
 `crates/desktop` is the native GPUI desktop app. It can start and manage a local gateway, connect to remote gateways, store desktop gateway bearer tokens through the desktop secret layer, and render the full conversation/workspace UI.
 
@@ -53,7 +53,7 @@ Important desktop areas:
 
 Desktop may manage a local gateway process because it runs on a workstation-class OS. That responsibility should not move into `pioneer-client`; it is shell/OS integration.
 
-## Mobile Shell
+## Mobile shell
 
 `pioneer-app` is the Expo/React Native mobile app. It uses:
 
@@ -68,7 +68,7 @@ Mobile stores its gateway registry in MMKV-backed local storage and bearer token
 
 Mobile should call through the Nitro module for shared behavior rather than reimplementing Rust reducers in TypeScript. TypeScript owns screens, navigation, local store orchestration, platform permissions, localization, file picker behavior, microphone capture, and presentation glue.
 
-## Shared Client Core
+## Shared client core
 
 `pioneer-client` is intentionally shell-neutral. Code belongs there when it can run without GPUI, React Native, native dialogs, or OS-specific process management.
 
@@ -89,7 +89,7 @@ Good candidates for `pioneer-client` include:
 
 Keep code in a shell when it needs a window, native picker, app storage, secure storage, localization resources, OS open/reveal behavior, mobile permissions, or local gateway service management.
 
-## Client Runtime
+## Client runtime
 
 `ClientRuntime` is the long-lived shared object behind client operations. It owns connection-oriented workers, request helpers, reducer state, and diagnostic/event streams. Shells should treat it as the local client engine, not as a gateway substitute.
 
@@ -109,23 +109,27 @@ The runtime can validate and plan gateway registry mutations without writing sec
 
 Transport code should stay unaware of GPUI and React Native. It is allowed to know protocol envelopes and connection state, but not UI layout.
 
-## Timeline Projection
+## Timeline projection
 
 The timeline projection is shared because every client needs the same interpretation of gateway events. `crates/client/src/conversation`, `timeline`, and `threads` turn protocol items into rows such as agent messages, reasoning, tool calls, downloads, system events, task rows, and final statuses.
 
 This layer is where UI-adjacent normalization belongs. For example, a shell should not decide independently how to coalesce tool rows or label a final turn status if the behavior should match desktop and mobile.
 
-The current semantic timeline surface uses `thread/timeline/page` for top-level blocks and `turn/work/page` for paginated work inside a turn block. Live updates such as `thread/timeline/blocks/changed`, `turn/work/items/changed`, and `turn/work/state/changed` invalidate shared caches so shells can reload pages consistently instead of rebuilding timeline layout from raw events.
+The current semantic timeline surface uses `thread/timeline/page` for top-level blocks, `turn/work/page` for paginated work inside a turn block, and `turn/work/items/get` for targeted item refreshes. Live updates such as `thread/timeline/blocks/changed`, `turn/work/items/changed`, and `turn/work/state/changed` invalidate shared caches so shells can reload pages consistently instead of rebuilding timeline layout from raw events.
 
-## Composer Planning
+Collaborative Composer submissions add detached task blocks to that same projection. The shared client must keep the parent message and its task card distinct, update the card from task and timeline notifications, and expose the child conversation for inspection or follow-up without placing it in the normal sidebar tree. When the task reaches a terminal state, the client renders the delivered result in the originating thread and reconciles the card without duplicating the assistant message.
+
+## Composer planning
 
 Composer helpers live in `crates/client/src/composer`. They convert user-selected attachments, skills, MCP capabilities, model selections, permission mode, and draft state into turn-ready protocol inputs. This is where capability rejection rows, permission-mode labels, and picker filtering belong.
 
-The gateway still enforces policy. Client composer planning is a presentation and preflight layer that makes invalid choices visible early; it is not an authorization boundary.
+The gateway still enforces policy. Client composer planning is a presentation and preflight layer that exposes invalid choices early; it is not an authorization boundary.
 
 Model selection state includes provider, model, optional selected reasoning effort, and whether the selection was manually chosen. Permission mode state is per composer draft and maps directly to `TurnPermissionProfileSelection`. When the selected provider or model changes, shared client logic clears the selected reasoning effort so stale effort values from a previous model are not sent to the gateway. If the selection is resolved from an existing thread, the resolved effort can be carried forward.
 
-## Voice Planning
+The thread origin also determines Composer execution. A `Collaborative` thread launches detached task work, so the client keeps the Composer available and treats the launch settings as immutable for that request. `DirectMessage` and compatibility/internal foreground origins continue to render a normal in-thread turn. This decision comes from the gateway thread contract; client shells must not infer it from sidebar visibility or implement separate desktop and mobile rules.
+
+## Voice planning
 
 Voice input uses the same gateway-owned turn model as text input. The shell owns platform microphone permission and audio capture. The shared client core owns the voice protocol helpers:
 
@@ -136,7 +140,7 @@ Voice input uses the same gateway-owned turn model as text input. The shell owns
 
 The client must not insert gateway transcription text into the draft. Successful voice sessions are rendered from normal turn notifications plus thread timeline-page and turn work-page APIs after the gateway starts the turn.
 
-## FFI And Schemas
+## FFI and schemas
 
 `pioneer-client-ffi` exposes JSON methods such as:
 
@@ -160,7 +164,7 @@ This keeps the C ABI narrow and avoids exposing Rust panic/unwind behavior acros
 
 Generated client schemas have two jobs. First, they make TypeScript bindings reviewable and reproducible. Second, they make accidental shell-only DTO changes visible during contract review. If a mobile screen needs a new field that is derived from protocol state, prefer adding it to shared client DTOs rather than constructing it ad hoc in TypeScript.
 
-## Generated Mobile Contracts
+## Generated mobile contracts
 
 `pioneer-app/src/client/generated` and `pioneer-app/src/client/schema` are generated from the Rust client/FFI contract. They include DTOs for gateway registry plans, active-thread snapshots, composer rows, permission mode options, provider/model selection, reasoning effort rows, CLI runtime pending requests, settings, MCP catalog rows, skill diagnostics, task review display, timeline rows, and workspace bootstrap.
 
@@ -175,7 +179,7 @@ When changing a shared client DTO:
 
 Do not edit generated TypeScript as the source of truth.
 
-## Design Rules
+## Design rules
 
 - Gateway authority beats client convenience. Do not make a client shell the owner of workspaces, tasks, provider keys, MCP runtime, skills, or turn state.
 - Put cross-client behavior in `pioneer-client` before duplicating it in desktop and mobile.
@@ -184,7 +188,7 @@ Do not edit generated TypeScript as the source of truth.
 - Keep protocol DTOs distinct from client presentation DTOs. Protocol is the gateway contract; client DTOs are shell-facing projections.
 - When adding a client-visible gateway feature, update `protocol`, gateway handlers, `pioneer-client`, FFI/schema export when mobile needs it, and the shell views together.
 
-## Related Pages
+## Related pages
 
 - [Gateway](/architecture/gateway) explains the runtime clients connect to.
 - [Protocol Layer](/architecture/protocol) explains the public JSON-RPC contract.

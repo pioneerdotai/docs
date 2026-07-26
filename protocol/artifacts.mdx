@@ -31,7 +31,7 @@ Use this API whenever a client needs to upload a local file to a gateway, list f
 
 Artifact payloads use `snake_case` field names.
 
-## Artifact Summary
+## Artifact summary
 
 Most list and get responses return `ArtifactSummary`.
 
@@ -127,7 +127,7 @@ Response:
 
 `required_for_local_paths` means clients should upload local files to the gateway before referring to them in a turn. This is required for remote gateways and is the safe default for local gateways too.
 
-## Agent Artifact Tools
+## Agent artifact tools
 
 Agent-created user-visible files use model-facing tools, not client JSON-RPC methods. The tools are registered inside an agent turn when artifact registration is enabled, then made visible by turn preflight or by `request_tools` with the `artifact` domain.
 
@@ -208,7 +208,7 @@ For text-like artifacts or ready text projections, the tool can return text. For
 
 Artifact refs do not make `artifact_read` visible by themselves. They tell the model what can be requested. The capability becomes callable only after normal tool visibility rules reveal the `artifact` domain.
 
-## Listing Artifacts
+## Listing artifacts
 
 Use `artifact/list/thread` for the thread artifacts panel.
 
@@ -255,7 +255,7 @@ Response:
 
 Do not call `artifact/list/thread` for a draft thread that has not been materialized. The gateway validates that the thread exists and belongs to the workspace.
 
-## Reading Small Content
+## Reading small content
 
 `artifact/read` is for previews, small text, and ranged reads. It returns base64 inside a JSON response and is capped by the gateway's JSON read limit.
 
@@ -300,7 +300,7 @@ Response:
 
 For full-size files, use the download flow.
 
-## Upload Flow
+## Upload flow
 
 Start an upload session:
 
@@ -337,7 +337,7 @@ Response:
 
 After `artifact/upload/start`, send chunks as binary WebSocket frames on the same authenticated connection.
 
-### Upload Binary Chunk Frame
+### Upload binary chunk frame
 
 | Bytes | Content |
 |---|---|
@@ -411,7 +411,7 @@ Response:
 
 If the user cancels, call `artifact/upload/abort`.
 
-## Download Flow
+## Download flow
 
 Start a download session:
 
@@ -482,7 +482,7 @@ The JSON response confirms the request:
 
 The bytes arrive as a binary WebSocket frame.
 
-### Download Binary Chunk Frame
+### Download binary chunk frame
 
 | Bytes | Content |
 |---|---|
@@ -509,7 +509,7 @@ Header:
 
 After all chunks have been verified and written locally, call `artifact/download/finish`. If the user cancels, call `artifact/download/abort`.
 
-## Binding Existing Artifacts
+## Binding existing artifacts
 
 Use `artifact/bind` when a client or gateway flow needs to associate an existing artifact with a new message, turn, tool call, or task result.
 
@@ -565,9 +565,9 @@ Response:
 | `artifact/upload/progress` | `ArtifactUploadProgressNotification` | Optional aggregate upload progress notification. |
 | `artifact/download/progress` | `ArtifactDownloadProgressNotification` | Optional aggregate download progress notification. |
 
-Clients should refresh thread artifact lists on `thread/artifacts/changed`, not only on `artifact/created`, because one artifact may gain new bindings or metadata without creating a new artifact id.
+Clients should refresh thread artifact lists on `thread/artifacts/changed`, as well as on `artifact/created`. An artifact may gain new bindings or metadata without getting a new artifact id.
 
-## Client Rules
+## Client rules
 
 - Always include `workspace_id`.
 - Do not list artifacts for draft threads that have not been created on the gateway.

@@ -5,15 +5,15 @@ description: "Skill installation, validation, policy, prompt resolution, and run
 
 Skills are installed instruction/tool packages compatible with the Agent Skills style of `SKILL.md` packages. Pioneer parses the skill contract, validates it, installs it into managed roots, resolves active skills per turn, and can expose skill runtime tools to the model.
 
-Skills are the part of Pioneer that turns reusable know-how into a managed runtime feature. A skill can be just instructions, but the architecture treats it as more than text: it has provenance, validation, dependencies, trust level, policy, prompt behavior, and optional tools.
+Skills turn reusable instructions into a managed runtime feature. A skill can contain only instructions, but Pioneer also tracks its provenance, validation, dependencies, trust level, policy, prompt behavior, and optional tools.
 
 <Note>
   Skills and MCP both add capabilities to the agent, but they solve different problems. Skills package instructions and optional runtime tools. MCP connects Pioneer to external tool servers. Both eventually materialize through the tool runtime when they expose callable tools.
 </Note>
 
-## Why This Layer Exists
+## Why this layer exists
 
-Without a skills layer, every specialized workflow would be copied into the main prompt or hardcoded into tools. That does not scale. Pioneer needs a way to install, inspect, validate, trust, enable, disable, and audit reusable capability packages.
+Without a skills layer, specialized workflows would be copied into the main prompt or hardcoded into tools. Pioneer instead provides a lifecycle for installing, inspecting, validating, trusting, enabling, disabling, and auditing capability packages.
 
 The skills layer keeps that lifecycle out of the agent loop. The agent only needs resolved skills for the current turn and dynamic tools that passed policy. Installation, upload, dependency checks, security scans, catalog loading, and trust decisions happen before the agent sees anything.
 
@@ -29,13 +29,19 @@ The skills layer keeps that lifecycle out of the agent loop. The agent only need
 | Prompt builder | `skills/src/prompt.rs` | Builds the `[Skills]` dynamic prompt section. |
 | Runtime tools | `skills/src/runtime.rs` | Validates and materializes dynamic tool declarations. |
 
+## Stable identity and skill packs
+
+The catalog treats a skill's stable `SkillId` as its identity, separate from its display name, source path, or current pack membership. A skill can then be renamed, moved between sources, or transferred to another owner without losing installed policies, bindings, or history. The installer backfills identity for older records before normal lifecycle operations continue.
+
+A skill pack is an installation and lifecycle boundary for multiple skills. Pack install, update, and uninstall are coordinated as atomic operations. The catalog projects pack membership while preserving the identity and policy of retained members; removed members are removed deliberately rather than being silently replaced by same-named skills from the new source. The composer can resolve a complete pack or an individual member into explicit turn capabilities.
+
 ## Installation
 
 The gateway handles install/update/uninstall requests under `message/skills`. Uploaded archives use an upload session protocol: start upload, send chunks, finish, then install from the materialized archive. The upload path enforces size, chunk, archive entry, and cleanup limits.
 
-The installer stages source before committing it. This lets Pioneer scan the skill directory, parse the contract, evaluate dependency preflight, verify fingerprints, and only then update the installed skill root and lock file.
+The installer stages source before committing it. Pioneer scans the skill directory, parses the contract, evaluates dependency preflight, verifies fingerprints, and then updates the installed skill root and lock file.
 
-## Contract Shape
+## Contract shape
 
 A skill source is a directory whose root contains `SKILL.md`. Uploaded archives must materialize to one top-level directory, and that directory must contain `SKILL.md`. The installer rejects absolute paths, parent traversal, duplicate archive paths, unsupported archive entries, symlinks in copied sources, and files that exceed configured size limits.
 
@@ -52,7 +58,7 @@ dependencies:
     - git
 ---
 
-# Repo Review
+# Repo review
 
 Read `references/checklist.md` before reviewing code.
 ```
@@ -61,7 +67,7 @@ Pioneer parses an Agent Skills-compatible contract plus Pioneer runtime extensio
 
 At parse time, `SKILL.md` must exist, the body must not be empty, and the skill must have a `slug`. Native packages should provide that slug in frontmatter. Imported compatibility packages may provide it through `_meta.json`. Agent Skills strict conformance also requires `name` and `description`; Pioneer can still parse fallback values, but validation will report strict conformance issues.
 
-### Supported Frontmatter
+### Supported frontmatter
 
 | Field | Status | Type | Default / precedence | Semantics |
 |---|---|---|---|---|
@@ -99,7 +105,7 @@ The compiler also merges known dependency metadata from `metadata.openclaw.requi
 
 Dependencies are readiness checks, not installation instructions. The dependency evaluator checks the current gateway environment and reports missing or blocked requirements; it does not install binaries or commands. If a skill body contains setup instructions that install a command, do not declare that command as a required dependency unless the command must already exist before the skill can be installed or used.
 
-### Sidecar Metadata
+### Sidecar metadata
 
 `_meta.json` support exists for compatibility with imported OpenClaw-style or registry-style skill packages. Native Pioneer skills should put contract data in `SKILL.md` YAML frontmatter instead.
 
@@ -113,11 +119,11 @@ If `_meta.json` exists beside `SKILL.md`, Pioneer reads only these fields:
 | `latest.version` | Fallback version hint. |
 | `displayName` | Fallback display name when frontmatter `name` is missing. |
 
-Sidecar identity fields take precedence over frontmatter identity fields. This lets imported registry metadata stabilize package identity without rewriting `SKILL.md`, but it also means native packages should avoid `_meta.json` unless they intentionally need compatibility override behavior.
+Sidecar identity fields take precedence over frontmatter identity fields. Imported registry metadata can therefore stabilize package identity without rewriting `SKILL.md`. Native packages should avoid `_meta.json` unless they intentionally need compatibility overrides.
 
 Pioneer does not read `description`, `dependencies`, `paths`, `allowed-tools`, `metadata`, `user-invocable`, `disable-model-invocation`, or `runtime` from `_meta.json`; those fields are frontmatter-only.
 
-### Runtime Tool Declarations
+### Runtime tool declarations
 
 `runtime.tools` declares dynamic tools that can be projected into the normal tool router after policy checks:
 
@@ -153,7 +159,7 @@ Each tool has:
 
 Runtime tool declarations are not enough to expose a tool. The runtime planner also checks dynamic-tool enablement, allowed tool kinds, trust thresholds, duplicate canonical names, max tools per skill, dependency health, and output policy constraints.
 
-### Conformance Profiles
+### Conformance profiles
 
 Pioneer produces a conformance report with two profiles:
 
@@ -177,9 +183,9 @@ allow_implicit_invocation = false
 
 Gateway policy can override those values, and workspace policy can override gateway policy. A disabled skill remains installed but does not participate in turn resolution. A non-implicit skill can still be used when explicitly invoked, including through `TurnStartParams.capabilities`, but it is not automatically selected just because its description or path rules might match.
 
-This is the difference between "installed" and "active." Installed means Pioneer knows about the package. Active means this turn is allowed to use it. Implicit means Pioneer can select it automatically. Keeping those separate lets users keep powerful or experimental skills installed without letting the model discover and use them silently.
+"Installed" and "active" have different meanings. Installed means Pioneer knows about the package. Active means the current turn may use it. Implicit means Pioneer may select it automatically. Keeping these states separate lets users store powerful or experimental skills without exposing them silently.
 
-## Turn Resolution
+## Turn resolution
 
 At turn time, the agent resolves skills using installed catalog data, workspace policy, explicit composer capabilities, path matches, explicit textual references, and implicit invocation rules. Composer-selected skills are normalized into explicit skill refs and resolved with reason `ExplicitCapability`, persisted as `explicit_composer_capability` in turn skill bindings.
 
@@ -187,19 +193,19 @@ The dynamic skills prompt starts compactly: display name, exact `read_skill` slu
 
 Missing, disabled, dependency-blocked, validation-rejected, or security-blocked composer skills are reported as rejected turn capabilities. The user message can still show the requested chip for auditability, while capability diagnostics explain what was actually accepted or rejected.
 
-## Runtime Tools
+## Runtime tools
 
 Skills can declare runtime tools. Pioneer validates their declarations and output policies before exposing them. Runtime tools can be shell, HTTP, or function-proxy style tools. Trust policy can require higher trust for more dangerous runtime classes.
 
 When a skill tool is accepted, including from a composer-selected skill, the agent materializes it into a `ToolExtensionBundle` and adds it to the same tool router as built-in, MCP, and task tools. If policy narrows an output declaration or excludes a tool, the agent logs diagnostics and continues the turn.
 
-## Audit And Health
+## Audit and health
 
 Skill operations produce audit events. Turn-time resolution can also store dependency diagnostics. Health APIs report validation issues, dependency status, security findings, policy state, and whether the installed skill can be safely used.
 
-The design intent is that skills are not just prompt snippets. They are installable, policy-controlled, auditable runtime extensions.
+Skills are installable runtime extensions. The gateway controls their policy and records their use.
 
-## Related Pages
+## Related pages
 
 - [Creating Skills](/skills/creating) gives the user-facing package authoring flow.
 - [Prompt And Context](/architecture/prompt) explains how resolved skills become the `[Skills]` prompt section.

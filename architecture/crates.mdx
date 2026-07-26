@@ -7,13 +7,13 @@ Pioneer is a Cargo workspace with twenty-five Rust crates. The split is intentio
 
 This page is a map, not the architecture itself. Use it when you need to know where a responsibility lives before reading the deeper page for that layer.
 
-## Why The Workspace Is Split This Way
+## Why the workspace is split this way
 
 The split follows runtime boundaries. Provider code should not know about WebSocket sessions. Prompt compilation should not know about SQLite. Tools should not know which client requested a turn. The gateway is allowed to wire everything together; most other crates should stay focused.
 
 That shape keeps changes smaller. Adding an API provider should mostly touch `provider` and gateway provider listing/key handling, with secret values routed through `keystore`. Adding a CLI-backed agent runtime should touch `cli-agent-runtime`, gateway CLI runtime handlers, protocol contracts, and shared client presentation helpers, not `provider`. Changing prompt section ordering should mostly touch `promt` and prompt tests. Adding a task event should touch `protocol`, `tasks`, `crud`, and gateway notifications, but not shell-specific UI code.
 
-## Workspace Crates
+## Workspace crates
 
 | Crate | Kind | Responsibility |
 |---|---:|---|
@@ -43,7 +43,7 @@ That shape keeps changes smaller. Adding an API provider should mostly touch `pr
 | `crates/sqlite` | library | SQLite-specific helpers, especially write coordination for concurrent async access. |
 | `crates/config` | library | Layered configuration loader for default config, user config, gateway config, install paths, tools, artifacts, provider attachments, skills, database, and auth. |
 
-## Dependency Direction
+## Dependency direction
 
 ```mermaid
 flowchart TB
@@ -102,7 +102,7 @@ flowchart TB
 
 The important rule is that `protocol` sits at the public edge while `gateway` is the integration layer. Lower-level crates should not need to know about desktop UI state. Domain crates expose typed APIs that the gateway wires into request handlers and background runtimes.
 
-## Where To Look First
+## Where to look first
 
 | Question | Start here |
 |---|---|
@@ -124,7 +124,7 @@ The important rule is that `protocol` sits at the public edge while `gateway` is
 | How is remote gateway access supervised? | `crates/tunnel/src/lib.rs`, `crates/gateway/src/settings.rs`, and `crates/gateway/src/lib.rs` remote-access startup/shutdown wiring. |
 | How is data persisted? | `crates/crud/src/lib.rs`, `crates/crud/src/projector.rs`, `crates/crud/src/task_projector.rs` |
 
-## Related Pages
+## Related pages
 
 - [Architecture Overview](/architecture/overview) explains how these crates fit into the runtime.
 - [Gateway](/architecture/gateway) explains the integration layer.

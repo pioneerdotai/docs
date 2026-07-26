@@ -39,7 +39,9 @@ Candidate review methods exist even though the default product path currently re
 
 Clients should listen for these events if they render memory management screens or cached memory lists.
 
-## Core DTOs
+Thread episodic vector indexing has a separate gateway notification, `gateway/thread_episodic/vector_refill/status_changed`. It reports workspace-scoped refill progress such as running, complete, or failed. Clients that show semantic-search readiness should use this event together with settings and the memory/embedding model status; it is not a durable-memory mutation event.
+
+## Core dtos
 
 | Type | Meaning |
 | --- | --- |
@@ -54,7 +56,7 @@ Clients should listen for these events if they render memory management screens 
 
 Generated schemas are exported under `schemas/` in the repository. The protocol source is `crates/protocol/src/memory.rs`.
 
-## Durable Memory Vs Thread Context
+## Durable memory vs thread context
 
 The protocol intentionally keeps these surfaces separate:
 
@@ -62,11 +64,11 @@ The protocol intentionally keeps these surfaces separate:
 | --- | --- | --- |
 | Durable memory | `memory/search`, `memory/list`, `memory/get`, `memory/remember`, `memory/forget`, candidate methods. | Stable user/project/agent facts that can survive across turns and threads. |
 | Thread episodic context | Gateway settings plus internal recall hooks. | Searchable old conversation snippets used during prompt construction. |
-| Thread event replay | `thread/history`, `thread/timeline/page`, `turn/items`, `turn/work/page`. | Exact durable and semantic timeline data for clients to render or recover UI state. |
+| Thread event replay | `thread/history`, `thread/timeline/page`, `turn/items`, `turn/work/page`, `turn/work/items/get`. | Exact durable and semantic timeline data for clients to render or recover UI state. |
 
 Do not use `memory/remember` to store every thread message. That would pollute durable memory and make forgetting/ranking much harder. If a client wants to display transcript history, use thread and turn APIs. If the agent needs older discussion as context, the thread episodic layer handles that through bounded recall.
 
-## Candidate Statuses
+## Candidate statuses
 
 Candidate statuses include active review states and dormant states:
 
@@ -85,7 +87,7 @@ Candidate statuses include active review states and dormant states:
 
 The default runtime does not currently use `pending_silent`, `ask_on_use`, or `needs_review` for user-facing review.
 
-## Semantic Write Contract
+## Semantic write contract
 
 Semantic writes are used by internal extraction and future advanced clients. They include:
 
@@ -98,7 +100,7 @@ Semantic writes are used by internal extraction and future advanced clients. The
 
 Even when a caller provides semantic fields, the service still owns canonical key generation, duplicate detection, scoring, and final state.
 
-## Related Pages
+## Related pages
 
 - [Desktop Memory](/desktop/memory) explains user-facing behavior.
 - [Memory Architecture](/architecture/memory) explains the service and storage model.

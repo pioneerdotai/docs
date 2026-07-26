@@ -4,17 +4,17 @@ description: "Connect a gateway, add a model provider, and start your first Pion
 icon: "bolt"
 ---
 
-This page assumes Pioneer is installed and you can open the desktop app. The goal is to get one real thread working without configuring every advanced feature up front.
+This page assumes Pioneer is installed and the desktop app opens. It takes you through one working thread without requiring the advanced features first.
 
 <Note>
   Start your first agent turns in **Supervised** mode so Pioneer asks before commands and file changes. After you understand the tool timeline, use **Auto-accept edits** or **Full access** only for gateways and projects you trust.
 </Note>
 
-## Connect To A Gateway
+## Connect to a gateway
 
 When Pioneer opens, it needs a gateway.
 
-If you installed the desktop app for local use, start the local gateway from the app when it asks. This is the simplest setup: the UI and the gateway both live on your computer.
+If you installed the desktop app for local use, start the local gateway when the app asks. The UI and gateway then run on the same computer.
 
 If you installed the gateway separately, confirm it is running:
 
@@ -31,16 +31,16 @@ pioneer issue-superuser-token
 Give the connection a name that describes the environment, not the hardware. `Work`, `Study`, `Home`, and `Sandbox` are usually more useful than `ubuntu-4vcpu-nyc`.
 
 <Tip>
-  One desktop app can connect to many gateways. This is one of the main reasons to use Pioneer: you can keep environments separate without installing a different client for each one.
+  One desktop app can connect to many gateways. Use this to keep environments separate without installing a different client for each one.
 </Tip>
 
-## Choose A Workspace
+## Choose a workspace
 
 Pioneer creates a default workspace automatically on first launch. You can use it for your first thread, or open the workspace selector at the top of the main thread sidebar to create another workspace first.
 
 Use workspaces when you want separate threads, provider keys, MCP servers, skills, tasks, and artifacts inside the same gateway. Use separate gateways when the execution environment itself should be different.
 
-## Add A Model Provider
+## Add a model provider
 
 Pioneer cannot answer until the gateway has access to at least one model provider.
 
@@ -50,7 +50,7 @@ Provider settings belong to the current workspace on the gateway, not to the des
 
 See [Providers](/providers/overview) for the full supported provider list.
 
-## Start Your First Thread
+## Start your first thread
 
 Create a new thread, choose the provider and model you configured, choose **Supervised** as the permission mode for the first turn, and send something deliberately simple:
 
@@ -68,9 +68,9 @@ List the files in this workspace root and summarize what kind of project it look
 
 If that behaves as expected, move slowly toward write operations. Supervised mode will ask before file changes and commands; use a temporary folder or throwaway repository first.
 
-## What To Add Next
+## What to add next
 
-Do not enable everything on day one. Add capabilities when you have a reason.
+Add capabilities as you need them rather than enabling everything at once.
 
 Use [Skills](/skills/overview) when you want reusable instructions or specialized behavior. Use [MCP servers](/mcp/overview) when Pioneer needs to talk to external tools and systems. Use [Tasks](/tasks/overview) when work should run again later or be broken into subagent-backed steps.
 
@@ -89,7 +89,7 @@ Use [Skills](/skills/overview) when you want reusable instructions or specialize
   </Accordion>
 </AccordionGroup>
 
-## Go Deeper
+## Further reading
 
 - [Gateway Architecture](/architecture/gateway) explains why provider calls and tools run on the gateway host.
 - [Permission Modes](/getting-started/permissions) explains which mode to use for supervised, edit-friendly, or full-access turns.

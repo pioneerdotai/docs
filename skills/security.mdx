@@ -6,25 +6,25 @@ icon: "shield"
 
 Treat a skill like software you install into the gateway.
 
-That does not mean every skill is dangerous. It means the right habit is to inspect first, test in a small environment, and only then use it for important work.
+This does not mean every skill is dangerous. It means you should inspect a skill, test it in a small environment, and use it for important work only after that test.
 
 <Warning>
   Skill tools are subject to the turn permission mode and turn sandbox/resource policy. Pioneer can ask before sensitive actions, constrain filesystem and network access, and record audit events for tool decisions.
 </Warning>
 
-## What A Skill Can Change
+## What a skill can change
 
 A skill can influence how agents behave. If it exposes tools, those tools may be able to read files, write files, run commands, make network requests, or access environment variables available to the gateway process.
 
 This is why workspace, permission mode, and gateway separation matter. Test unfamiliar skills in a sandbox workspace with **Supervised** turns, and use a separate gateway when the skill should not share the same machine, files, or credentials. Do not install random archives directly into your main work workspace.
 
-## What To Trust
+## What to trust
 
 Prefer skills from your own team, reviewed internal repositories, or sources you can inspect and reproduce. Be more careful with packages that hide their source, ask for secrets in prompts, download code at runtime, request broad shell access, or touch sensitive directories.
 
-If a skill depends on external commands, review those commands too. A clean-looking skill can still become risky if it shells out to a broad or untrusted dependency.
+If a skill depends on external commands, review those commands too. A small skill can still be risky if it invokes a broad or untrusted dependency.
 
-## A Safe Review Flow
+## A safe review flow
 
 Install the skill in a sandbox workspace or a dedicated gateway. Read the validation output. Ask Pioneer to summarize the skill without running its tools:
 
@@ -38,13 +38,13 @@ Then ask what tools it exposes:
 Show me which tools this skill exposes and what each one can access. Do not execute them.
 ```
 
-Only after that should you run a harmless test prompt. If the behavior is predictable, promote the skill to a more important gateway.
+Then run a harmless test prompt. If the behavior is predictable, move the skill to a more important gateway.
 
 ## Policy
 
 Keep skills in the workspace where they belong. A work-approved skill should live in the work workspace. A risky experimental skill should be tested in a sandbox workspace or dedicated gateway, not in every workspace you use from the desktop app.
 
-## Go Deeper
+## Further reading
 
 - [Skills Architecture](/architecture/skills) explains trust levels, dependency checks, and runtime tool exposure.
 - [Permission System](/architecture/permissions) explains permission modes, sandbox/resource policy, approval prompts, and audit events.

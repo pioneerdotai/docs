@@ -4,33 +4,33 @@ description: "Supported cloud, local, and OpenAI-compatible model API providers.
 icon: "ellipsis"
 ---
 
-This page is the extended supported provider list. Use the same connection flow from [Providers Overview](/providers/overview) unless a provider requires extra environment or endpoint details.
+This page lists the supported provider integrations in more detail. Use the connection flow in [Providers Overview](/providers/overview), unless the provider requires extra environment or endpoint settings.
 
-## Direct Cloud Providers
+## Direct cloud providers
 
 Pioneer supports direct integrations for Anthropic, OpenAI, Google Gemini, OpenRouter, Azure OpenAI, AWS Bedrock, Copilot, GLM/Zhipu, and Telnyx.
 
-## Local Runtimes
+## Local runtimes
 
 Pioneer has first-class support for Ollama.
 
-For local runtimes, remember that local means local to the gateway. If your desktop or mobile app connects to a remote gateway, the runtime must be reachable from that remote gateway.
+For local runtimes, local means local to the gateway. If the desktop or mobile app connects to a remote gateway, install the runtime or make it reachable on that remote host.
 
 Pioneer also supports local OpenAI-compatible servers through compatibility adapters: LM Studio, llama.cpp, SGLang, vLLM, Osaurus, and LiteLLM.
 
-## CLI Agent Runtimes
+## CLI agent runtimes
 
 CLI-backed agent runtimes are configured separately from ordinary API providers. The main supported path today is Codex CLI.
 
 CLI runtimes depend on the CLI tool being installed and authenticated on the gateway host. See [CLI Runtime API](/protocol/cli-runtime) for implementation details.
 
-## OpenAI-Compatible Providers
+## OpenAI-compatible providers
 
 Many hosted providers expose OpenAI-compatible APIs. Pioneer can work with providers such as Groq, Mistral, xAI, DeepSeek, Together, Fireworks, Novita, Perplexity, Cohere, Venice, Cerebras, SambaNova, Hyperbolic, DeepInfra, Hugging Face, AI21, Reka, Baseten, Nscale, Anyscale, Nebius, Friendli, Lepton, SiliconFlow, AIHubMix, Astrai, StepFun, Baichuan, Yi, Hunyuan, OVHcloud, NVIDIA NIM, Synthetic, Doubao, and Qianfan.
 
 For these providers, the usual requirements are a provider entry in Pioneer, an API key or token, a base URL when needed, and an exact model ID.
 
-## Go Deeper
+## Further reading
 
 - [Providers Architecture](/architecture/providers) explains how direct and OpenAI-compatible provider integrations are implemented.
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains why CLI-backed runtimes are separate from ordinary API providers.

@@ -3,11 +3,11 @@ title: "Hook Runtime"
 description: "How Pioneer runs typed lifecycle hooks without turning the agent loop into a domain container."
 ---
 
-The hook runtime is Pioneer lever for running domain work around a turn without putting every domain rule inside the agent loop. It lives in `crates/hooks` and is wired by `crates/agent` and `crates/gateway`.
+The hook runtime lets Pioneer run domain work around a turn without putting every domain rule inside the agent loop. It lives in `crates/hooks` and is wired by `crates/agent` and `crates/gateway`.
 
 The design goal is simple: the agent loop should know lifecycle phases and typed contributions. It should not need memory-specific, skills-specific, or future domain-specific branches for every side behavior.
 
-## Why Hooks Exist
+## Why hooks exist
 
 Some work must happen around a turn but should not be part of the main model/tool loop:
 
@@ -18,9 +18,9 @@ Some work must happen around a turn but should not be part of the main model/too
 - run post-turn extraction or cleanup;
 - persist hook-run diagnostics for recovery and audit.
 
-Before hooks, this kind of logic tends to accumulate as direct branches in the agent loop. That makes the loop harder to reason about and makes future domains copy the same pattern. Hooks make those side behaviors explicit, typed, ordered, and observable.
+Without hooks, this logic would accumulate as branches in the agent loop. Hooks keep these side behaviors explicit, typed, ordered, and observable.
 
-## Core Types
+## Core types
 
 | Type | Role |
 | --- | --- |
@@ -33,7 +33,7 @@ Before hooks, this kind of logic tends to accumulate as direct branches in the a
 
 Handlers declare capabilities. A hook that contributes tool bundles must declare the tool-bundle capability. A hook that only reads context and writes internal domain state should not be able to emit prompt or tool contributions by accident.
 
-## Turn Phases
+## Turn phases
 
 ```mermaid
 flowchart TD
@@ -76,7 +76,7 @@ Hooks communicate through typed contributions instead of raw JSON blobs.
 
 The agent loop aggregates these sets at phase boundaries. Domain hooks interpret their own policy and context; the loop stays generic.
 
-## Execution Policy
+## Execution policy
 
 Each subscription has execution behavior:
 
@@ -89,15 +89,15 @@ Each subscription has execution behavior:
 
 Failure policy is separate. Best-effort hooks can fail without failing the turn; required hooks can fail closed. The runtime records safe diagnostics and avoids putting raw sensitive payloads in summaries.
 
-## Dependencies And Ordering
+## Dependencies and ordering
 
-Subscriptions are sorted by priority and id, but explicit dependencies are the important mechanism. A hook can say it must run after another subscription on the same phase. The runtime detects missing dependencies, disabled dependencies, and cycles.
+Subscriptions are sorted by priority and id, while explicit dependencies determine required ordering. A hook can require another subscription on the same phase to run first. The runtime detects missing dependencies, disabled dependencies, and cycles.
 
 Memory uses phase ordering for recall: deterministic memory runs at `turn.pre_prompt_context`, then active memory runs at `turn.post_preflight_prompt_context` after the internal preflight plan has been built. The active hook receives typed prompt context plus the preflight-owned active recall plan or fallback.
 
 Thread episodic context follows the same rule. The hook/runtime boundary carries typed prompt context and recall contributions; the agent loop should not know how memvid capsules, thread chunks, or artifact refs are searched. It only dispatches the phase and later consumes the compiled prompt context.
 
-## Persistence And Recovery
+## Persistence and recovery
 
 Gateway hook-run persistence records lifecycle state for subscribed work:
 
@@ -112,7 +112,7 @@ Gateway hook-run persistence records lifecycle state for subscribed work:
 
 Domain hooks should not invent their own retry tables for ordinary hook execution. Generic hook-run persistence owns that operational layer.
 
-## Memory As A Hooked Domain
+## Memory as a hooked domain
 
 Agent memory is the first heavy domain built on this runtime:
 
@@ -127,7 +127,7 @@ The result is that memory can recall context, expose tools, render prompt policy
 
 Thread context and artifact continuity build on the same pattern. A domain can enrich prompt context with recalled snippets or artifact references, while the prompt compiler and tool materialization layer decide what the model sees. The loop does not need a special "if this old message had a photo" branch.
 
-## Adding A Hook
+## Adding a hook
 
 When adding a hook:
 
@@ -138,7 +138,7 @@ When adding a hook:
 5. Add tests for descriptor stability, capabilities, ordering/dependencies, policy behavior, and diagnostics.
 6. Keep domain decisions inside the hook or its domain service, not in the agent loop.
 
-## Related Pages
+## Related pages
 
 - [Agent Loop](/architecture/agent-loop) shows where turn phases are dispatched.
 - [Memory Architecture](/architecture/memory) shows a full domain built on hooks.

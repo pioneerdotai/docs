@@ -4,11 +4,11 @@ description: "Upload, inspect, preview, download, and reuse files in Pioneer thr
 icon: "box-archive"
 ---
 
-Artifacts are files that belong to a Pioneer workspace. They can come from you, from an agent, from a tool call, or from a task. The gateway stores the files and links them to the thread, turn, and message where they were used or created.
+Artifacts are files owned by a Pioneer workspace. You can upload them, or an agent, tool call, or task can create them. The gateway stores each file and links it to the thread, turn, and message where it was used or created.
 
-This matters most when you connect to a remote gateway. A file path shown in a tool call may belong to the remote machine, but an artifact can be downloaded to your desktop and opened locally.
+This distinction matters when you connect to a remote gateway. A path in a tool call may belong to the remote machine, while an artifact can be downloaded to your desktop and opened there.
 
-## Where Artifacts Appear
+## Where artifacts appear
 
 In a thread, open the artifacts panel from the bottom bar. The panel is only shown on the thread screen and is hidden by default.
 
@@ -27,7 +27,7 @@ Clicking an attachment chip in the timeline selects that artifact. If the artifa
 
 For parent threads that use subagents, the panel includes artifacts registered in the parent thread and in delegated child threads under that parent. A file created by a subagent should therefore be visible from the parent workflow as long as it was registered as an artifact.
 
-## Upload Files
+## Upload files
 
 Attach files in the composer when they are part of the prompt: screenshots, logs, small datasets, text files, or documents. Pioneer uploads those bytes to the gateway before the turn starts.
 
@@ -37,23 +37,23 @@ On a local gateway, this usually feels like a normal local file attachment. On a
   Do not rely on desktop-only paths in a remote gateway thread. Upload the file as an artifact if the agent or model needs to read it.
 </Warning>
 
-## Agent-Created Files
+## Agent-created files
 
-When an agent creates a file as a result for you, it must register that file with the artifact store before the final response. Registered files are linked back to the turn and appear in the artifacts panel.
+When an agent creates a file for you, it must register that file with the artifact store before the final response. Registered files link back to the turn and appear in the artifacts panel.
 
 The agent is instructed to use a managed output directory and the `artifact_prepare` / `artifact_register` tools for user-visible files. The managed path is temporary staging on the gateway. The durable artifact is the registered file in the gateway artifact store.
 
-Pioneer does not scan arbitrary gateway folders to guess which files should become artifacts. If an agent mentions that it created a file but the file does not appear in the artifacts panel, ask it to register the file as an artifact. If you explicitly asked the agent to write to a specific path, that path may still be a normal gateway file; it is only shown in the artifact panel after registration.
+Pioneer does not scan arbitrary gateway folders for files to publish as artifacts. If an agent says it created a file but the file is missing from the artifacts panel, ask it to register the file. A file written to a path you specified remains a normal gateway file until registration.
 
 The same applies to hidden subagent threads. A subagent-created file is shown in the parent thread only after the subagent registers it. The artifact stays bound to child-thread and task lineage, but the desktop includes that child-thread subtree when listing artifacts for the parent workflow.
 
-## Preview And Metadata
+## Preview and metadata
 
 Artifacts show the display name, type, size, source, creation time, and SHA-256 digest. Images can have thumbnails. If a thumbnail is still pending, the file itself may already be ready; the preview is a derived projection and can finish later.
 
 The desktop app caches preview images locally under its runtime directory. The preview cache is pruned automatically when it exceeds 512 MB. Clearing that cache does not delete gateway artifacts.
 
-## Download, Open, Reveal
+## Download, open, reveal
 
 `Download` copies the artifact from the gateway to a folder you choose on your computer.
 
@@ -63,7 +63,7 @@ The desktop app caches preview images locally under its runtime directory. The p
 
 For remote gateways, these actions move bytes over the gateway connection. They do not require direct filesystem access to the remote host.
 
-## Reuse Artifacts
+## Reuse artifacts
 
 Use the attach action in the artifact detail panel when you want to send an existing thread artifact again. Pioneer adds the artifact to the composer without asking you to find the original local file.
 
@@ -74,7 +74,7 @@ This is useful when:
 - you want to ask a follow-up question about a generated file;
 - you want a task or subagent to receive a file from the parent thread.
 
-## Follow-Up Questions About Old Files
+## Follow-up questions about old files
 
 Pioneer does not blindly attach every old file to every new model request. That would make long threads expensive and confusing, especially if you uploaded many screenshots, photos, logs, or documents.
 
@@ -87,7 +87,7 @@ If the model needs the actual content, it must reveal the artifact tool domain a
 - "use the CSV I uploaded earlier";
 - "compare this answer with the PDF from yesterday."
 
-This gives Pioneer continuity without flooding the prompt. If a follow-up does not need the file, the model can answer from normal conversation history. If it does need the file, it can request only that file instead of receiving every artifact from the thread.
+This preserves continuity without adding every file to the prompt. If a follow-up does not need the file, the model can answer from the conversation history. If it does, it can request that file instead of receiving every artifact from the thread.
 
 Thread context recall follows the same idea. If Pioneer recalls an older conversation snippet that had artifacts attached, the snippet can include a clearly scoped artifact-reference block for that specific snippet. The reference is still metadata only. File content is loaded only through `artifact_read`.
 
@@ -101,7 +101,7 @@ If a file cannot be opened, download it first and check that the destination exi
 
 If Pioneer seems to "forget" a photo or document in a follow-up turn, check two things: whether that message is still in the retained recent history or whether thread context recall brought back the relevant older snippet. If neither happened, the model may not see the artifact reference and therefore cannot know which artifact to read.
 
-## Go Deeper
+## Further reading
 
 - [Artifacts Architecture](/architecture/artifacts) explains artifact storage, bindings, uploads, downloads, projections, and `artifact_read`.
 - [Thread Episodic Context](/architecture/thread-episodic-context) explains why recalled snippets can carry artifact references.

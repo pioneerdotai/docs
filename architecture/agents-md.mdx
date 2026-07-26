@@ -3,11 +3,11 @@ title: "AGENTS.md Architecture"
 description: "Thread-tree scoped instruction files, persistence, inheritance, desktop editing, protocol handlers, and prompt hook injection."
 ---
 
-`AGENTS.md` is Pioneer's thread-tree instruction layer. It lets users place persistent prompt instructions at the workspace root or at a folder in the thread tree, then have new turns resolve the nearest active file automatically.
+`AGENTS.md` is Pioneer's thread-tree instruction layer. Users can place persistent prompt instructions at the workspace root or in a thread-tree folder. New turns resolve the nearest active file automatically.
 
-The implementation is gateway-owned. The desktop renders and edits the files, but the gateway stores them, resolves inheritance, emits notifications, and injects the effective file through the hook runtime.
+The gateway owns the implementation. The desktop renders and edits the files; the gateway stores them, resolves inheritance, emits notifications, and injects the effective file through the hook runtime.
 
-## Design Goals
+## Design goals
 
 - One instruction file per tree scope: root or folder.
 - Nearest active ancestor wins.
@@ -16,7 +16,7 @@ The implementation is gateway-owned. The desktop renders and edits the files, bu
 - Prompt injection is a hook contribution, not a special branch in the agent loop.
 - Versioned saves make autosave safe across multiple clients.
 
-## System Flow
+## System flow
 
 ```mermaid
 flowchart TD
@@ -43,7 +43,7 @@ flowchart TD
   Prompt --> Provider
 ```
 
-## Layer Responsibilities
+## Layer responsibilities
 
 | Layer | Responsibility |
 |---|---|
@@ -56,7 +56,7 @@ flowchart TD
 | `crates/hooks` and `crates/agent` | Execute the hook at `turn.pre_prompt_compile`, aggregate prompt section metadata, and persist hook sources in `PromptManifest`. |
 | `crates/desktop` | Renders sidebar file nodes, context menu actions, full-area editor, autosave, conflict handling, and local sidebar state updates. |
 
-## Persistence Model
+## Persistence model
 
 `thread_agents_doc` stores the current explicit file for a scope.
 
@@ -81,7 +81,7 @@ Uniqueness is enforced at the active/draft scope level:
 - `uq_thread_agents_doc_folder_active` permits one non-archived file per workspace/folder.
 - Archived rows remain available for audit/revisions but are hidden from `thread/tree`.
 
-## Status Semantics
+## Status semantics
 
 `draft` means an explicit file exists but its normalized content is empty or whitespace-only. Drafts are shown to clients as summaries so users can reopen or delete them, but drafts are not effective prompt sources.
 
@@ -89,7 +89,7 @@ Uniqueness is enforced at the active/draft scope level:
 
 `archived` means the explicit file was deleted from the user-facing tree. Archive increments the version and writes a revision with save reason `archive`.
 
-## Resolution Algorithm
+## Resolution algorithm
 
 Resolution lives in `ThreadAgentsDocRepository::resolve_for_folder`.
 
@@ -111,7 +111,7 @@ The resolved payload includes:
 - `inherited`, true when the effective source is not the requested folder itself;
 - `resolved_for_folder_id` and `resolved_at`.
 
-## Desktop Model
+## Desktop model
 
 The desktop stores AGENTS.md summaries in `PioneerDesktop::thread_agents_doc_summaries`, keyed by root or folder id.
 
@@ -124,7 +124,7 @@ Root-level creation is available from the sidebar empty/root area context menu. 
 
 The editor is not a modal. It owns a GPUI component editor input configured as a Markdown code editor, with line numbers, soft wrap, and autosave.
 
-## Autosave And Conflicts
+## Autosave and conflicts
 
 The editor loads `ThreadAgentsDocGetResponse` and starts with the explicit document content. It does not edit inherited parent content in place.
 
@@ -138,7 +138,7 @@ On input changes, the editor debounces autosave and calls `thread/agents_doc/sav
 
 If the gateway returns a version conflict, the editor reloads the remote explicit document and enters a conflict state. The user can reload remote content or overwrite the remote document with the local buffer.
 
-## Prompt Injection
+## Prompt injection
 
 AGENTS.md reaches the model through a hook package, not through a direct compiler branch.
 
@@ -173,7 +173,7 @@ These instructions come from the effective AGENTS.md for this thread tree scope.
 
 The prompt compiler treats this like any other hook prompt section. The agent later persists hook source metadata in `PromptManifest.hook_sources`, including the hook id, subscription id, contribution id, section id, contribution kind, priority, source count, and truncation state.
 
-## Protocol And Notifications
+## Protocol and notifications
 
 The public API is documented in [AGENTS.md API](/protocol/agents-md).
 
@@ -186,7 +186,7 @@ The important client behavior is:
 - `thread/agents_doc/resolve_for_thread` resolves the effective file for a concrete thread.
 - `thread/agents_doc/changed` and `thread/tree/changed` tell clients to refresh local state.
 
-## Developer Rules
+## Developer rules
 
 - Keep all AGENTS.md database access behind `CrudStore` and `ThreadAgentsDocRepository`.
 - Do not add direct desktop filesystem access; the gateway is the source of truth.
@@ -196,7 +196,7 @@ The important client behavior is:
 - Always send `expected_version` from autosave-capable clients.
 - Add protocol schemas and docs when changing public payloads.
 
-## Related Pages
+## Related pages
 
 - [AGENTS.md User Guide](/desktop/agents-md) explains the user workflow.
 - [AGENTS.md API](/protocol/agents-md) documents JSON-RPC methods and notifications.

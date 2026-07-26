@@ -18,7 +18,7 @@ The methods live under `thread/agents_doc/*` because AGENTS.md is part of the wo
 
 `thread/tree` also returns an `agents_docs` array containing `ThreadAgentsDocSummary` items. Summaries never include full file content.
 
-## Status And Save Reason
+## Status and save reason
 
 | Type | Values |
 |---|---|
@@ -87,7 +87,7 @@ For a root file, `folder_id` is omitted or `null`.
 
 `source_folder_id` is omitted for a root source. `source_path` is an array of folder names from the thread tree root to the source folder.
 
-## Reading A Scope
+## Reading a scope
 
 Call `thread/agents_doc/get` when opening an AGENTS.md editor for root or folder scope.
 
@@ -242,7 +242,7 @@ Response:
 
 If there was no explicit file for the scope, `archived` is `false`.
 
-## Resolving For A Thread
+## Resolving for a thread
 
 Use this method when a client needs to inspect the effective file for a specific thread.
 
@@ -286,7 +286,7 @@ Response:
 
 If the thread has no placement, the gateway resolves against the root scope.
 
-## Thread Tree Summaries
+## Thread tree summaries
 
 `thread/tree` includes AGENTS.md summaries:
 
@@ -394,7 +394,7 @@ Generated schemas include:
 - `/schemas/thread_agents_doc_resolve_for_thread_response.json`
 - `/schemas/thread_agents_doc_changed_notification.json`
 
-## Related Pages
+## Related pages
 
 - [AGENTS.md User Guide](/desktop/agents-md) explains the desktop workflow.
 - [AGENTS.md Architecture](/architecture/agents-md) explains persistence, inheritance, and prompt hook injection.

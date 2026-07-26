@@ -4,67 +4,73 @@ description: "The main product capabilities and design choices in Pioneer."
 icon: "sparkles"
 ---
 
-Pioneer is built around a simple user model: you connect an app to a gateway, choose a workspace, pick a model source, and work in threads. The gateway can also run tools, remember durable facts, use reusable skills, connect MCP servers, and run tasks when you want more automation.
+The basic Pioneer setup has four parts: a client, a gateway, a workspace, and a thread. The client connects to the gateway, the workspace holds the related settings and data, and the thread is where you work with a model. The gateway can also run tools, retain durable facts, use skills, connect MCP servers, and run tasks.
 
-### Gateway-Centered Design
+### Gateway-centered design
 
 The gateway is where Pioneer work actually happens. If the gateway runs on your laptop, tools touch your laptop environment. If it runs on a server, tools touch the server environment.
 
-### Local Or Remote Deployment
+### Local or remote deployment
 
-Run a gateway on your personal computer for a local assistant, or host gateways on separate servers for work, study, home, or other isolated environments.
+Run a gateway on your computer for local work, or host one on a server when the files and tools should stay elsewhere. Separate gateways keep environments such as work, study, and home apart.
 
-### One Client, Many Gateways
+### One client, many gateways
 
-Connect the desktop or mobile app to one or more gateways and switch execution environments without mixing their state.
+Connect the desktop or mobile app to several gateways and switch between their execution environments. Each gateway keeps its own state.
 
-### Shared Client Core
+### Shared client core
 
-Desktop and mobile are different apps, but they follow the same gateway model. A workspace, thread, provider, skill, MCP server, or task means the same thing no matter which client you use.
+Desktop and mobile are different clients of the same gateway model. A workspace, thread, provider, skill, MCP server, and task have the same meaning in both clients.
 
-### Workspace Management
+### Workspace management
 
 Create, switch, and rename workspaces inside a gateway. Each workspace keeps its own threads, provider keys, MCP servers, skills, tasks, and artifacts.
 
-### Thread Modes
+### Thread modes
 
 Use **Chat** mode for direct conversations and **Agent** mode when the thread should plan, use tools, and work through multi-step tasks.
 
-### Thread Tree AGENTS.md
+### Async work by default
+
+In collaborative threads, sending a message starts independent work in the background. The composer stays available, so you can continue the conversation, start another request, or work in a different thread while the agent continues. Each request keeps the settings it started with, and its live status appears in a separate task card. Open that card to follow the child conversation; when the work is ready, the result returns to the original thread.
+
+### Thread tree AGENTS.md
 
 Create `AGENTS.md` at the thread tree root or inside any thread folder to keep persistent agent instructions close to the work they affect. Threads inherit the nearest active file from their folder ancestry.
 
-### Multi-Agent Workflows
+### Multi-agent workflows
 
-Tasks can split work into subagents. The parent agent can review a subagent result, accept it, or request a revision with concrete feedback.
+Tasks can split work into subagents. The parent agent receives each result and can accept it or ask for a revision with specific feedback.
 
-### Agent Memory
+### Agent memory
 
 In agent mode, Pioneer can recall durable facts, preferences, project decisions, and recurring instructions across turns when memory is enabled.
 
 Pioneer also has a separate thread-context layer for searchable conversation history. Durable memory remembers long-lived facts; thread context helps recover useful old discussion snippets without sending the full transcript every time.
 
-### Bring Your Own Model Or Runtime
+### Bring your own model or runtime
 
-Pioneer supports API providers such as OpenAI, Anthropic, OpenRouter, Gemini, Azure OpenAI, Bedrock, Ollama, Copilot, GLM, Telnyx, and many OpenAI-compatible endpoints. CLI-backed agent tools such as Codex CLI are configured separately from ordinary API providers.
+Pioneer supports API providers such as OpenAI, Anthropic, OpenRouter, Gemini, Azure OpenAI, Bedrock, Ollama, Copilot, GLM, Telnyx, and OpenAI-compatible endpoints. CLI-backed runtimes such as Codex CLI have a separate configuration because they manage their own execution.
 
-### Keystore-Backed Secrets
+### Keystore-backed secrets
 
 Provider keys, MCP secrets, remote-access keys, and gateway access tokens are treated as secrets. They are stored by the gateway or by the client platform secret store, not as ordinary visible settings.
 
-### Real Tools
+### Real tools
 
 Agents can use shell sessions, file reads and edits, patch application, grep, web search and fetch, URL downloads, computer use, MCP tool proxying, and dynamic skill tools.
 
-### Permissions And Sandboxing
+### Permissions and sandboxing
 
 Each agent turn has a permission mode and resolved security policy. Pioneer can allow, ask, audit, or block tool actions; check filesystem roots and network policy; constrain process execution; and use native or provider sandbox backends where the selected execution path supports them.
 
-### Voice Input
+### Voice input
 
 Mobile and shared client contracts support gateway-owned voice sessions. The client streams microphone chunks, the gateway transcribes, and successful sessions become normal turns with ordinary timeline and permission behavior.
 
-### MCP Servers
+Voice transcription can also run locally on the gateway. Choose a supported local transcription model when local processing or offline use matters; Pioneer downloads, verifies, loads, and reports the model's preparation state without requiring a transcription API key. Temporary model or transcription failures have explicit error states and can be retried.
+
+### MCP servers
 
 Install and manage servers compatible with [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro) per gateway and current workspace, track their health and catalog, and expose their tools to agents through the gateway. New servers are explicit-only by default and can be attached to a turn from the composer.
 
@@ -76,27 +82,27 @@ Pioneer supports skills compatible with the [Agent Skills specification](https:/
 
 Run scheduled and on-demand tasks for repeatable work. Tasks can retry, report progress, depend on other tasks, create subagents, and keep reviewable results.
 
-### Protocol-First Architecture
+### Protocol-first architecture
 
 Pioneer has a documented protocol for clients and integrations. Most users do not need it, but it gives advanced users and developers a stable place to build from.
 
-### CLI Agent Runtime
+### CLI agent runtime
 
 The gateway can drive CLI-backed agent runtimes when they are installed and authenticated on the gateway host. This is useful for tools such as Codex CLI that have their own execution model.
 
-### Explicit Artifacts
+### Explicit artifacts
 
-Files you upload are copied to the gateway as artifacts before a turn. Agent-created result files should be registered as artifacts when they are meant to show up in the UI, be downloaded later, or stay linked to the thread.
+Pioneer copies uploaded files to the gateway as artifacts before a turn. Register agent-created result files as artifacts when they should appear in the UI, remain downloadable, or stay linked to the thread.
 
-### Cross-Platform Packaging
+### Cross-platform packaging
 
 Gateway builds target macOS, Linux, and Windows. Desktop packaging targets DMG, AppImage, and MSI.
 
-### Multi-Language Clients
+### Multi-language clients
 
 Desktop and mobile UI locales are available for English, German, Spanish, French, Hindi, Japanese, Russian, and Chinese.
 
-## Go Deeper
+## Further reading
 
 - [Architecture Overview](/architecture/overview) explains the main backend systems.
 - [Gateway](/architecture/gateway) explains why work happens where the gateway runs.

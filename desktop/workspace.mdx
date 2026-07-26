@@ -4,11 +4,11 @@ description: "Create, switch, and rename workspaces, and decide when to use sepa
 icon: "folder-open"
 ---
 
-Pioneer creates a default workspace automatically on first launch. You can keep using it, or create additional workspaces from the workspace selector at the top of the main thread sidebar.
+Pioneer creates a default workspace on first launch. Keep using it, or create another workspace from the selector at the top of the main thread sidebar.
 
 The active workspace is where your threads, provider keys, MCP servers, skills, tasks, settings, and artifacts come together for the gateway you are connected to. Switching workspaces changes the thread tree and the workspace-scoped configuration the app shows.
 
-## Manage Workspaces
+## Manage workspaces
 
 Use the workspace selector in the left thread sidebar to:
 
@@ -18,19 +18,19 @@ Use the workspace selector in the left thread sidebar to:
 
 New threads are created in the active workspace. Provider setup, MCP installation, skill availability, tasks, and artifacts are also resolved through the active workspace.
 
-## Use Workspaces For Project Separation
+## Use workspaces for project separation
 
-Use separate workspaces when the work should stay separate but can share the same gateway machine and execution environment. Common examples are clients, projects, experiments, or personal contexts that should have different threads, provider keys, MCP servers, skills, and tasks.
+Use separate workspaces when work should stay separate but can share the same gateway machine and execution environment. Projects, experiments, and personal contexts are common examples.
 
 Workspaces are project and policy boundaries inside one gateway. They separate threads, provider keys, MCP servers, skills, tasks, artifacts, and workspace settings. Turn permission modes and sandbox/resource policy constrain tool work inside that gateway. Use a separate gateway when the execution environment itself should be different.
 
-## Use Gateways For Environment Separation
+## Use gateways for environment separation
 
-Use a separate gateway when the machine, files, accounts, network access, task schedules, or security boundary should be different. A work gateway can stay close to work repositories and internal tools. A home gateway can run on a personal server. A sandbox gateway can exist only for testing tools and skills.
+Use a separate gateway when the machine, files, accounts, network access, task schedules, or security boundary should be different. A work gateway can stay near work repositories and internal tools; a home gateway can run on a personal server; a sandbox gateway can be reserved for testing tools and skills.
 
 The desktop app can connect to all of them, but gateways do not share state. Each gateway has its own database, keystore, workspaces, provider settings, skills, MCP servers, tasks, and execution environment.
 
-## Use Threads For Context
+## Use threads for context
 
 Inside each workspace, use threads to keep work understandable.
 
@@ -42,7 +42,7 @@ For example, `Research MCP server options` is more useful than `Notes`, and `Fix
   A workspace is a gateway-scoped product boundary. Use permission modes for turn-level control, and choose separate gateways when work needs separate host environments or OS accounts.
 </Note>
 
-## Go Deeper
+## Further reading
 
 - [Gateway Architecture](/architecture/gateway) explains why workspaces belong to a gateway.
 - [Permission System](/architecture/permissions) explains turn permission modes, sandbox/resource policy, and approval prompts.

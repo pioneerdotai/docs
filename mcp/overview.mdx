@@ -4,31 +4,31 @@ description: "Connect tools and resources to Pioneer through Model Context Proto
 icon: "plug"
 ---
 
-MCP servers let Pioneer reach tools and resources that live outside Pioneer.
+MCP servers let Pioneer use tools and resources provided by external systems.
 
 Pioneer supports servers built for [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro), the open standard for connecting AI applications to external systems such as tools, data sources, and workflows.
 
-If a model needs to query a database, call an internal service, read from a documentation system, or use a company-specific integration, MCP is one way to make that available. The gateway connects to the MCP server, discovers what it exposes, and lets agents use the allowed pieces.
+Use MCP when a model needs to query a database, call an internal service, read a documentation system, or use a company-specific integration. The gateway connects to the MCP server, discovers its capabilities, and exposes the allowed ones to agents.
 
-Agents do not connect to MCP servers directly. The gateway is the runtime in the middle. That is useful because the gateway can track health, catalog tools, apply policy, and keep the behavior tied to the environment you chose.
+Agents do not connect to MCP servers directly. The gateway runs the connection, tracks health, catalogs tools, applies policy, and keeps the integration tied to the selected environment.
 
-## What MCP Is For
+## What MCP is for
 
 Use MCP when there is an existing system you want Pioneer to work with instead of reimplementing it as prompts or shell commands.
 
 A local MCP server might expose developer tools on your machine. A remote MCP service might expose internal APIs. A database MCP server might give agents controlled ways to inspect data. A documentation MCP server might let agents search private docs.
 
-The practical question is simple: should this capability belong to the gateway and be available across threads or tasks? If yes, MCP is probably a better fit than pasting instructions into one thread.
+Ask whether the capability should belong to the gateway and be available across threads or tasks. If it should, MCP is a better fit than pasting instructions into one thread.
 
-## Workspace Scope
+## Workspace scope
 
 MCP connections are installed for the current workspace on the gateway.
 
-This keeps environments clean. A work workspace can connect to work systems. A personal workspace can connect to personal tools. A sandbox workspace can test new MCP servers before they touch anything important. Use a separate gateway when the MCP server must run on a different machine or security boundary.
+Workspace scope keeps environments separate. A work workspace can connect to work systems, a personal workspace to personal tools, and a sandbox workspace can test new servers before they reach important systems. Use a separate gateway when the server must run on another machine or security boundary.
 
 MCP secrets are scoped the same way. Pioneer keeps visible MCP settings redacted and stores actual secret values, such as `env` and `headers`, in the gateway secret store.
 
-## Enabled And Implicit MCP
+## Enabled and implicit MCP
 
 MCP servers can be enabled or disabled. A disabled server can stay configured on the gateway, but agents should not use its tools.
 
@@ -40,13 +40,15 @@ Newly installed MCP servers start not implicit by default. Use implicit mode onl
   MCP tools can affect whatever the MCP server can reach. Test new servers in **Supervised** mode first, and keep destructive or sensitive servers explicit-only until you trust their behavior.
 </Warning>
 
-## How It Feels In Use
+## How it feels in use
 
 After you add a server, Pioneer starts or connects to it, reads its catalog, and shows the available tools, resources, templates, and prompts. You decide what should be enabled in the current workspace and whether tools should be implicit.
 
 In a thread, use the composer add button and choose **Add MCP** to attach a whole server or specific tools to the next turn. Selected MCP capabilities appear as chips above the input and on the sent user message. If you select a whole server, Pioneer treats that as the server-level selection for the turn and suppresses duplicate individual tool selections for that server.
 
 MCP selections are not pasted into the prompt as plain text. Pioneer turns them into available tools for that turn, and calls still route through the gateway MCP service.
+
+Large MCP catalogs are supported, but they are still bounded for predictable execution. Pioneer currently caps materialized catalogs at 512 tools, limits their combined schemas to 3 MiB, and allows up to 16 concurrent MCP calls in one turn. These limits are validated consistently by the gateway and CLI-backed runtimes.
 
 For local processes, Pioneer uses stdio. For network services, it uses HTTP.
 
@@ -59,7 +61,7 @@ For local processes, Pioneer uses stdio. For network services, it uses HTTP.
   </Card>
 </Columns>
 
-## Go Deeper
+## Further reading
 
 - [MCP Architecture](/architecture/mcp) explains installation, runtime supervision, catalogs, policy, and tool binding.
 - [Secret Storage](/architecture/secrets) explains how MCP env/header secrets are stored.

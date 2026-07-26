@@ -4,13 +4,19 @@ description: "Use Pioneer tasks to run repeatable, scheduled, and subagent-backe
 icon: "clock"
 ---
 
-Threads are good when you are present and steering the work. Tasks are for work that has a shape of its own.
+Threads work well when you are present and steering the work. Tasks are for work with its own schedule, state, or completion rules.
 
 A task can run manually, on a schedule, after another task, or as part of a larger workflow. The gateway owns the run, so tasks can keep working in the environment where the gateway lives.
 
-That makes tasks especially useful on remote gateways. A server can run a morning research pass, check a repository, prepare a summary, or coordinate several smaller agent steps without depending on your laptop being open.
+Tasks are useful on remote gateways because the gateway can run a morning research pass, check a repository, prepare a summary, or coordinate smaller agent steps while your laptop is closed.
 
-## Start With Boring Tasks
+## Tasks and ordinary background work
+
+Pioneer also runs messages asynchronously in collaborative threads. Sending a message is enough when you want the agent to keep working while you continue the conversation. The request gets its own live task card and child conversation, and its result returns to the thread that started it.
+
+Use an explicit task when you need a schedule, dependencies, retries, deliveries, write locks, subagents, or a workflow that should remain meaningful after the original conversation ends. A background request keeps a conversation responsive; an explicit task defines durable automation.
+
+## Start with boring tasks
 
 Your first task should be simple and read-only:
 
@@ -32,11 +38,11 @@ Pioneer can create subagents automatically as part of a task workflow.
 
 You do not have to manually delegate every piece of work. A task can define the prompt, model, context policy, tool policy, result expectations, review policy, and child-thread behavior for agents that run under it. Pioneer can then break work into smaller parts and attach the results back to the parent task.
 
-This is useful when one large job needs several focused passes: gather information, inspect files, draft a result, verify it, and report back. The important part is that each agent has a clear job and a clear result contract.
+This helps when one large job needs focused passes: gather information, inspect files, draft a result, verify it, and report back. Each agent should have a clear job and result contract.
 
 Subagents run in hidden child threads. The child thread gives the subagent a normal agent environment with its own timeline, tools, context, and artifacts. The parent thread still owns the workflow: it creates the task, waits for the result, reviews the candidate output, and decides what happens next.
 
-## Parent Review And Revisions
+## Parent review and revisions
 
 Attached subagent tasks do not have to become final just because the child agent stopped. When a subagent finishes a turn, Pioneer stores the output as a result candidate. The parent agent can then:
 
@@ -46,17 +52,17 @@ Attached subagent tasks do not have to become final just because the child agent
 
 When the parent requests a revision, Pioneer records the rejected candidate, sends the feedback back into the same child thread, starts a new revision turn, and waits for a new candidate. The cycle can repeat up to the configured revision limit. The default parent-agent review policy allows up to five revision rounds.
 
-This makes multi-agent work auditable. You can see the first answer, the parent feedback, the revised answer, and the final accepted candidate instead of losing rejected work in a mutated final result.
+This keeps multi-agent work auditable. The timeline retains the first answer, parent feedback, revised answer, and accepted candidate instead of replacing rejected work with a single final result.
 
 Scheduled and detached work is treated differently from foreground attached delegation. Those runs should not get stuck waiting for a parent turn that is no longer active, so they can be finalized automatically according to their task policy.
 
-## Subagent Artifacts
+## Subagent artifacts
 
 Files created by subagents are still workspace artifacts when the subagent registers them. The artifact is bound to the child thread and task lineage, and the parent thread can list artifacts created anywhere in its delegated child-thread tree.
 
 If a subagent says it created a file but the file is missing from the artifacts panel, the file was probably written as an ordinary gateway file and not registered with `artifact_register`.
 
-## Where Task Work Happens
+## Where task work happens
 
 Tasks run on the gateway. If the gateway is local, task tools run locally. If the gateway is remote, they run on the remote host.
 
@@ -71,7 +77,7 @@ This affects file paths, credentials, network access, installed commands, and si
   </Card>
 </Columns>
 
-## Go Deeper
+## Further reading
 
 - [Tasks Architecture](/architecture/tasks) explains task records, runs, subagent threads, review, retries, and write locks.
 - [Agent Loop](/architecture/agent-loop) explains how task tools and child turns fit into ordinary turns.

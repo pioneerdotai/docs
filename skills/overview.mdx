@@ -4,29 +4,29 @@ description: "Use skills to extend Pioneer with reusable instructions, tools, an
 icon: "puzzle-piece"
 ---
 
-Skills are how you teach Pioneer reusable behavior.
+Skills give Pioneer reusable behavior.
 
-Without a skill, you repeat the same instructions in prompts: how your repo is organized, how a report should be formatted, which checks matter, which commands are safe, which output shape you expect. A skill packages that knowledge so it can be installed, reviewed, enabled, disabled, and reused.
+Without a skill, you repeat instructions in prompts about repository layout, report format, checks, safe commands, and expected output. A skill packages those instructions so you can install, review, enable, disable, and reuse them.
 
-A skill can be small, like a writing style guide. It can also be more capable, with dependency checks and dynamic tools. Either way, treat it as part of the gateway's working environment.
+A skill can be a small writing guide or a package with dependency checks and dynamic tools. In either case, it becomes part of the gateway's working environment.
 
 Pioneer skills are compatible with the [Agent Skills specification](https://agentskills.io/specification). In practice, that means a skill follows the open Agent Skills format built around a `SKILL.md` file plus optional scripts, references, assets, and supporting resources.
 
-## When Skills Help
+## When skills help
 
 Use a skill when the same behavior should show up again and again.
 
-A team might use a skill for repository conventions or support workflows. A researcher might use one for literature notes. A company might package an internal API helper. A solo user might create a skill for how they want documents summarized.
+Teams use skills for repository conventions and support workflows. Researchers can use them for literature notes, companies for internal API helpers, and individuals for a preferred document format.
 
 If the instruction is one-off, put it in the thread. If it should become part of how Pioneer works in a workspace, make it a skill.
 
-## Where Skills Live
+## Where skills live
 
 Skills are installed for the current workspace on a gateway.
 
 That means your work workspace can have approved work skills, your personal workspace can have personal skills, and your sandbox workspace can be where you test new or untrusted packages. Use a separate gateway when the skill should run on a different machine or security boundary.
 
-## Enabled And Implicit Skills
+## Enabled and implicit skills
 
 Installed skills can be enabled or disabled. A disabled skill stays installed on the gateway, but agents should not use it.
 
@@ -34,7 +34,7 @@ Enabled skills can be **implicit** or **not implicit**. An implicit skill is ava
 
 Newly installed skills start not implicit by default. Use implicit mode only for trusted, general-purpose behavior that should naturally apply in many threads. Use not implicit mode for specialized, risky, noisy, or rarely needed skills.
 
-## Selecting Skills In A Thread
+## Selecting skills in a thread
 
 In the desktop composer, use the add button and choose **Add skills** to attach one or more skills to the next turn. Selected skills appear as attachment chips above the input, not as inline text inside the message. After you send the turn, the same chips appear on the user message in the timeline.
 
@@ -42,7 +42,15 @@ A selected skill is sent to the gateway as a turn capability. Pioneer resolves i
 
 Composer-selected skills do not paste the full `SKILL.md` body into the prompt. The prompt gets a compact skill entry with the exact `read_skill` slug and description; the full instructions remain available through `read_skill`.
 
-## Using Skills Safely
+Pioneer can also expose selected system skills, such as Browser, through the same composer and capability flow. When a supported CLI runtime can consume them, system skills can be exported for that runtime as well. Availability still depends on the gateway, provider/runtime capabilities, current policy, and the selected turn.
+
+## Skill packs
+
+A skill pack is a folder containing several related skills. Install the folder once, then inspect or select the individual skills inside it when a turn needs only part of the pack. Packs are useful for a team workflow that has separate research, implementation, and review capabilities but shares one release and installation boundary.
+
+Pioneer keeps the identity of each retained skill stable when a pack is renamed, moved between sources, or updated. Existing policies, workspace bindings, and history follow that identity instead of turning the update into a set of unrelated new skills. Pack install, update, and removal are handled as one operation, so a failed change does not leave a half-updated pack.
+
+## Using skills safely
 
 Installing a skill should not be treated like pasting a harmless prompt. Skills can include dynamic tools, dependency expectations, and workflow instructions that affect what agents do.
 
@@ -52,9 +60,9 @@ Installing a skill should not be treated like pasting a harmless prompt. Skills 
 
 Before trusting a skill, look at what it adds, what commands or services it expects, and whether it asks for broad file or network access. Then try it with a low-risk prompt before using it on important work.
 
-## Typical Flow
+## Typical flow
 
-Install the skill, review validation results, fix missing dependencies if needed, confirm it is enabled in the current workspace, keep it not implicit unless there is a reason to change that, and try it in a thread by selecting it from the composer. If it behaves well and is broadly useful, consider making it implicit. If it is too broad or surprising, disable it or keep it explicit-only.
+Install the skill, review validation results, fix missing dependencies, confirm that it is enabled in the current workspace, and try it in a thread from the composer. Keep it explicit-only until you know it behaves well. Make it implicit only when it is trusted and broadly useful.
 
 <Columns cols={4}>
   <Card title="Creating Skills" icon="file-plus" href="/skills/creating">
@@ -71,7 +79,7 @@ Install the skill, review validation results, fix missing dependencies if needed
   </Card>
 </Columns>
 
-## Go Deeper
+## Further reading
 
 - [Skills Architecture](/architecture/skills) explains parsing, validation, dependency checks, policy, and dynamic tools.
 - [Permission System](/architecture/permissions) explains how turn permission modes and sandbox/resource policy apply to dynamic skill tools.

@@ -23,11 +23,13 @@ CLI runtimes are not `pioneer-provider` adapters. API providers expose `provider
 | `cli_runtime/review/start` | `CLIRuntimeReviewStartParams` | `CLIRuntimeReviewStartResponse` | Start a runtime-native review flow for changes, a branch, a commit, or custom instructions. |
 | `cli_runtime/login/start` | `CLIRuntimeLoginStartParams` | `CLIRuntimeLoginStartResponse` | Start a supported runtime login flow. |
 | `cli_runtime/login/cancel` | `CLIRuntimeLoginCancelParams` | `CLIRuntimeLoginCancelResponse` | Cancel a pending runtime login flow. |
+| `cli_runtime/proxy/set` | `CLIRuntimeProxySetParams` | `CLIRuntimeProxySetResponse` | Set the workspace-scoped network proxy for a runtime. |
+| `cli_runtime/proxy/delete` | `CLIRuntimeProxyDeleteParams` | `CLIRuntimeProxyDeleteResponse` | Remove the runtime proxy. |
 | `cli_runtime/request/respond` | `CLIRuntimeRequestRespondParams` | `CLIRuntimeRequestRespondResponse` | Resolve a pending approval or user-input request from the runtime. |
 
 Every method takes `workspace_id`. Runtime visibility is gateway-owned, but clients use the workspace id so responses and notifications can be scoped to the selected workspace.
 
-## Runtime Summary
+## Runtime summary
 
 A `RuntimeSummary` includes:
 
@@ -45,7 +47,9 @@ A `RuntimeSummary` includes:
 
 Diagnostics are sanitized before they cross the protocol boundary. Secret-like keys, bearer tokens, raw payloads, and long lines are redacted or truncated.
 
-## Listing Runtimes
+`capabilities.supports_mcp_tools` means the runtime can receive the gateway's selected MCP projection for a turn. It does not mean every configured server or tool is available: workspace policy, turn permissions, provider support, catalog state, readiness, and the shared MCP limits still apply. Clients should use the capability flag as an eligibility signal and render the actual accepted or rejected capability results from the turn projection.
+
+## Listing runtimes
 
 ```json
 {
@@ -88,7 +92,8 @@ Response shape:
         "supports_history_read": true,
         "supports_thread_archive": true,
         "supports_auth_management": true,
-        "supports_generated_schema_probe": true
+        "supports_generated_schema_probe": true,
+        "supports_mcp_tools": true
       }
     }
   ]
@@ -97,7 +102,13 @@ Response shape:
 
 Clients should use the generated schema and treat unknown future capability flags conservatively.
 
-## Model Selection
+## Runtime proxy
+
+CLI runtime processes run on the gateway host. When a runtime needs a different egress route, configure its proxy with `cli_runtime/proxy/set`. The gateway validates and stores the URL for the selected workspace and runtime, passes it to runtime startup and account/MCP readiness probes, and exposes the configured value in sanitized runtime status.
+
+Use `cli_runtime/proxy/delete` to remove it. Proxy credentials belong in the gateway secret store; clients should never log or echo them.
+
+## Model selection
 
 Clients can merge API providers and CLI runtimes in one model selector. The mobile client represents CLI runtime provider rows with the synthetic provider key:
 
@@ -117,7 +128,7 @@ When the user selects such a row, fetch models with `cli_runtime/list_models`, t
 }
 ```
 
-## Starting A CLI Runtime Turn
+## Starting a CLI runtime turn
 
 `turn/start` can select the runtime explicitly:
 
@@ -156,7 +167,7 @@ When the user selects such a row, fetch models with `cli_runtime/list_models`, t
 
 `cli_runtime_options` remains runtime-specific for options such as `sandbox`, `effort`, `personality`, `summary`, and `steer_if_active`. Clients should not send a separate runtime approval policy here; use `permission_profile` so Pioneer can persist one permission profile and audit model for the turn.
 
-## Thread Binding And Steering
+## Thread binding and steering
 
 When a Pioneer thread is backed by a native runtime thread, the gateway stores a `CLIRuntimeThreadBinding` with the Pioneer thread id, runtime id, native thread id, optional native cwd/model, and binding status.
 
@@ -187,7 +198,7 @@ If the runtime supports steering and the thread has an active turn, send:
 }
 ```
 
-## Pending Requests
+## Pending requests
 
 CLI runtimes can ask the user to approve commands, approve file changes, or provide input. The gateway publishes:
 
@@ -229,6 +240,7 @@ CLI runtime notifications are:
 | `cli_runtime/request_opened` | `CLIRuntimeRequestOpenedNotification` | User action is required for a runtime request. |
 | `cli_runtime/request_resolved` | `CLIRuntimeRequestResolvedNotification` | A pending runtime request was resolved. |
 | `cli_runtime/apps_changed` | `CLIRuntimeAppsChangedNotification` | Runtime app catalog changed. |
+| `cli_runtime/generated_schema_probe` | Runtime schema probe result | The gateway completed a generated-schema capability probe; use it as diagnostics, not as a replacement for the typed capability flags. |
 
 ## Settings
 
@@ -254,7 +266,7 @@ Generated schemas include:
 - `/schemas/cli_runtime_turn_steer_params.json`
 - `/schemas/cli_runtime_request_respond_params.json`
 
-## Related Pages
+## Related pages
 
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains session management, native thread/turn bindings, pending requests, and restart recovery.
 - [Permission System](/architecture/permissions) explains how Pioneer permission modes and security snapshots map into CLI runtime approval and sandbox policies.

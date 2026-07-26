@@ -17,7 +17,7 @@ This layer is intentionally separate from `crates/provider`. A provider adapter 
 | Shared client core | `crates/client/src/cli_runtime`, `crates/client/src/providers` | Runtime listing, model selector integration, approval presentation, provider-like display helpers, and CLI-backed turn steering helpers. |
 | Shells | `crates/desktop`, `pioneer-app` | UI for configuring runtime providers, selecting models, showing pending requests, and steering active turns. |
 
-## Why It Is Not A Provider
+## Why it is not a provider
 
 Provider adapters are stateless request translators from Pioneer's perspective. A CLI runtime is stateful and session-oriented. It may have:
 
@@ -30,7 +30,7 @@ Provider adapters are stateless request translators from Pioneer's perspective. 
 
 Putting that into `pioneer-provider` would leak process lifecycle and native-thread state into the model API layer. Instead, CLI runtime execution is selected through the turn execution backend and documented by [CLI Runtime API](/protocol/cli-runtime).
 
-## Session Keys And Cache
+## Session keys and cache
 
 `CLIAgentRuntimeSessionKey` is the gateway cache key:
 
@@ -44,7 +44,7 @@ Putting that into `pioneer-provider` would leak process lifecycle and native-thr
 
 Idle sessions are closed by TTL. `close_session` and `close_all` support forced cleanup during turn shutdown or gateway shutdown. The manager does not understand Codex semantics directly; it works through the `CLIAgentRuntimeSession` trait.
 
-## Session Trait
+## Session trait
 
 `CLIAgentRuntimeSession` is the runtime abstraction the gateway uses after a process is started. Optional methods include:
 
@@ -61,7 +61,7 @@ Idle sessions are closed by TTL. `close_session` and `close_all` support forced 
 
 The default implementation returns "not supported" for runtime-specific features. This is important for future runtimes: adding a new runtime kind should not make every runtime claim Codex capabilities.
 
-## Thread Binding
+## Thread binding
 
 A Pioneer thread can be bound to one native runtime thread. `open_codex_thread_binding` is the central path.
 
@@ -69,7 +69,7 @@ If no binding exists, the gateway calls Codex `thread/start`, records the return
 
 The invariant is strict: a Pioneer thread cannot silently move between runtime instances or workspace ids. If an existing binding says the thread belongs to runtime `A`, a request for runtime `B` fails instead of rewriting lineage.
 
-## Turn Binding
+## Turn binding
 
 Thread binding maps long-lived thread identity. Turn binding maps active execution.
 
@@ -86,7 +86,13 @@ A CLI-backed turn persists:
 
 This binding lets restart recovery reason about a turn that was in progress when the gateway stopped. It also lets client operations such as steering or request response route to the native turn rather than guessing from the active UI state.
 
-## Permission Mapping
+## Continuation across execution segments
+
+One Pioneer turn may span several native CLI execution segments. A segment can pause for a goal transition, recovery, provider/runtime wait, or execution budget without completing the Pioneer turn. The gateway keeps the continuation owner attached to the same Pioneer turn and native thread, so a resumed segment remains part of the original work and timeline.
+
+Subagent execution is tracked separately from the parent turn. A child runtime segment must not accidentally complete or claim the parent's terminal state; the parent remains open until its own execution contract reaches a terminal outcome.
+
+## Permission mapping
 
 CLI runtime turns still start with Pioneer's `TurnPermissionProfileSelection`. The gateway resolves that into a normal `TurnPermissionProfileSnapshot`, stores it on the Pioneer turn, writes the profile-selected audit event, and then maps the Pioneer permission mode into the native runtime's approval policy.
 
@@ -98,19 +104,19 @@ CLI runtime turns still start with Pioneer's `TurnPermissionProfileSelection`. T
 
 This mapping lives in `crates/gateway/src/cli_runtime/permissions.rs`. Runtime-specific pending requests are still exposed through the CLI runtime request surface and resolved with `cli_runtime/request/respond`. Native tool permission requests from Pioneer's ordinary tools runtime use the turn permission surface described in [Permission System](/architecture/permissions).
 
-## Event Projection
+## Event projection
 
 Codex app-server notifications are decoded in `crates/cli-agent-runtime` and projected by the gateway. Projection turns runtime-native events into Pioneer-visible timeline rows, system events, pending request snapshots, approval rows, and terminal turn state.
 
-The design rule is that clients consume Pioneer projections, not Codex JSON. Runtime-specific raw payloads may be preserved for diagnostics, but UI state should be based on protocol DTOs. This keeps desktop, mobile, and custom clients on the same surface even when the native runtime changes its internal event format.
+Clients consume Pioneer projections, not Codex JSON. Runtime-specific raw payloads may be preserved for diagnostics, but UI state should use protocol DTOs. Desktop, mobile, and custom clients then share one surface even if the native runtime changes its event format.
 
-## Pending Requests
+## Pending requests
 
 CLI runtimes can block on requests that need user action. Pioneer models those as pending runtime requests and exposes request-opened/request-resolved notifications. Clients respond through `cli_runtime/request/respond`.
 
 The gateway forwards responses to the active runtime session with the native request id. Request resolution should be idempotent from the client perspective: once a request is resolved, clients should stop showing it as actionable even if older timeline rows are still visible.
 
-## Startup And Recovery
+## Startup and recovery
 
 `scan_cli_runtime_turn_recovery` scans persisted CLI runtime turn bindings with `starting` or `running` status. It then compares each binding with the current runtime catalog.
 
@@ -124,13 +130,15 @@ Recovery outcomes are:
 
 Blocked recovery includes `TurnBlockedResumeMetadata` with a reason class, human message, requirements, and a `turn.resume:<turn_id>` resume command. This is how a restarted gateway can present an actionable recovery state instead of failing a turn silently.
 
-## Settings And Model Selection
+## Settings and model selection
 
 Gateway settings expose CLI runtime instances under `cli_runtimes`. Each instance has an id, kind, display name, enabled flag, binary path, home path, and optional shadow home path. The gateway migrates the legacy singleton Codex setting into the multi-runtime shape when needed.
 
+Runtime network routing is also gateway-owned. A workspace can assign a validated HTTP or SOCKS proxy to a runtime. The gateway uses it when starting the native process and when probing runtime account or MCP readiness, while keeping proxy credentials out of client payloads and diagnostics.
+
 The shared client core presents CLI runtimes alongside API providers in model selection, but the runtime remains a distinct execution backend. A selected runtime model must lead to a CLI-backed turn, not to `pioneer-provider`.
 
-## Supported Operations
+## Supported operations
 
 The protocol currently exposes:
 
@@ -144,7 +152,7 @@ The protocol currently exposes:
 
 Support is capability-driven. A runtime can be listed while a specific operation is unavailable because the binary is missing, authentication is required, the version is unsupported, or the runtime kind does not implement that operation.
 
-## Failure Modes
+## Failure modes
 
 Developers should handle these as first-class states:
 
@@ -160,7 +168,7 @@ Developers should handle these as first-class states:
 
 Do not collapse these into one generic provider error. They imply different user fixes and different recovery behavior.
 
-## Developer Rules
+## Developer rules
 
 - Keep CLI process/session lifecycle out of `crates/provider`.
 - Persist thread and turn bindings before depending on in-memory session state.
@@ -170,7 +178,7 @@ Do not collapse these into one generic provider error. They imply different user
 - When changing request/approval flows, update gateway projection, `pioneer-client`, desktop, mobile generated schemas, and [CLI Runtime API](/protocol/cli-runtime) together.
 - When changing permission mapping, update `crates/gateway/src/cli_runtime/permissions.rs`, client permission-mode display, and this page together.
 
-## Related Pages
+## Related pages
 
 - [Protocol Layer](/architecture/protocol) explains how CLI runtime methods and notifications become public contract.
 - [Permission System](/architecture/permissions) explains Pioneer turn permission profiles, security snapshots, sandbox mapping, and approval/audit semantics.

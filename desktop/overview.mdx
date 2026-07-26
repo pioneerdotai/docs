@@ -4,25 +4,23 @@ description: "Use the Pioneer desktop app to connect gateways, manage workspaces
 icon: "desktop"
 ---
 
-The desktop app is the full native client for Pioneer.
+The desktop app is Pioneer's native client. It connects to gateways, manages workspaces, lets you talk to models, and exposes tool runs, providers, skills, MCP servers, and tasks.
 
-You use it to connect gateways, manage workspaces, talk to models, inspect tool runs, configure providers, manage skills and MCP servers, and keep an eye on tasks.
+The desktop app is a client. It gives you control, while the gateway owns the work. Provider calls, tool execution, task runs, skills, MCP servers, and stored Pioneer state belong to the gateway you are connected to.
 
-The important thing to remember is that the desktop app is a client. It gives you control, but the gateway owns the work. Provider calls, tool execution, task runs, skills, MCP servers, and stored Pioneer state belong to the gateway you are connected to.
+## Local use
 
-## Local Use
-
-For a single-machine setup, the desktop app can start and manage a local gateway. This is the easiest way to try Pioneer: install the app, start the local gateway when prompted, add a model provider, and create a thread.
+For a single-machine setup, the desktop app can start and manage a local gateway. Install the app, start the gateway when prompted, add a model provider, and create a thread.
 
 In this setup, tool calls happen through the local gateway. If an agent lists files, it lists files visible to your local gateway. If it runs a shell command, Pioneer applies the selected turn permission and sandbox/resource policy before spawning on your machine.
 
-## Multiple Gateways And Other Clients
+## Multiple gateways and other clients
 
 One desktop app can connect to any number of gateways.
 
-This is useful when your environments should stay separate. You might keep a local gateway for everyday experiments, a work gateway close to work repositories and accounts, a home server for long-running personal tasks, and a sandbox gateway for testing risky skills or MCP servers.
+Separate gateways are useful when environments need different files, accounts, or credentials. For example, you can keep one gateway for local experiments, another near work repositories, and a third for testing skills or MCP servers.
 
-Switching gateways is more than changing a label in the sidebar. You are switching execution environments. A thread on `Work` uses work provider keys and work tools. A thread on `Home Server` uses the server's files, network, and services.
+Switching gateways changes the execution environment. A thread on `Work` uses that gateway's provider keys and tools. A thread on `Home Server` uses the server's files, network, and services.
 
 The mobile app can connect to those same gateways, but it does not manage a local gateway process on the phone. Use desktop when you need local gateway installation/start/stop flows; use mobile when you need a remote client into an already running gateway.
 
@@ -30,13 +28,13 @@ The mobile app can connect to those same gateways, but it does not manage a loca
   When you connect to a remote gateway, tool work is owned by the remote gateway. The selected permission mode and sandbox/resource policy are enforced there, not by the desktop app process.
 </Note>
 
-## What You Do In The App
+## What you do in the app
 
-Most daily work happens in three places.
+Most daily work happens in the gateway switcher, workspace selector, and thread timeline.
 
-The gateway switcher tells you which environment you are using. Check it before running tool-heavy prompts.
+The gateway switcher shows which environment you are using. Check it before sending a prompt that will use tools.
 
-The workspace selector at the top of the main thread sidebar shows the active workspace. Use it to create workspaces, switch between them, or rename them. Switching workspaces reloads the thread tree and workspace-scoped configuration for the connected gateway.
+The workspace selector at the top of the main thread sidebar shows the active workspace. Use it to create, switch, or rename workspaces. Switching workspaces reloads the thread tree and workspace-scoped configuration for the connected gateway.
 
 Threads are where conversations happen. The thread timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When an agent changes something or a tool fails, the timeline is the first place to inspect.
 
@@ -46,7 +44,7 @@ The composer permission mode controls how much Pioneer asks before tool actions 
 
 Settings are split between app-level preferences, gateway-owned configuration, and workspace-scoped configuration. Provider credentials, skills, MCP servers, and tasks belong to a workspace on the connected gateway. If you switch workspace or connect to another gateway, configure them there too.
 
-That separation is intentional. It lets one desktop app control several independent Pioneer environments without mixing their state.
+This separation lets one desktop app control several Pioneer environments without mixing their state.
 
 Gateway-owned settings, such as memory and thread-context switches, are read from the connected gateway. If you switch to another gateway, the settings screen should reload that gateway's values. If you switch back, it should show the previous gateway's values again.
 
@@ -73,7 +71,7 @@ The desktop UI includes English, German, Spanish, French, Hindi, Japanese, Russi
   </Card>
 </Columns>
 
-## Go Deeper
+## Further reading
 
 - [Client Architecture](/architecture/clients) explains how desktop, mobile, and shared client code fit together.
 - [Gateway Architecture](/architecture/gateway) explains what the desktop app controls through the connected gateway.

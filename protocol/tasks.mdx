@@ -3,9 +3,11 @@ title: "Tasks API"
 description: "Creating tasks, scheduling work, managing subagents, reading task trees, waiting for results, and tracking deliveries."
 ---
 
-Tasks are the durable automation layer in the gateway. A task can run immediately, wait for a schedule, repeat on an interval or cron expression, depend on another task, or be triggered manually or externally. When the executor is `agent`, the task can create a subagent thread with its own prompt, model, context policy, tool policy, result contract, and review policy.
+Tasks are the gateway's durable automation layer. A task can run immediately, wait for a schedule, repeat on an interval or cron expression, depend on another task, or be triggered manually or externally. With the `agent` executor, it can create a subagent thread with its own prompt, model, context policy, tool policy, result contract, and review policy.
 
 Clients use the Tasks API for two different experiences: user-facing automation UI and internal agent orchestration. In both cases the gateway owns task state, run state, retries, write locks, delivery state, and the lineage between parent work and subagent threads.
+
+Collaborative Composer submissions are also represented by the task runtime. They are not a third client method: the normal turn submission creates detached task work with a frozen `TaskComposerWork` launch record, a child conversation, and a delivery back to the originating thread. Use the explicit Tasks API when you need to create or inspect a durable task contract; use the Threads and Turns APIs to render the conversation and the task card created by a Composer request.
 
 ## Methods
 
@@ -29,7 +31,7 @@ Clients use the Tasks API for two different experiences: user-facing automation 
 
 `crates/protocol` also defines `TaskUpdateParams`, `TaskUpdateResponse`, and a `task/update` method constant for task-service update contracts. The current gateway JSON-RPC dispatcher does not expose `task/update` as a client-callable method. Task updates can still happen through the model-facing `task_update` tool and task service, and clients observe them through `task/updated` plus `task/tree/changed`.
 
-## Creating An Agent Task
+## Creating an agent task
 
 `task/create` uses mostly `camelCase` payload fields. The gateway creates the task, stores the trigger, and may also create a run immediately depending on the trigger.
 
@@ -166,7 +168,7 @@ Response:
 
 `TaskStatus` values serialize as `snake_case`: `draft`, `scheduled`, `queued`, `running`, `waiting`, `completed`, `failed`, `cancelled`. Many task payloads use `camelCase` field names while enum values use `snake_case`, so clients should follow the generated schema rather than guessing casing.
 
-## Trigger Specs
+## Trigger specs
 
 The `trigger.spec` object is tagged by `kind`.
 
@@ -196,7 +198,7 @@ Dependency trigger policy uses `mode` values `all_succeeded`, `any_succeeded`, o
 
 ## Subagents
 
-Subagents are represented by `agentSpec`. They are not just a UI affordance; the gateway uses the spec to create a child thread and run that child thread with bounded context and tools.
+`agentSpec` tells the gateway to create a child thread and run it with bounded context and tools. The UI is only one way to request this work.
 
 | Field | Meaning |
 |---|---|
@@ -218,7 +220,7 @@ Callers usually omit `reviewPolicy`. The gateway applies the default parent-agen
 
 When a task creates a child thread, task events include child thread lineage. The child thread is hidden from the normal sidebar, but clients can show the subagent's work in the parent task tree and can load the child conversation through [Threads API](/protocol/threads) and [Turns API](/protocol/turns).
 
-## Result Review
+## Result review
 
 Agent tasks can require review before a child result becomes the final run result. For attached subagent work, the default review mode is parent-agent review with explicit acceptance and five revision rounds.
 
@@ -274,7 +276,7 @@ The parent requests changes with `task/revise`:
 
 Revising creates a review event with `decision = request_changes`, marks the current candidate rejected, creates a new `TaskRunTurn` with `kind = revision`, and dispatches the same child thread again with the feedback. The next child turn produces a new candidate.
 
-`TaskResultReviewEvent` is an audit log, not just the latest state. It records reviewer kind (`parent_agent`, `review_agent`, `user`, `runtime_auto`, or `system`), event kind (`advisory`, `decision`, `override`, or `system_auto`), decision, feedback, optional reviewer thread/turn/user/agent ids, and the next revision turn when one is created.
+`TaskResultReviewEvent` is an audit log rather than a snapshot of the latest state. It records reviewer kind (`parent_agent`, `review_agent`, `user`, `runtime_auto`, or `system`), event kind (`advisory`, `decision`, `override`, or `system_auto`), decision, feedback, optional reviewer thread/turn/user/agent ids, and the next revision turn when one is created.
 
 ## Policies
 
@@ -325,7 +327,7 @@ Retry, timeout, and concurrency policies are optional, but they are what turn ta
 
 Write locks are produced by the task runtime when a task needs exclusive write access to a workspace or path. Clients normally display them in diagnostics rather than creating them directly.
 
-## Reading Tasks
+## Reading tasks
 
 Use `task/get` for a detail view:
 
@@ -460,7 +462,7 @@ Parent-agent orchestration normally uses a review-aware wait mode. When a candid
 
 If `remainingRevisionRounds` is `0`, `allowedActions` omits `task_revise` and `revisionBlockedReason` explains why. The parent should then accept, cancel, or create a separate follow-up task.
 
-## Cancelling And Lifecycle Changes
+## Cancelling and lifecycle changes
 
 Cancel scope controls how far cancellation propagates:
 
@@ -553,7 +555,7 @@ Task notifications use the same event names as durable task events:
 
 Notification params include a `context` object with `workspaceId`, `taskId`, optional `runId`, optional parent/root ids, optional thread/turn ids, `eventId`, and `sequence`. Treat notifications as streaming state changes and use read methods to rebuild exact state when needed.
 
-## How Tasks Relate To Turns
+## How tasks relate to turns
 
 Agent turns can create tasks, tasks can create child threads, and child turns can report results back to parent tasks. For rendering a conversation that includes delegated work, combine [Threads API](/protocol/threads) `thread/timeline/page`, [Turns API](/protocol/turns) `turn/work/page`, `task/tree`, and `task/events`.
 

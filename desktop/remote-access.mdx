@@ -4,15 +4,15 @@ description: "Expose a gateway behind NAT through the gateway-owned remote-acces
 icon: "tower-broadcast"
 ---
 
-Remote access lets a gateway expose itself through the configured Pioneer relay so another desktop or mobile client can connect to it as a remote gateway.
+Remote access lets a gateway publish an endpoint through the configured Pioneer relay. A desktop or mobile client can then connect to that gateway remotely.
 
-The gateway owns the tunnel. The desktop app only edits gateway settings and displays status. Tool calls, MCP servers, local files, tasks, provider requests, and artifacts still happen on the gateway host.
+The gateway owns the tunnel. The desktop app edits gateway settings and displays status; tool calls, MCP servers, local files, tasks, provider requests, and artifacts remain on the gateway host.
 
 <Warning>
   Remote access exposes the gateway environment. Treat gateway bearer tokens and relay keys like passwords.
 </Warning>
 
-## What The Desktop App Controls
+## What the desktop app controls
 
 The desktop settings screen can:
 
@@ -24,7 +24,7 @@ The desktop settings screen can:
 
 The relay server, local gateway address, service name, transport, and restart policy come from operator config under `[gateway.remote_access]`.
 
-## Status Values
+## Status values
 
 Remote-access status is live runtime state from the gateway:
 
@@ -39,13 +39,13 @@ Remote-access status is live runtime state from the gateway:
 
 Common error kinds include `missing_key`, `missing_binary`, `local_gateway_unavailable`, `relay_resolve_failed`, `relay_connect_failed`, `tunnel_auth_failed`, `unsupported_transport`, and `restart_limit_reached`.
 
-## Using The Remote Gateway
+## Using the remote gateway
 
 After remote access is connected, add the exposed gateway address to another client as a remote gateway and use a gateway bearer token for authentication.
 
 The mobile app does not start a gateway on the phone. It connects to a reachable gateway, so remote access is the normal path for using a personal workstation or server from mobile.
 
-## Configuration And Protocol
+## Configuration and protocol
 
 - [Configuration Reference](/configuration/reference) lists `[gateway.remote_access]` operator defaults.
 - [Settings API](/protocol/settings) documents `remote_access` snapshots, updates, key handling, and status notifications.

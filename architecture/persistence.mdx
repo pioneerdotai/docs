@@ -5,15 +5,15 @@ description: "SQLite, SeaORM entities, CRUD repositories, projectors, events, ru
 
 Pioneer persists normal gateway state in `gateway.db` through SeaORM. Secret values are stored separately in `keystore.db`. The persistence layer is split into entity definitions, migrations, SQLite helpers, the `CrudStore` repository/projector facade, and a keystore boundary used by gateway and desktop secret flows.
 
-Persistence is not just storage for finished conversations. It is part of the runtime contract. The gateway uses it to make active turns visible, recover from interrupted work, audit which prompt, skills, MCP bindings, permission profile, and execution security snapshot were used, track MCP catalogs, reconcile tasks, and keep clients in sync after reconnect.
+Persistence is part of the runtime contract. The gateway uses it to show active turns, recover interrupted work, record each turn's prompt and security state, track MCP catalogs, reconcile tasks, and restore client state after reconnect.
 
 <Tip>
   Read [Gateway](/architecture/gateway) first if you want to understand who calls the persistence layer. Read [Agent Loop](/architecture/agent-loop) and [Tasks And Subagents](/architecture/tasks) if you want to understand the main event producers.
 </Tip>
 
-## Why This Layer Exists
+## Why this layer exists
 
-Pioneer has many pieces of state that change while work is still running. A simple "save final answer" table would not be enough. The UI needs timeline items as they start and complete. Recovery needs retained LLM context. Task scheduling needs queued and retryable runs. MCP needs catalog snapshots. Skills need audit records and dependency snapshots.
+Pioneer has many pieces of state that change while work is running. A table that stored only the final answer would not be enough. The UI needs timeline items as they start and complete; recovery needs retained LLM context; task scheduling needs queued and retryable runs; MCP needs catalog snapshots; and skills need audit records and dependency snapshots.
 
 The persistence layer gives these flows a consistent place to append durable events, project read models, and repair deterministic state after restart.
 
@@ -38,7 +38,7 @@ That boundary keeps schema details from leaking upward. If a handler wants threa
 
 The write coordinator is important because the gateway is async and can have concurrent request handlers, background workers, MCP runtime tasks, and task scheduler work touching SQLite.
 
-## Turn Persistence
+## Turn persistence
 
 Turns use durable event payloads and projected read models. `TurnEventPayload` includes turn start, item start, item completion, item updates, timeout/recovery events, retry events, tool-loop budget exhaustion, permission audit events, turn completion, and turn failure.
 
@@ -56,13 +56,13 @@ Turns use durable event payloads and projected read models. `TurnEventPayload` i
 
 Prompt manifests, skill bindings, MCP bindings, and retained LLM context are persisted by gateway durable event handling around the core projector.
 
-## Task Persistence
+## Task persistence
 
 Tasks have their own event stream. `AppendedTaskEvent` includes event id, task id, optional run/thread/turn ids, sequence, event type, payload, workspace id, root task id, parent task id, and timestamp.
 
 The task projector maintains task read models: tasks, triggers, runs, dependencies, agent specs, deliveries, delivery attempts, write locks, and task trees.
 
-## Important Tables By Domain
+## Important tables by domain
 
 | Domain | Stored data |
 |---|---|
@@ -79,13 +79,13 @@ The task projector maintains task read models: tasks, triggers, runs, dependenci
 | Thread episodic context | indexed conversation chunks, capsule segments, index jobs, exclusions, recall events, and thread directory metadata |
 | Recovery | recovery jobs and provider failure metadata |
 
-## Read-Model Repair
+## Read-model repair
 
 The gateway can detect and repair deterministic read-model invariant violations on startup. Examples include terminal tool payloads still marked in progress, terminal turns with running attempts, or terminal task/run rows missing completion timestamps.
 
 This repair path is not a substitute for correct projectors. It exists because a gateway can stop between durable event append and all downstream cleanup, especially while the project is evolving.
 
-## Secret Storage Boundary
+## Secret storage boundary
 
 `gateway.db` and `keystore.db` have different responsibilities.
 
@@ -95,7 +95,7 @@ This repair path is not a substitute for correct projectors. It exists because a
 
 Current keystore storage is unencrypted. Pioneer hardens runtime directory and SQLite file permissions, but any OS user or process that can read the runtime home can read the keystore file. See [Secret Storage](/architecture/secrets) for operational details.
 
-## Persistence Guidelines
+## Persistence guidelines
 
 Add new user-visible state through protocol types first, then storage records, then projector/repository methods. For evented flows, persist the event and project the read model in one coordinated path. For runtime-only state, prefer explicit cleanup and recovery behavior over hidden global maps.
 
@@ -105,7 +105,7 @@ Memory has an additional persistence rule: `gateway.db` is the control plane and
 
 Thread episodic context follows a related but separate rule. The database tracks which conversation chunks are indexable, indexed, excluded, deleted, or due for retry, while memvid stores the searchable payload. A recall hit is useful only after the gateway checks the indexed chunk state, workspace/thread scope, status, and prompt budget.
 
-## Related Pages
+## Related pages
 
 - [Protocol Layer](/architecture/protocol) describes the public types that often drive storage changes.
 - [Gateway](/architecture/gateway) explains request handling and durable event persistence.

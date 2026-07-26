@@ -4,25 +4,25 @@ description: "A local-first AI workspace for desktop, mobile, gateways, tasks, s
 icon: "rocket"
 ---
 
-Pioneer is a local-first AI workspace for running an assistant on your own machine or on infrastructure you control. You use the desktop or mobile app, while a gateway does the actual work: it stores your Pioneer data, talks to model providers, runs tools, manages skills and MCP servers, and keeps threads and tasks alive.
+Pioneer is a local-first AI workspace. Run the assistant on your own machine or on infrastructure you control. The desktop or mobile app is the client. The gateway stores your data, calls model providers, runs tools, manages skills and MCP servers, and keeps threads and tasks alive.
 
-The basic flow is: connect to a gateway, choose or create a workspace, add a model provider, and start a thread. As your setup grows, you can add reusable skills, connect MCP servers, attach files as artifacts, enable memory, or schedule repeatable tasks.
+To get started, connect to a gateway, choose or create a workspace, add a model provider, and start a thread. Later, you can add reusable skills, connect MCP servers, attach files as artifacts, enable memory, or schedule repeatable tasks.
 
 <Note>
-  Pioneer is built around gateway-owned execution with turn permission modes, sandbox policy, resource checks, durable audit events, and keystore-backed secrets. Choose the gateway deliberately: local work runs locally, remote work runs on the remote gateway.
+Pioneer uses gateway-owned execution with turn permission modes, sandbox policy, resource checks, durable audit events, and keystore-backed secrets. Choose the gateway deliberately: local work runs locally, and remote work runs on the remote gateway.
 </Note>
 
 <Note>
   Agent turns have permission modes. Use **Supervised** when you want Pioneer to ask before sensitive actions, or **Auto-accept edits** when file edits are expected but commands, network, MCP writes, skills, computer use, and subagents should still ask.
 </Note>
 
-## Gateway And Clients
+## Gateway and clients
 
-Pioneer is split into four user-facing pieces.
+Pioneer has four user-facing parts.
 
-**Gateway** is where the work happens. It may run on your laptop, a workstation, or a server. Provider calls, tool runs, task runs, files, skills, MCP servers, settings, and thread history belong to the gateway you are connected to.
+**Gateway** runs the work. It may be on your laptop, a workstation, or a server. Provider calls, tool runs, task runs, files, skills, MCP servers, settings, and thread history belong to the gateway you are connected to.
 
-**Desktop app** is the main UI. It connects to gateways, can start and manage a local gateway when needed, and gives you the screens for workspaces, conversations, provider setup, MCP, skills, settings, and thread history.
+**Desktop app** is the main UI. It connects to gateways, can start and manage a local gateway, and provides screens for workspaces, conversations, provider setup, MCP, skills, settings, and thread history.
 
 **Mobile app** is the iOS and Android client. It connects to existing gateways so you can continue work from a phone or tablet.
 
@@ -30,7 +30,7 @@ Pioneer is split into four user-facing pieces.
 
 For a single-machine setup, install the desktop app and let it start the local gateway for you. On macOS, that means downloading the `.dmg`, moving Pioneer to **Applications**, launching it, and pressing **Start local gateway** when prompted.
 
-For a multi-environment setup, install gateways wherever the work should live: a laptop, a workstation, a home server, or a remote machine. Then connect to each gateway from the desktop app or mobile app. You can keep separate gateways for work, study, home, experiments, or clients without mixing their state, settings, tools, and histories.
+For separate environments, install gateways wherever the work should live: a laptop, a workstation, a home server, or a remote machine. Connect to each one from the desktop or mobile app. Separate gateways keep state, settings, tools, and history apart.
 
 <Columns cols={2}>
   <Card title="Install Pioneer" icon="download" href="/getting-started/installation">
@@ -50,7 +50,7 @@ For a multi-environment setup, install gateways wherever the work should live: a
   </Card>
 </Columns>
 
-## Multi-Agent Workflows
+## Multi-agent workflows
 
 Pioneer is designed for more than one long-running chat thread. A task can split work into smaller pieces, give those pieces to subagents, and bring the results back for review.
 
@@ -66,9 +66,9 @@ Each subagent can be scoped independently:
 | Review policy | Let the parent agent accept a candidate result or request a targeted revision before the result becomes final. |
 | Depth and lineage | Track nested agent work through child threads and task lineage so delegated work can be audited and recovered. |
 
-This makes the gateway useful as a coordinator. One agent can break work into subtasks, specialized subagents can handle pieces in separate threads, and the parent can review the results before accepting them. If a result is incomplete, the parent can ask for a revision with specific feedback.
+The gateway coordinates this work. One agent can split a job into subtasks, subagents can handle those pieces in separate threads, and the parent can review the results before accepting them. If a result is incomplete, the parent can request a revision with specific feedback.
 
-## Durable Agent Memory
+## Durable agent memory
 
 Pioneer can remember stable facts, preferences, project decisions, recurring instructions, and communication style when memory is enabled.
 
@@ -76,7 +76,7 @@ Memory is different from a long chat transcript. It is meant for durable facts t
 
 For conversation continuity, Pioneer also has thread context: a searchable layer for useful old discussion snippets. That lets the assistant recover prior context without turning every old message into permanent memory.
 
-## Where To Start
+## Where to start
 
 Start with [Installation](/getting-started/installation), then follow [Quick Start](/getting-started/quickstart). After that, use [Core Concepts](/getting-started/concepts) when a term in the UI is unclear, [Desktop](/desktop/overview) or [Mobile](/mobile/overview) for client-specific behavior, [Providers](/providers/overview) when you want to connect models, [Memory](/desktop/memory) when you want continuity across turns, [Skills](/skills/overview) when you want reusable capabilities, [MCP Servers](/mcp/overview) when you want external tools, and [Tasks](/tasks/overview) when you want repeatable or scheduled work.
 

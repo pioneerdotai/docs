@@ -4,7 +4,7 @@ description: "Create manual and scheduled task runs."
 icon: "calendar"
 ---
 
-Scheduling is for work that should happen even when you are not sitting in a thread.
+Scheduling is for work that should run without an open thread.
 
 Do not start with a schedule. Start with a manual task, run it once, read the timeline, and make sure the result is useful.
 
@@ -14,25 +14,25 @@ Check this workspace and summarize any changes since the last run. Do not modify
 
 If that run is predictable, then add a schedule.
 
-## Choosing A Schedule
+## Choosing a schedule
 
-Use schedules for quiet, repeatable work: a morning summary, a weekday project check, a weekly research digest, or a monthly maintenance report.
+Use schedules for repeatable work such as a morning summary, weekday project check, weekly research digest, or monthly maintenance report.
 
 Be careful with tasks that write files, send messages, delete data, rotate credentials, or run broad shell commands. Those should stay manual until you have tested them several times.
 
-## Time Zones
+## Time zones
 
 Be explicit about time zones. Your desktop computer, the gateway host, and the people reading the output may not be in the same place.
 
 If the UI or gateway build lets you choose a time zone, choose the one that matches the meaning of the task. A workday check should usually follow the work team's time zone, not whatever time zone the server happens to use.
 
-## Watch The First Runs
+## Watch the first runs
 
-After scheduling, inspect the next few runs. Check when they started, whether they used the expected gateway, whether tools behaved correctly, and whether the output went to the right place.
+After scheduling, inspect the next few runs. Check their start times, gateway, tool behavior, and delivery destination.
 
 Pause the schedule when provider credentials change, MCP servers are unstable, task prompts are being edited, or the target system is under maintenance. Resume only after a successful manual run.
 
-## Go Deeper
+## Further reading
 
 - [Tasks Architecture](/architecture/tasks) explains triggers, runs, retries, deliveries, and task state.
 - [Gateway Architecture](/architecture/gateway) explains why scheduled work continues on the gateway host.

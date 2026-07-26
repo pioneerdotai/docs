@@ -16,7 +16,7 @@ This matters for remote gateways. A desktop or mobile client should call `settin
 | `settings/get` | `GatewaySettingsGetParams` | `GatewaySettingsGetResponse` | Return the effective gateway settings snapshot. |
 | `settings/update` | `GatewaySettingsUpdateParams` | `GatewaySettingsUpdateResponse` | Persist gateway settings overrides and return the new effective snapshot. |
 
-## Snapshot Shape
+## Snapshot shape
 
 The response contains a `settings` object with `general`, `memory`, `thread_episodic`, `cli_runtimes`, and `remote_access` sections.
 
@@ -36,7 +36,7 @@ Model selection objects use:
 | `model_provider` | Required for effective custom model overrides. |
 | `model` | Required for effective custom model overrides. |
 
-## Reading Settings
+## Reading settings
 
 `settings/get` accepts an empty params object.
 
@@ -122,7 +122,7 @@ Response:
 }
 ```
 
-## Updating Settings
+## Updating settings
 
 `settings/update` takes an `update` object. `general` is a patch: omitted fields keep their current effective value. `thread_episodic` is also a patch. `memory` is a complete memory settings object when present, so clients should send the full memory section they want to keep. `cli_runtimes` is a complete runtime instance list when present. `remote_access` is a patch for user-facing remote-access controls.
 
@@ -289,7 +289,7 @@ Generated schemas include:
 - `/schemas/gateway_remote_access_settings_update.json`
 - `/schemas/gateway_remote_access_status_snapshot.json`
 
-## Related Pages
+## Related pages
 
 - [Remote Access Architecture](/architecture/remote-access) explains gateway-owned tunnel supervision and status projection.
 - [CLI Runtime Architecture](/architecture/cli-runtime) explains CLI runtime settings and recovery behavior.

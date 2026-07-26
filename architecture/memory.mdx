@@ -3,13 +3,13 @@ title: "Memory"
 description: "Durable agent memory: control plane, memvid capsules, hooks, recall, semantic writes, candidates, and post-turn extraction."
 ---
 
-Pioneer memory is a durable domain service, not just a prompt trick. It combines a SQLite control plane, a memvid-backed searchable payload store, model-facing tools, lifecycle hooks, prompt policy, candidate scoring, and service-owned dedupe.
+Pioneer memory is a durable domain service. It combines a SQLite control plane, a memvid-backed search store, model-facing tools, lifecycle hooks, prompt policy, candidate scoring, and service-owned deduplication.
 
-The user-facing behavior is: Pioneer can remember stable facts, recall them when useful, forget them when asked, and avoid creating duplicates. The architectural behavior is: the agent loop dispatches lifecycle phases, memory hooks contribute typed context/tools/prompt sections, and the memory service remains authoritative for storage and visibility.
+From the user's perspective, Pioneer can remember stable facts, recall them when useful, forget them when asked, and avoid duplicates. Internally, the agent loop dispatches lifecycle phases, memory hooks contribute typed context, tools, and prompt sections, and the memory service remains authoritative for storage and visibility.
 
-There is also a separate episodic context layer for thread history. Durable memory answers "what should Pioneer remember about the user or project long term?" Thread episodic context answers "what old conversation fragment is useful for this turn?" Both can feed the prompt, but they have different storage rules, ranking rules, and product meaning.
+There is also a separate episodic context layer for thread history. Durable memory answers "what should Pioneer remember about the user or project long term?" Thread episodic context answers "what old conversation fragment is useful for this turn?" Both can feed the prompt, but they use different storage and ranking rules and serve different product needs.
 
-## Main Components
+## Main components
 
 | Component | Location | Responsibility |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ There is also a separate episodic context layer for thread history. Durable memo
 | Agent hook bridge | `crates/agent/src/hooks.rs` and `crates/agent/src/chat/mod.rs` | Dispatches lifecycle phases and consumes typed contributions without owning memory-domain rules. |
 | Prompt contracts | `crates/promt` | Memory recall prompt and post-turn extractor prompt. |
 
-## Storage Model
+## Storage model
 
 Memory has two stores with different authority:
 
@@ -44,6 +44,12 @@ flowchart LR
 ```
 
 Memvid is optimized for retrieval. SQLite is authoritative for policy and visibility. If memvid returns a stale hit, the service checks the control plane before exposing it. Deleted, superseded, expired, repair-needed, sensitive, or out-of-scope records are suppressed.
+
+## Indexing and recovery
+
+Thread episodic indexing is a durable job pipeline, not a single blocking rebuild. The gateway stores pending and failed refill work, records the embedding/model state and capsule metadata, and can resume unfinished jobs after restart. Recoverable provider and storage failures are retried with bounded attempts; completed chunks remain available while the remaining work is retried.
+
+Local embedding models are downloaded and prepared as visible gateway operations with progress and failure state. Model preparation is separate from conversation indexing, so a client can show whether search is waiting for a model, refilling capsules, retrying a provider failure, or ready. Invalid jobs remain distinct from transient failures so operators can repair the correct layer.
 
 ## Scopes
 
@@ -76,7 +82,7 @@ strict_diagnostics_enabled = false
 
 The capsule directory is resolved under runtime home. Absolute paths, empty paths, `..`, and unsafe runtime escapes are rejected.
 
-## Durable Memory Vs Thread Context
+## Durable memory vs thread context
 
 Durable memory and thread context are intentionally split.
 
@@ -89,7 +95,7 @@ Thread context uses memvid too, but it is not the same capsule namespace as dura
 
 When a recalled thread snippet came from a message with artifacts, Pioneer can attach artifact references to that snippet. The prompt still receives metadata only. The model must request the artifact domain and call `artifact_read` if it needs the file bytes or provider attachment.
 
-## Configuration Flow
+## Configuration flow
 
 Configuration flows through typed boundaries:
 
@@ -129,7 +135,7 @@ The hook package is the boundary where product switches decide which hooks are r
 
 The agent loop should dispatch lifecycle phases and consume typed contributions. The narrow preflight bridge can pass memory-owned active recall input and fallback state through preflight, but memory rules still live in memory hooks and `MemoryService`.
 
-## Recall Flow
+## Recall flow
 
 ```mermaid
 sequenceDiagram
@@ -163,7 +169,7 @@ The recall prompt is not enough by itself and tool exposure is not enough by its
 
 Active recall planning uses an envelope rather than a single flat "memory search" decision. The durable subplan can ask for profile, project, or exact-key memory. The episodic subplan can ask for thread-history context. Rust validates the plan, rejects unsupported fields, applies budgets, and executes read-only searches. The provider planner never writes memory and never directly reads stores.
 
-## Model-Visible Tools
+## Model-visible tools
 
 In agent mode, memory can expose:
 
@@ -177,7 +183,7 @@ In agent mode, memory can expose:
 
 The memory tool bundle registers these tools, but agent turn visibility is still lazy. Preflight may reveal concrete memory tools for the first main model round; later in the same turn the model can call `request_tools` with the `memory` domain to reveal all registered memory tools. Chat mode keeps memory-domain tools unavailable.
 
-## Semantic Write Pipeline
+## Semantic write pipeline
 
 All durable writes flow through service-owned semantic contracts:
 
@@ -190,7 +196,7 @@ All durable writes flow through service-owned semantic contracts:
 
 The model and extractor do not generate canonical keys and do not choose the final active/pending/rejected state.
 
-## Candidate Policy
+## Candidate policy
 
 Candidate policy is the gate between extracted facts and durable memory:
 
@@ -206,7 +212,7 @@ Candidate policy is the gate between extracted facts and durable memory:
 
 Dormant review statuses and APIs exist for future UX, but default runtime behavior does not ask the user to approve every middle-confidence candidate.
 
-## Post-Turn Extraction
+## Post-turn extraction
 
 `MemoryPostTurnExtractorHook` runs after a successful turn on `HookPhase::TurnPostTurn`.
 
@@ -224,7 +230,7 @@ This is the proactive write path. Pioneer can notice durable facts after the tur
 
 ## Forgetting
 
-Forgetting creates a control-plane tombstone. It is not just removing a vector payload. Future searches consult the control plane and suppress tombstoned ids even when the backend returns stale results.
+Forgetting creates a control-plane tombstone. Removing a vector payload alone would not be enough. Future searches consult the control plane and suppress tombstoned ids even when the backend returns stale results.
 
 Forget can be invoked by:
 
@@ -264,7 +270,7 @@ When memory was not recalled:
 5. Confirm the prompt section was rendered by `MemoryPromptContractHook`.
 6. If the expected context lives in old conversation history rather than durable memory, inspect the thread episodic recall path. Check `gateway.thread_episodic.enabled`, indexing state, recall diagnostics, prompt budget, and whether the relevant message was indexed and still visible.
 
-## Safety Invariants
+## Safety invariants
 
 Keep these invariants when changing memory:
 
@@ -279,7 +285,7 @@ Keep these invariants when changing memory:
 - The quality gate owns write safety.
 - Hook runtime carries lifecycle phases and typed contributions; domain logic belongs in memory hooks and service code.
 
-## Related Pages
+## Related pages
 
 - [Desktop Memory](/desktop/memory) explains the user-facing behavior.
 - [Hook Runtime](/architecture/hooks) explains lifecycle phases and typed contributions.

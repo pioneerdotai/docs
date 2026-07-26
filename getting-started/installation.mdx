@@ -4,11 +4,11 @@ description: "Install Pioneer as a desktop app, local gateway, or remote gateway
 icon: "download"
 ---
 
-There are two normal ways to run Pioneer.
+Pioneer can run as a desktop app with a local gateway, or as a gateway service that a client connects to.
 
-For personal use on one computer, install the desktop app. It can bring up a local gateway for you, so you do not need to think about services, ports, or tokens on the first run.
+For personal use on one computer, install the desktop app. It can start a local gateway for you, so the first setup does not require service, port, or token configuration.
 
-For a shared machine, a server, or a machine that should keep working while your laptop is closed, install the gateway directly. Then connect to it from the desktop app.
+For a shared machine, a server, or a machine that should keep working while your laptop is closed, install the gateway directly and connect to it from the desktop app.
 
 <Note>
   Before important work, confirm which gateway you are connected to, which provider keys are configured there, and which permission mode is selected for the turn. Pioneer enforces turn permissions and sandbox/resource policy on the gateway that owns the work.
@@ -18,9 +18,9 @@ For a shared machine, a server, or a machine that should keep working while your
   Tool approval prompts are controlled per turn by permission modes. **Supervised** asks before sensitive tool actions; **Auto-accept edits** allows file edits but still asks for commands, network, MCP writes, skill tools, computer use, and subagents.
 </Note>
 
-## Local Desktop Install
+## Local desktop install
 
-Choose this if you want the fastest path: download the app, open it, start working.
+Choose this when you want to work from the same computer as the desktop app: download the app, open it, and start the local gateway.
 
 <Tabs>
   <Tab title="macOS">
@@ -41,15 +41,21 @@ Choose this if you want the fastest path: download the app, open it, start worki
   </Tab>
 </Tabs>
 
-The desktop app is the right starting point if your goal is simply “use Pioneer on this computer.” It keeps the first setup small: you install the UI, the UI manages the local gateway, and then you add a model provider.
+For local use, the desktop app handles the first setup. It runs the UI, starts the local gateway, and then guides you through adding a model provider.
+
+## Desktop updates
+
+The desktop app has a native update flow. It checks the configured Pioneer release channel for an asset matching the current operating system and architecture, downloads it into the app's runtime home, verifies its checksum, and stages an update through the platform updater helper. The app does not replace itself with an asset for a different platform or with a version that is not newer than the installed one.
+
+The default channel is `stable`. Operators and test environments can disable checks or select another channel with `PIONEER_DESKTOP_UPDATE_DISABLED`, `PIONEER_DESKTOP_UPDATE_FORCE_CHECK`, and `PIONEER_DESKTOP_UPDATE_CHANNEL`. These controls affect the desktop app updater; `pioneer update` remains the gateway/CLI update command described below.
 
 <Note>
   The desktop app uses bundled gateway assets and the native install flow for local setup. The shell bootstrap scripts below are mainly for direct gateway installs.
 </Note>
 
-## Remote Gateway Install
+## Remote gateway install
 
-Install the gateway directly when you want Pioneer to live on another machine: a workstation, a server, a home box, a lab machine, or a remote environment with access to specific files and tools.
+Install the gateway directly when Pioneer should run on another machine, such as a workstation, server, home computer, or lab machine. The gateway then has access to that machine's files and tools.
 
 On macOS or Linux:
 
@@ -110,7 +116,7 @@ You can choose a channel or exact version when release assets exist for your pla
 
 Channel, version, and gateway variant selection depend on matching release assets being published for the target platform. The default gateway asset is headless. The `computer-use` variant includes native desktop-control dependencies and uses release assets with a `-computer-use` suffix.
 
-## Check That It Runs
+## Check that it runs
 
 After a gateway install, open a new terminal and run:
 
@@ -132,7 +138,7 @@ If your shell cannot find `pioneer`, open a new terminal. On Unix systems, make 
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-## Connect The Desktop App
+## Connect the desktop app
 
 A local gateway usually appears in the desktop app automatically.
 
@@ -144,11 +150,11 @@ pioneer issue-superuser-token
 
 Then add a gateway connection in the desktop app using the gateway host, port, and token. Give it a plain name you will recognize later, such as `Work Gateway`, `Home Server`, or `Sandbox`.
 
-Remember that the desktop app is only the client. If you connect to a gateway on a server, tools run on that server. Turn permission modes and sandbox/resource policy control what Pioneer allows, asks about, audits, and blocks within that gateway environment.
+The desktop app is a client. If it connects to a gateway on a server, tools run on that server. Turn permission modes and sandbox/resource policy determine which actions Pioneer allows, asks about, audits, or blocks there.
 
 Saved desktop gateway tokens are stored in the desktop keystore. The desktop registry stores token refs, not raw bearer tokens.
 
-## Bind Address And Port
+## Bind address and port
 
 The production gateway listens on:
 
@@ -183,7 +189,7 @@ pioneer start
   Do not expose a gateway broadly on the public internet. Use firewall rules, trusted networks, and tokens carefully.
 </Warning>
 
-## Update Or Stop
+## Update or stop
 
 Update the gateway with:
 
@@ -213,7 +219,7 @@ pioneer stop
 
 Once the gateway is running, go to [Quick Start](/getting-started/quickstart) and configure your first model provider.
 
-## Go Deeper
+## Further reading
 
 - [Permission Modes](/getting-started/permissions) explains how to choose Supervised, Auto-accept edits, or Full access.
 - [Gateway Architecture](/architecture/gateway) explains what the gateway service owns at runtime.

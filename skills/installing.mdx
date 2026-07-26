@@ -4,7 +4,7 @@ description: "Install skill packages and review validation before using them."
 icon: "download"
 ---
 
-Install skills from the desktop app when you want to add reusable capabilities to a gateway.
+Install skills from the desktop app to add reusable capabilities to a gateway.
 
 Pioneer supports skills compatible with the [Agent Skills specification](https://agentskills.io/specification). A compatible skill package should include a `SKILL.md` file and may include scripts, references, assets, templates, or other supporting files.
 
@@ -12,7 +12,7 @@ If you are building the package yourself, start with [Creating Skills](/skills/c
 
 ## Before installing
 
-Ask these questions:
+Before installing, check:
 
 - Do you trust the source?
 - Does the skill run shell commands?
@@ -79,7 +79,7 @@ If dependency checks fail:
 
 Skills are part of the gateway runtime. If you install a skill on one gateway, it is not automatically installed on another gateway.
 
-This is intentional. It lets you keep different capabilities for:
+This keeps capabilities separate between:
 
 - work
 - home
@@ -97,7 +97,7 @@ Read the installed skill and explain what it can do. Do not call any tools yet.
 
 Then test with a low-risk action.
 
-## Go Deeper
+## Further reading
 
 - [Skills Architecture](/architecture/skills) explains install sources, validation, trust, dependency checks, and health.
 - [Permission System](/architecture/permissions) explains permission modes, sandbox/resource policy, and approval requests for skill tools.

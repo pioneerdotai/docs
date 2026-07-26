@@ -4,7 +4,7 @@ description: "The Pioneer terms that matter when you are using the app."
 icon: "book"
 ---
 
-Pioneer has a few terms that are worth understanding before you go deep. This page explains them from the user's point of view. It does not try to describe the internal architecture.
+This page explains the terms you will see while using Pioneer. It stays at the product level. See [Architecture](/architecture/overview) for implementation details.
 
 ## Gateway
 
@@ -12,11 +12,11 @@ The gateway is the center of Pioneer. When something important happens, it usual
 
 It talks to model providers, stores Pioneer data and secrets, runs tools, manages skills and MCP servers, owns tasks, and streams results back to connected clients. You can run a gateway on the same computer as the desktop app, or on another machine.
 
-A good rule: the gateway is where work happens. The client app is how you control it.
+The gateway is where work happens; the client app is how you control it.
 
 That rule matters because the gateway owns execution and enforcement. If the gateway is on your laptop, tool work is planned and checked against your laptop environment. If the gateway is on a server, the same permission and sandbox/resource policy applies to the server environment.
 
-## Desktop, Mobile, And Other Clients
+## Desktop, mobile, and other clients
 
 The desktop app gives you the full native UI for gateway connections, workspaces, threads, providers, skills, MCP servers, tasks, and settings. It can also start and manage a local gateway when you use Pioneer on one computer.
 
@@ -24,25 +24,29 @@ The mobile app connects iOS and Android devices to existing gateways. It stores 
 
 Pioneer is not limited to the official apps. The gateway exposes a protocol that other clients can use too. That means custom clients can be built on top of Pioneer in the same product model.
 
-## Gateways And Workspaces
+## Gateways and workspaces
 
 A gateway is the larger environment. A workspace is the container where your threads, skills, MCP servers, tasks, and settings come together.
 
-The desktop app creates a default workspace on first launch. You can also create additional workspaces, switch between them, and rename them from the workspace selector in the main thread sidebar.
+The desktop app creates a default workspace on first launch. You can create more workspaces, switch between them, and rename them from the workspace selector in the main thread sidebar.
 
-Use separate workspaces when the work should be organized separately inside the same gateway: different projects, clients, experiments, provider keys, MCP servers, skills, task schedules, or artifacts.
+Use separate workspaces to organize different projects, clients, or experiments inside one gateway. Each workspace can also have its own provider keys, MCP servers, skills, task schedules, and artifacts.
 
-Use separate gateways when the execution environment should be different: different machine, different filesystem, different network, different accounts, or different security boundary.
+Use separate gateways when the work needs a different machine, filesystem, network, account, or security boundary.
 
 ## Threads
 
-A thread is a conversation inside a workspace.
+A thread is a conversation inside a workspace. In a normal collaborative thread, sending a message starts an independent piece of work instead of freezing the whole conversation until the agent finishes.
 
-Use a new thread when you want fresh context. Keep one thread for a coding task, another for research, another for planning, and another for testing tools. Long threads can be useful, but they also accumulate assumptions. Starting a new one is often cleaner.
+Use a new thread when you want fresh context. Keep coding, research, planning, and tool testing in separate threads when that makes the work easier to follow. Long threads can be useful, but they also accumulate assumptions.
 
-Each thread has a timeline. The timeline shows messages, model output, tool calls, tool results, errors, retries, and final responses. When something surprises you, read the timeline before changing settings.
+You can keep typing while work is running. Send a follow-up, start another piece of work, or switch to another thread without waiting for the previous request. Each request keeps the model, provider, reasoning level, permission mode, skills, attachments, and runtime settings that were selected when you sent it.
 
-## Agent Memory
+The timeline shows a separate work card next to the message that started it. The card shows whether the work is running, completed, failed, or interrupted, and how long it has been running. Open the card's child conversation when you want to inspect the agent's detailed work, send a follow-up there, or stop it. When the work finishes, its result is delivered back to the original thread and can become part of the continuing conversation and memory processing.
+
+Some internal or direct-message thread types still use foreground execution. The client follows the execution behavior assigned to the thread; it should not infer it from whether the thread is visible in the sidebar.
+
+## Agent memory
 
 Agent memory is durable context that can be useful beyond the current thread. Pioneer can remember stable facts, preferences, recurring instructions, communication style, and project decisions, then recall them in later agent-mode turns.
 
@@ -50,11 +54,11 @@ Memory is different from thread history. Thread history is the conversation tran
 
 If you ask Pioneer to forget something, memory creates a tombstone so stale search payloads are suppressed later.
 
-## Thread Context
+## Thread context
 
 Thread context is Pioneer's searchable memory of conversation history. It is not the same as durable memory.
 
-Use this distinction:
+Keep the distinction clear:
 
 - Durable memory is for facts Pioneer should keep, such as "my name is Alexander" or "this project uses a hook runtime."
 - Thread context is for old discussion fragments, such as "what did you say yesterday in that research answer?" or "continue from the API plan we discussed earlier."
@@ -73,7 +77,7 @@ Pioneer also uses artifact references for continuity. If a recent history messag
 
 That means follow-ups like "look again at the car photo" can work without attaching every photo from the whole thread to every turn.
 
-## Providers And Models
+## Providers and models
 
 A provider is where API-backed models come from. Anthropic, OpenAI, Google, OpenRouter, Azure OpenAI, Bedrock, Ollama, and supported OpenAI-compatible endpoints are provider choices. CLI-backed agent tools such as Codex CLI are configured separately from ordinary API providers.
 
@@ -101,7 +105,7 @@ Skills are controlled by the gateway and the current workspace, so the same desk
 
 Installed skills are explicit-only by default. In a thread, attach a skill from the composer add button when you want it for the next turn; make a skill implicit only after you trust it and want Pioneer to consider it automatically.
 
-## MCP Servers
+## MCP servers
 
 MCP servers connect Pioneer to external tools and resources through Model Context Protocol.
 
@@ -111,9 +115,11 @@ MCP configuration can include secrets such as environment variables or HTTP head
 
 MCP servers are also explicit-only by default. In a thread, attach a server or specific tools from the composer add button when you want that capability for the next turn.
 
-## Tasks And Subagents
+## Tasks and subagents
 
 A task is repeatable work managed by the gateway. It can run manually, on a schedule, or as part of a larger workflow.
+
+An asynchronous message and an explicit task serve different purposes. A message in a collaborative thread can run independently in the background. Use an explicit task when the work needs a durable schedule, dependencies, retries, deliveries, write locks, or a repeatable workflow. Both have visible lifecycle state, but tasks add a durable automation contract.
 
 Subagents are agents created by the task system. In many workflows you do not manually delegate to them. Pioneer can create subagents, give them instructions and model settings, let them work in child threads, and bring their candidate results back to the parent.
 
@@ -121,7 +127,7 @@ For attached subagent work, the parent agent reviews the candidate result before
 
 Tasks are useful when the work has shape: check this repo every morning, summarize a feed, run a repeated research pass, prepare a report, or coordinate several smaller agent steps.
 
-## Go Deeper
+## Further reading
 
 Use this page for product vocabulary. Use Architecture when you want the implementation model.
 

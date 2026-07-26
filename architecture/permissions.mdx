@@ -3,7 +3,7 @@ title: "Permission & Sandboxing System"
 description: "Turn permission profiles, execution security snapshots, sandbox policy, approval requests, audit events, and CLI runtime permission mapping."
 ---
 
-Pioneer has a turn-scoped security model for agent work. A client selects a permission profile when starting a turn, the gateway resolves it into a `TurnExecutionSecuritySnapshot`, and the tools runtime enforces that snapshot before side effects run.
+Pioneer applies security per turn. A client selects a permission profile, the gateway resolves it into a `TurnExecutionSecuritySnapshot`, and the tools runtime enforces that snapshot before side effects run.
 
 The snapshot combines user-visible permission behavior with concrete execution controls:
 
@@ -17,7 +17,7 @@ The snapshot combines user-visible permission behavior with concrete execution c
 
 This page describes the gateway-side security contract. The user-facing overview is [Permission Modes](/getting-started/permissions), and the protocol shape is documented in [Turns API](/protocol/turns).
 
-## Main Types
+## Main types
 
 The public protocol types live in `crates/protocol/src/turn.rs`, with policy compilation helpers in `crates/protocol/src/turn_permissions.rs`.
 
@@ -36,7 +36,7 @@ The public protocol types live in `crates/protocol/src/turn.rs`, with policy com
 | `TurnPermissionAuditEvent` | Durable audit row for profile selection, allowed decisions, denied decisions, approval requests, and approval resolutions. |
 | `TurnPermissionProfileCap` / `TaskAgentSecurityCap` | Caps passed to task/subagent execution so child turns cannot silently broaden parent permissions, filesystem roots, network policy, sandbox mode, or process policy. |
 
-## Permission Modes
+## Permission modes
 
 The desktop composer exposes the same three protocol modes in this order:
 
@@ -46,7 +46,7 @@ The desktop composer exposes the same three protocol modes in this order:
 | `auto_accept_edits` | Auto-accept edits | `workspace_write` | Allows file reads, file writes, and MCP reads. Shell commands, network, MCP writes or unknown MCP calls, dynamic skill tools, computer use, task/subagent launches, and unknown actions ask for approval. Filesystem policy grants write access to resolved workspace/project roots and read access to app runtime roots. Network starts disabled until approved or granted. |
 | `supervised` | Supervised | `read_only` | Allows file reads and MCP reads. File writes, shell commands, network, MCP writes or unknown MCP calls, dynamic skill tools, computer use, task/subagent launches, and unknown actions ask for approval. Filesystem policy grants read access to resolved workspace/project/app roots. Network starts disabled until approved or granted. |
 
-The policy vocabulary is intentionally small:
+The policy vocabulary has three behaviors:
 
 | Behavior | Meaning |
 | --- | --- |
@@ -56,7 +56,7 @@ The policy vocabulary is intentionally small:
 
 Current built-in modes use `allow` and `ask`; the protocol and evaluator also support `deny`.
 
-## Execution Security Snapshot
+## Execution security snapshot
 
 `TurnExecutionSecuritySnapshot` is the executable form of the permission choice. The gateway builds it in `crates/gateway/src/turn_security.rs` before the agent turn runs and attaches it to tool invocations.
 
@@ -84,7 +84,7 @@ The built-in resolver maps modes to snapshots as follows:
 
 For native API-provider turns, restricted modes use the native sandbox backend: `nono` on Linux/macOS and Windows restricted tokens on Windows. For CLI-backed turns, the gateway records the runtime provider's sandbox and approval capabilities and marks enforcement active, partially active, or unavailable based on what that runtime can enforce.
 
-## Profile Sources
+## Profile sources
 
 `TurnPermissionProfileSource` records why a profile exists:
 
@@ -96,9 +96,9 @@ For native API-provider turns, restricted modes use the native sandbox backend: 
 | `task_permission_cap` | A task/subagent turn was capped by task policy. |
 | `system` | The gateway selected a system-owned profile. |
 
-The source is persisted with the profile snapshot and repeated in permission audit events. This lets clients explain not only what policy applied, but where it came from.
+The source is persisted with the profile snapshot and repeated in permission audit events. Clients can show both the policy that applied and where it came from.
 
-## Evaluation Flow
+## Evaluation flow
 
 Permission evaluation happens inside the normal tools runtime, not in individual client shells.
 
@@ -152,7 +152,7 @@ The evaluator classifies tool calls into `TurnPermissionActionKind`:
 
 Approval requests include the tool name, action kind, a normalized `scope_hash`, a machine-readable reason, an optional summary, display details, and `visible_thread_ids` when the approval UI should associate the request with more than one visible thread. The `scope_hash` is used for the `allow_for_turn` cache: if the user allows the same normalized action scope for the rest of the turn, later matching asks can proceed without opening another prompt.
 
-## Filesystem, Network, And Process Enforcement
+## Filesystem, network, and process enforcement
 
 The permission evaluator answers "may this kind of tool action proceed now?" The security snapshot answers "what resource boundary applies if it proceeds?"
 
@@ -164,7 +164,7 @@ Shell execution builds a `ProcessSpawnPlan` from the snapshot before spawning. T
 
 Approval can also add scoped grants. If the user approves a filesystem or network action once, the current invocation receives the grant. If the user approves it for the turn, matching grants are cached for the same turn and merged into later invocations without widening unrelated scopes.
 
-## Approval Responses
+## Approval responses
 
 Clients respond through `turn/permission/request/respond` with one of:
 
@@ -178,9 +178,9 @@ Clients respond through `turn/permission/request/respond` with one of:
 
 The gateway resolves pending requests idempotently. It publishes `turn/permission/request/resolved` after a response, cancellation, or expiry so clients can clear actionable UI.
 
-## Audit Events
+## Audit events
 
-Permission decisions are durable turn events. The important event kinds are:
+Permission decisions are durable turn events. The main event kinds are:
 
 | Event kind | Meaning |
 | --- | --- |
@@ -192,13 +192,13 @@ Permission decisions are durable turn events. The important event kinds are:
 
 Audit events include profile mode/source, optional item/tool ids, action kind, optional request key, decision, reason, and whether a cached approval was used. They are persisted through `pioneer-crud`, replayable through turn item/history APIs, and projected by the shared client core into timeline rows when the event should be visible.
 
-## Prompt Integration
+## Prompt integration
 
 Restricted profiles are also described to the model. `pioneer-promt` renders a `Current Permissions` runtime section for non-default or narrowed policies. The section tells the model which actions may require approval and instructs it to continue with allowed alternatives when an action is denied.
 
 The default unconstrained `full_access` profile does not add this prompt section, which keeps ordinary full-access turns from paying a prompt cost for redundant policy text.
 
-## CLI Runtime Mapping
+## CLI runtime mapping
 
 CLI-backed turns use the same Pioneer permission profile at the protocol boundary. The gateway then maps that profile into the runtime-specific approval policy:
 
@@ -212,13 +212,13 @@ Codex currently has no distinct policy that matches Pioneer's `auto_accept_edits
 
 CLI runtime requests opened by the native runtime still use the CLI runtime pending-request surface (`cli_runtime/request/respond`). Pioneer turn permission requests from the native tools runtime use `turn/permission/request/respond`.
 
-## Tasks And Subagents
+## Tasks and subagents
 
 Task-backed child turns receive a security cap. The task runtime can derive a `TurnPermissionProfileCap` and `TaskAgentSecurityCap` from the parent profile or task policy, and child runs are materialized with source `task_permission_cap` or inherited source data.
 
 Policy intersection is restrictive: `deny` wins over `ask`, `ask` wins over `allow`, and the most restrictive mode wins in the order `supervised`, `auto_accept_edits`, `full_access`. Sandbox mode, network policy, process policy, and filesystem roots are also intersected against the parent/task cap. This prevents delegated or scheduled child work from silently expanding access beyond the parent/task contract.
 
-## Developer Rules
+## Developer rules
 
 - Treat permission profiles as part of `turn/start` semantics, not client-only UI state.
 - Resolve and persist the execution security snapshot before depending on in-memory execution state.
@@ -227,7 +227,7 @@ Policy intersection is restrictive: `deny` wins over `ask`, `ask` wins over `all
 - Keep user-facing safety copy precise: permission modes, sandbox snapshots, native/provider sandbox backends, file policy, network policy, process policy, and audit events are real enforcement layers; stronger deployment boundaries still come from choosing the right gateway host and OS account.
 - When adding a protocol field, action kind, decision reason, or notification, update protocol schemas, client reducers/FFI projections, and [Turns API](/protocol/turns).
 
-## Related Pages
+## Related pages
 
 - [Tools System](/architecture/tools) explains where permission evaluation sits in tool execution.
 - [Agent Loop](/architecture/agent-loop) explains how permission profiles enter agent turns and prompt compilation.

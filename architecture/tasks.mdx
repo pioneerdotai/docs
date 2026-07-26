@@ -5,19 +5,31 @@ description: "The task runtime, scheduler, events, write locks, deliveries, and 
 
 Tasks are durable units of work owned by the gateway. They can be created by clients, scheduled by triggers, or created by an agent through task tools. A task may execute as an agent subtask by using an agent spec.
 
-Tasks exist because not all assistant work should be trapped inside one foreground turn. Some work should run later, retry, report progress, coordinate child threads, or be detached from the parent conversation. The task runtime gives Pioneer a durable shape for that work.
+Tasks exist because some assistant work must outlive a foreground turn. It may need to run later, retry, report progress, coordinate child threads, or detach from the parent conversation. The task runtime stores that work durably.
 
 <Tip>
   Read this page together with [Agent Loop](/architecture/agent-loop). The agent loop exposes task tools; the task runtime owns the durable task tree and subagent execution.
 </Tip>
 
-## Why Tasks Are Separate From Threads
+## Why tasks are separate from threads
 
 A thread is a conversation timeline. A task is a unit of work with lifecycle, trigger, retry policy, dependencies, delivery, and optional child execution. Sometimes a task creates a hidden thread to do its work, but the task is still the owner of scheduling and result semantics.
 
 Keeping tasks separate from threads allows Pioneer to answer questions that a transcript alone cannot answer: is this work scheduled again, did it retry, which child run produced the result, is delivery still pending, did a write lock block execution, and what should happen if the gateway restarts?
 
-## Runtime Structure
+## Composer-launched detached work
+
+The asynchronous thread behavior uses the task runtime instead of a second ad hoc execution path. A submission from a `Collaborative` thread is admitted as detached task work. The gateway stores the original composer launch as `TaskComposerWork`, creates a task run and hidden child conversation, then rebinds the launch to the child thread and child turn before starting the agent loop.
+
+The launch record preserves the request's execution inputs: provider and model selection, reasoning settings, permission profile, selected skills and MCP capabilities, attachments, and runtime options. A later message in the parent thread cannot silently change those inputs. The run also stores a conversation snapshot so it can be recovered or replayed with the context that existed when the request was launched.
+
+Detached work is projected into the parent's semantic timeline as a `DetachedTaskRun` block. The client can show status, elapsed time, progress, and the link to the child conversation without treating the child as a normal sidebar thread. When the run reaches a terminal state, task delivery returns the result to the owner thread; post-turn memory processing can then handle the delivered result without blocking the original foreground request.
+
+`ThreadOriginKind::Collaborative` selects detached composer execution. `DirectMessage`, legacy `User`, `TaskRun`, and `System` origins retain foreground composer execution. This policy belongs to the gateway thread contract, so clients must use the resolved thread origin and execution mode instead of guessing from visibility or lineage.
+
+Voice-created turns follow the same rule. A voice request in a regular collaborative thread runs asynchronously, while a voice follow-up inside a task conversation remains part of that task instead of creating an unnecessary nested task.
+
+## Runtime structure
 
 `TaskRuntime` in `crates/tasks/src/service.rs` owns:
 
@@ -29,13 +41,13 @@ Keeping tasks separate from threads allows Pioneer to answer questions that a tr
 
 The gateway creates `TaskRuntime`, registers `TaskAgentExecutor`, starts the scheduler, and bridges task events into JSON-RPC notifications.
 
-## Durable Task Events
+## Durable task events
 
 Task mutations append `TaskEventPayload` values and project them into read-model tables. Common events include task created, trigger created, task scheduled, task queued, run created, run started, progress, run completed, run failed, task completed, task failed, task cancelled, write-lock changes, delivery queued, child thread linked, and tree changes.
 
 The `TaskProjector` keeps task, trigger, run, dependency, delivery, write-lock, and agent-spec tables consistent with the event stream.
 
-## Triggers And Scheduling
+## Triggers and scheduling
 
 Tasks can be immediate, scheduled for a time, interval-based, or cron-like. `TaskTriggerCalculator` validates trigger specs and computes initial and next fire times.
 
@@ -67,9 +79,9 @@ Task execution state is stored in task-specific tables:
 | `task_result_candidate` | A proposed output from one child turn. It can be pending review, accepted, rejected, superseded, extraction-failed, or cancelled. |
 | `task_result_review_event` | Review/audit history for candidates, including parent-agent, user, review-agent, runtime-auto, and system decisions. |
 
-This is why subagents are not just "spawn another chat." They are task runs with durable lineage. The child thread gives the agent a normal execution environment, while the task run gives the parent system progress, retries, cancellation, and result reconciliation.
+Subagents are task runs with durable lineage. The child thread gives the agent a normal execution environment. The task run gives the parent system progress, retries, cancellation, and result reconciliation.
 
-## Parent Review And Revision State
+## Parent review and revision state
 
 When review is enabled for an attached subagent task, child completion creates a result candidate rather than immediately completing the run. The execution enters `waiting_review`, and `task/wait` can return a `reviewRequired` item to the parent agent.
 
@@ -83,11 +95,11 @@ Accepting records a `TaskResultReviewEvent` decision, marks the candidate accept
 
 Requesting a revision records a review event with concrete feedback, marks the current candidate rejected, creates a new `task_run_turn` in the same child thread with `kind = revision`, and dispatches the child agent again with the review feedback and any additional instructions. The next child turn produces another candidate. That candidate can be accepted or revised again until `maxRevisionRounds` is reached.
 
-The review event log is intentionally separate from the candidate row. That lets Pioneer support multiple reviewers, advisory reviews, user approvals, overrides, and dispute history without overloading a single mutable result field. A candidate can have many review events, but only a final decision event resolves it.
+The review event log is separate from the candidate row. This supports multiple reviewers, advisory reviews, user approvals, overrides, and dispute history without overloading one mutable result field. A candidate can have many review events, but a final decision event resolves it.
 
 Foreground attached subagent work uses parent-agent review by default. Scheduled and detached tasks must not wait forever for a foreground parent turn, so they can use runtime auto-accept behavior instead of entering the parent review loop.
 
-## Task Tools In The Agent Loop
+## Task tools in the agent loop
 
 When task orchestration is available, the agent materializes task tools into the normal tool router. The task domain is lazy-visible: preflight may reveal concrete task tools before the first main round, or the model can call `request_tools` with the `task` domain to reveal them for the next round. The prompt compiler includes the task orchestration policy when task tools are materialized. The model can create attached tasks, wait for task sets, cancel tasks, detach tasks, and observe results.
 
@@ -99,13 +111,13 @@ Child agent turns run through the same agent loop as foreground agent turns, inc
 
 Child turns also receive a permission profile and security cap derived from the parent turn or task policy. The cap is restrictive: policy intersection keeps `deny` stricter than `ask`, `ask` stricter than `allow`, and the effective mode cannot become broader than the parent/task contract. Filesystem roots, network policy, process policy, and sandbox mode are also intersected so delegated work cannot silently gain more access than the parent turn or task allowed.
 
-## Retries, Locks, And Deliveries
+## Retries, locks, and deliveries
 
 Retry policy can schedule retry runs after failures. Write locks prevent unsafe concurrent writes across task scopes. Delivery policy controls where task results go after terminal state, and delivery processing is run by the gateway background worker.
 
 Startup reconciliation repairs tasks and runs that were active when the gateway stopped. This is why task state is stored durably and projected rather than kept only in runtime memory.
 
-## Related Pages
+## Related pages
 
 - [Gateway](/architecture/gateway) explains how the gateway starts the task runtime and bridges task events.
 - [Agent Loop](/architecture/agent-loop) explains how task tools are exposed during a turn.

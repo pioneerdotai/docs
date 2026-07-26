@@ -7,7 +7,7 @@ The agent loop lives in `crates/agent`. It is the execution engine for a thread 
 
 The gateway does not call the provider directly for normal turns. It delegates to `AgentManager`, which owns a per-thread runtime task. That task receives commands such as `StartTurn`, runs one active turn at a time, and publishes durable events and live progress back to the gateway.
 
-The agent loop is where Pioneer stops being a chat wrapper. It decides when to call the model, which tools the model may see, how tool results return to the model, when a failed tool deserves a retry, when a child task must be waited on, and when the final answer is allowed to close the turn.
+The agent loop coordinates model calls and side effects. It decides which tools the model may see, how tool results return to the model, when a failed tool can be retried, when a child task must be awaited, and when the final answer can close the turn.
 
 Domain side work is attached through the hook runtime. The loop dispatches lifecycle phases such as `turn.pre_policy`, `turn.pre_prompt_context`, `turn.post_preflight_prompt_context`, `turn.pre_tool_materialization`, `turn.pre_prompt_compile`, and `turn.post_turn`; hooks contribute typed policy, context, prompt sections, tool bundles, and diagnostics. The loop should not contain domain-specific branches for memory extraction, recall policy, or similar future subsystems.
 
@@ -15,19 +15,19 @@ Domain side work is attached through the hook runtime. The loop dispatches lifec
   The agent loop does not persist directly to SQLite. It emits durable events. The gateway persists those events and publishes committed notifications. See [Gateway](/architecture/gateway) and [Persistence Layer](/architecture/persistence).
 </Note>
 
-## Why This Layer Exists
+## Why this layer exists
 
-Provider APIs are not enough to run an assistant. Pioneer needs a layer that can repeatedly call a provider, execute real tools between provider calls, update UI state while work is happening, and preserve enough state to recover from interruptions.
+Provider APIs alone cannot run an assistant. Pioneer needs a layer that can call a provider repeatedly, execute tools between calls, update UI state while work runs, and preserve enough state to recover from interruptions.
 
 That responsibility belongs in `pioneer-agent` rather than in the gateway handlers because it is turn execution logic, not transport logic. It also does not belong in provider adapters because provider adapters should only translate common chat requests into provider-specific API calls.
 
-## Thread Runtime
+## Thread runtime
 
 `run_agent_loop` in `crates/agent/src/agent_loop.rs` is the per-thread command loop. It keeps the active turn handle, turn run id, cancellation token, and recovery context. A second running turn for the same thread is rejected, because the thread transcript and tool state are linear.
 
 When a turn starts, the loop resolves the provider from `ProviderRegistry`, builds an `ActiveTurnRequest`, and spawns the chat execution task. Cancellation uses a short grace period before the runtime marks the turn interrupted.
 
-## Chat Mode And Agent Mode
+## Chat mode and agent mode
 
 Pioneer has two thread modes:
 
@@ -38,9 +38,9 @@ Pioneer has two thread modes:
 
 The branch is in `execute_chat_turn_flow`. The gateway chooses the mode from the thread state and passes it into `AgentManager::start_turn`.
 
-Chat mode exists for direct model conversations where tool access would be unnecessary or risky. Agent mode exists when Pioneer should be allowed to inspect files, run tools, call MCP servers, use skills, and coordinate subagents. This is a product-level distinction, not just a provider flag.
+Chat mode handles direct conversations where tools are unnecessary or risky. Agent mode lets Pioneer inspect files, run tools, call MCP servers, use skills, and coordinate subagents. The two modes use different execution paths and provider settings.
 
-## Agent Mode Flow
+## Agent mode flow
 
 ```mermaid
 sequenceDiagram
@@ -75,7 +75,7 @@ sequenceDiagram
   Gateway->>Store: persist durable events and read models
 ```
 
-## Model Input Construction
+## Model input construction
 
 The model request is assembled in layers:
 
@@ -101,7 +101,7 @@ The permission profile and execution security snapshot are also carried through 
 
 For the exact prompt sections and history compression rules, see [Prompt And Context](/architecture/prompt).
 
-## Turn Preflight
+## Turn preflight
 
 Agent mode runs an internal preflight request before the first main provider round. This request is a normal provider JSON request with `tools: none`, `tool_choice: none`, no compiled prompt, disabled reasoning, and a bounded output budget. It is not a user-visible answer and cannot execute tools.
 
@@ -118,13 +118,13 @@ If the configured preflight model fails, the agent retries once through the curr
 
 Inside the main turn, the model can still call `request_tools` to reveal a hidden built-in domain for the next provider round. That expansion is monotonic within the turn: newly added tools are appended to the visible set, and already visible tools are not removed mid-turn.
 
-## Tool Loop Guard
+## Tool loop guard
 
 Agent mode uses `ToolLoopGuard` from `pioneer-tools` to prevent runaway loops. It limits provider rounds and total tool calls per turn. When the budget is exhausted, the prompt is refreshed with a final-answer instruction and tools are disabled so the model can finish from available evidence.
 
 Tool retry is separate from tool-loop budget. `ToolRetryController` classifies recoverable tool failures, decides whether another corrected tool call should be attempted, and can inject retry instructions into the dynamic prompt section.
 
-## Durable Events
+## Durable events
 
 The agent emits durable events such as:
 
@@ -138,9 +138,9 @@ The agent emits durable events such as:
 - provider failure and recovery events
 - `TurnCompleted`, `TurnFailed`, or `TurnInterrupted`
 
-The gateway listener persists these events through `CrudStore` before publishing committed notifications to clients. This keeps UI state and database state aligned.
+The gateway listener persists these events through `CrudStore` before publishing committed notifications to clients. UI state and database state then reflect the same committed sequence.
 
-## Hook Dispatch
+## Hook dispatch
 
 Hooks let domains attach to the turn lifecycle without expanding the agent loop itself. Memory is the primary example today:
 
@@ -155,19 +155,19 @@ Hooks let domains attach to the turn lifecycle without expanding the agent loop 
 
 The loop sees lifecycle phases and typed contribution sets. Memory-specific rules stay in memory hooks and `MemoryService`. See [Hook Runtime](/architecture/hooks) and [Memory Architecture](/architecture/memory).
 
-## Recovery Context
+## Recovery context
 
 Some tool outputs are retained in `turn_llm_context` while the turn is active. If a provider failure or recovery attempt needs to reconstruct the LLM-visible state, the agent can reinsert those retained tool-result messages in sequence order. After the turn reaches a terminal state, the gateway deletes retained LLM context rows for that turn.
 
 Recovery is intentionally tied to durable events. Provider failures are classified, recovery jobs are scheduled by the gateway, and successful or failed recovery attempts are reconciled back into the turn lifecycle.
 
-## Where Tooling Enters
+## Where tooling enters
 
 The agent loop does not know how to run every tool itself. It asks `pioneer-tools` to build a runtime from built-ins plus extension bundles. MCP, skills, and tasks all become tool bundles, which means the provider sees one coherent tool list even though the backing implementations are very different.
 
 That is the reason tool permission evaluation and output policies live below the agent loop. The agent needs a model-visible result, but the tools runtime must decide whether the action may execute, and the gateway timeline, storage layer, and recovery layer may need different projections of the same output. See [Tools System](/architecture/tools) and [Permission System](/architecture/permissions).
 
-## Related Pages
+## Related pages
 
 - [Prompt And Context](/architecture/prompt) explains how `compiled_prompt` and `messages` are built.
 - [Hook Runtime](/architecture/hooks) explains lifecycle phases, subscriptions, execution policy, and typed contributions.

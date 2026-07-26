@@ -4,21 +4,39 @@ description: "Read Pioneer thread timelines, tool events, outputs, and errors."
 icon: "messages"
 ---
 
-A Pioneer thread is not just a chat transcript. It is a record of what happened.
+A Pioneer thread records the chat transcript and the work performed around it.
 
-That record matters because agents can call tools. A good answer is useful, but the timeline shows how the answer was produced: which model responded, which tools ran, what each tool returned, whether anything failed, and whether anything changed.
+Agents can call tools, so the timeline also shows which model responded, which tools ran, what they returned, whether anything failed, and whether anything changed.
 
-## Read The Timeline
+## Keep working while the agent works
 
-When a turn is simple, the timeline may only show your message and the assistant response.
+In a collaborative thread, sending a message starts its own background task. The composer remains available after you send it, even when the request needs a long time to finish.
+
+While the task runs, you can:
+
+- send a follow-up without interrupting the work that is already running;
+- start another request, such as researching one idea while the agent builds another;
+- open another thread and continue a separate piece of work.
+
+Pioneer keeps the model, provider, reasoning level, permission mode, skills, attachments, and runtime settings attached to the request that started the work. A later message does not silently change an already-running task.
+
+The timeline places a live task card next to the message that started it. The card shows status and elapsed time. Open it to inspect the child conversation, send a follow-up in that task, or stop the work. When it finishes, the result is delivered to the original thread, where you can continue from it.
+
+This is different from an explicit scheduled or workflow task. Use [Tasks](/tasks/overview) when work needs its own schedule, dependencies, retries, delivery rules, or repeatable lifecycle.
+
+## Read the timeline
+
+For a simple turn, the timeline may show only your message and the assistant response.
 
 When a turn uses tools, open the tool events. Check the tool name, arguments, working directory, file paths, output, error output, and whether the tool changed anything. This is especially important on remote gateways, where a path that looks local may actually belong to a server.
+
+Long-running timeline items can be collapsed while they are still running, so you can keep the conversation readable without losing the underlying activity. Running, completed, failed, cancelled, and blocked work use explicit terminal labels; an older live update must not make finished work look active again.
 
 <Note>
   Tool calls execute through the gateway. In a remote gateway thread, commands and file paths belong to the remote machine. Use the composer permission mode to decide whether Pioneer should allow, ask, audit, or block commands, edits, network actions, and other sensitive tool calls.
 </Note>
 
-## Delegated Work In The Timeline
+## Delegated work in the timeline
 
 In Agent mode, a parent turn can create attached subagent tasks. Each subagent runs in a hidden child thread, but the parent timeline still shows the task activity: task creation, child progress, task waits, review-required candidates, revision requests, accept decisions, and final task completion.
 
@@ -26,9 +44,9 @@ When a subagent result needs review, the parent agent does not have to accept it
 
 Use the timeline to audit multi-agent work: expand the task items, read the child result summaries, check parent review feedback, and confirm which candidate was accepted.
 
-## Start With Narrow Prompts
+## Start with narrow prompts
 
-When you are learning a project or testing a gateway, ask for read-only work first:
+When you are learning a project or testing a gateway, start with read-only requests:
 
 ```text
 Inspect the repository and summarize the major folders. Do not modify files.
@@ -52,13 +70,13 @@ Update only the README. Do not modify source code. Summarize the exact changes w
 Fix the failing CLI test. Keep the change scoped to the CLI crate unless you find a direct dependency.
 ```
 
-## Keep Threads Clean
+## Keep threads clean
 
-Use one thread for one goal. A thread that starts as research and turns into edits, deployment, provider debugging, and task design will become hard to reason about.
+Use one thread for one goal. A thread that moves from research to edits, deployment, provider debugging, and task design becomes hard to reason about.
 
 Start a new thread when the goal changes. Put high-risk tool work in its own thread. Give threads names that make sense when you come back a week later.
 
-## When Something Fails
+## When something fails
 
 Open the failed item first. Provider errors usually point to API keys, model names, quota, endpoint, or network access. Tool errors usually point to permission prompts, denied requests, missing commands, wrong working directories, timeouts, or file paths that exist on one gateway but not another.
 
@@ -66,7 +84,7 @@ If the error is unclear, retry with a smaller prompt. Ask the agent to inspect a
 
 ## Attachments
 
-Use attachments for screenshots, logs, text files, and documents that are directly relevant to the thread. Avoid dumping unrelated context into a thread just because it might help. Smaller, cleaner context usually produces better behavior.
+Use attachments for screenshots, logs, text files, and documents that are directly relevant to the thread. Avoid adding unrelated context just in case it helps. A smaller context is easier for the agent to use.
 
 Uploaded files and agent-created files are stored as workspace-scoped artifacts. See [Artifacts](/desktop/artifacts) for upload, preview, download, and reuse workflows.
 
@@ -74,13 +92,15 @@ Follow-up turns do not automatically reattach every old file in the thread. If a
 
 The composer add button can attach files or folders, skills, and MCP capabilities. Skill and MCP selections appear as chips above the input, just like file attachments, and are scoped to the next turn. They are not inserted into the message text.
 
+The composer filters capability choices against the selected provider or CLI runtime. A capability can be installed and healthy yet unavailable for one model because that provider or runtime does not support the required tool surface; Pioneer keeps the reason visible instead of silently sending a turn without the selection.
+
 The composer permission mode is also scoped to the next turn. Start with **Supervised** when you want approval prompts, switch to **Auto-accept edits** when file edits are expected, and reserve **Full access** for trusted workflows.
 
 When a turn is sent, file, skill, and MCP chips are rendered on the user message in the timeline. For MCP, you can attach either a whole server or individual tools; selecting the whole server is the server-level choice for that turn.
 
 Use [AGENTS.md](/desktop/agents-md) when you want persistent instructions to apply automatically to threads in a folder or across the whole thread tree.
 
-## Go Deeper
+## Further reading
 
 - [Agent Loop](/architecture/agent-loop) explains what happens after a turn starts.
 - [Permission Modes](/getting-started/permissions) explains Supervised, Auto-accept edits, and Full access.

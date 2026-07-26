@@ -3,13 +3,13 @@ title: "Architecture Overview"
 description: "The main runtime model of Pioneer: gateway, clients, protocol, CLI runtimes, agents, tools, storage, MCP, skills, and tasks."
 ---
 
-Pioneer is organized around one rule: the gateway is the product core. Clients connect to it, but the gateway owns the durable state, runtime state, model access, CLI runtime sessions, tool execution, task execution, MCP runtime, skills runtime, settings, keystore-backed secrets, and history.
+Pioneer has one central runtime boundary: the gateway. Clients connect to it, while the gateway owns durable state, runtime state, model access, CLI runtime sessions, tool execution, tasks, MCP, skills, settings, keystore-backed secrets, and history.
 
 The desktop app is a native GPUI client that can start a local gateway for a single-machine setup or connect to one or more remote gateways. The mobile app is an Expo/React Native client that connects to remote gateways through the shared Rust client FFI. Other clients can be built against the JSON-RPC protocol without depending on desktop or mobile internals.
 
-This architecture is less about "frontend talks to backend" and more about "clients attach to a durable assistant runtime." A gateway can live on a laptop, a workstation, or a remote server. Wherever it lives, that is where the assistant's state and execution live too.
+The architecture is a set of clients attached to a durable assistant runtime. A gateway can run on a laptop, workstation, or remote server. Its host owns the assistant's state and execution.
 
-## How To Read This Section
+## How to read this section
 
 If you are new to the codebase, start here, then read [Gateway](/architecture/gateway), [Client Architecture](/architecture/clients), [Agent Loop](/architecture/agent-loop), [Hook Runtime](/architecture/hooks), and [Prompt And Context](/architecture/prompt). Those pages explain the central path from a client message to an LLM request and back to persisted timeline events.
 
@@ -48,7 +48,7 @@ After that, pick the subsystem you are changing:
   </Card>
 </CardGroup>
 
-## System Shape
+## System shape
 
 ```mermaid
 flowchart TB
@@ -111,7 +111,7 @@ flowchart TB
   Keystore --> KeystoreDB
 ```
 
-## Runtime Boundaries
+## Runtime boundaries
 
 The gateway is the only process that directly mutates Pioneer state. It accepts protocol requests, validates them, updates the in-memory managers when needed, persists the durable read model through `pioneer-crud`, supervises CLI runtime and remote-access state, and publishes JSON-RPC notifications to connected sessions.
 
@@ -121,7 +121,7 @@ The protocol crate is the public boundary. It defines request and response paylo
 
 This boundary is what lets Pioneer support many clients without making each client understand how tasks, tools, MCP, skills, CLI runtimes, and provider adapters are implemented. The desktop app should not know how a tool output is projected for recovery. The mobile app should not know how an MCP stdio process is restarted. A custom client should not know how the task scheduler computes retries. They should all see the same protocol events.
 
-## Why The Gateway Is The Center
+## Why the gateway is the center
 
 Pioneer needs to coordinate things that do not fit cleanly inside a UI process: long-running turns, tool sessions, task schedules, child agent threads, CLI agent runtime sessions, MCP server processes, provider retries, prompt manifests, remote-access status, and recovery state. Putting that work in the gateway gives the system one place to make decisions about state, policy, and durability.
 
@@ -129,7 +129,7 @@ This also makes remote usage straightforward. If the gateway runs on a remote wo
 
 The tradeoff is that developers must always ask "which host does this code run on?" Provider calls, tool commands, MCP stdio commands, skill dependency checks, and task execution all happen where the gateway runs. Client-side convenience should not accidentally become client-side authority.
 
-## Main Flows
+## Main flows
 
 <AccordionGroup>
   <Accordion title="Starting a turn">
@@ -164,23 +164,23 @@ The tradeoff is that developers must always ask "which host does this code run o
   </Accordion>
 </AccordionGroup>
 
-## Durability Model
+## Durability model
 
 Pioneer uses an event-heavy read model rather than a single mutable transcript blob. Turns emit durable events such as item started, item completed, prompt manifest compiled, skill bindings resolved, MCP bindings created, provider failures, recovery events, and terminal turn state. Tasks have their own task event stream and projector.
 
-The database stores both source events and projected tables. This lets the UI load fast read models while still keeping enough event data to audit and recover execution. It also means a developer should treat projectors and repository methods as part of the architecture, not as incidental persistence code.
+The database stores both source events and projected tables. The UI can load read models quickly while the event data remains available for audit and recovery. Projectors and repository methods are therefore part of the architecture, not incidental persistence code.
 
-The practical reason is failure handling. A turn can stream text, call a shell command, receive a partial tool result, hit a provider timeout, create child tasks, or be cancelled by the user. If all of that lived only in memory, a gateway restart would turn every interesting failure into a mystery. Durable events give Pioneer something to reconcile.
+The practical reason is failure handling. A turn can stream text, call a shell command, receive a partial tool result, hit a provider timeout, create child tasks, or be cancelled. If that state lived only in memory, a gateway restart would lose the evidence needed to explain the failure. Durable events give Pioneer something to reconcile.
 
 For details, read [Persistence Layer](/architecture/persistence) after this overview. For the event producer side, read [Agent Loop](/architecture/agent-loop) and [Tasks And Subagents](/architecture/tasks).
 
-## Current Scope And Boundaries
+## Current scope and boundaries
 
 Some protocol and storage shapes intentionally lead client UI. Workspace creation, switching, and renaming are exposed, while workspace deletion, archival, and cross-workspace thread moves are not part of the current desktop or mobile workflow.
 
-Pioneer now has turn permission profiles, execution security snapshots, tool approval requests, sandbox/resource policy, backend enforcement status, and durable permission audit events. This gives tools, MCP, skills, computer use, shell execution, web access, and task/subagent launches a shared gateway-owned security model. Use separate gateways when the work should live on a separate host, account, filesystem, credential set, or network.
+Pioneer has turn permission profiles, execution security snapshots, tool approval requests, sandbox/resource policy, backend enforcement status, and durable permission audit events. Tools, MCP, skills, computer use, shell execution, web access, and task/subagent launches use this shared gateway-owned security model. Use separate gateways when work should run on a separate host, account, filesystem, credential set, or network.
 
-## Related Pages
+## Related pages
 
 - [Crate Map](/architecture/crates) explains where each piece lives in the Rust workspace.
 - [Gateway](/architecture/gateway) follows request handling and runtime ownership.

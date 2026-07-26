@@ -4,7 +4,7 @@ description: "Reference for the pioneer CLI commands and common flags."
 icon: "code"
 ---
 
-This is the full command reference for people who manage a gateway directly. If you normally use the desktop app, start with [CLI Overview](/cli/overview) and return here only when you need a specific command.
+This reference covers direct gateway management. If you normally use the desktop app, start with [CLI Overview](/cli/overview) and use this page when you need a command or flag.
 
 <Note>
   Commands that print tokens or manage secrets can affect gateway access. Read the warning near the command before running it.
@@ -217,7 +217,7 @@ The native installer flow:
 
 When `--json` is used, install/start output can include `warnings`. Treat these as service lifecycle caveats that did not prevent the gateway from starting. Linux headless persistence failures are blocking for script/manual installs because a `systemd --user` service without linger will stop when the login session ends.
 
-## Go Deeper
+## Further reading
 
 - [Gateway Architecture](/architecture/gateway) explains what the service does after `pioneer start`.
 - [Secret Storage](/architecture/secrets) explains `pioneer secrets` and `issue-superuser-token`.

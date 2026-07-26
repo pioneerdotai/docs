@@ -12,7 +12,7 @@ Keep the first version small. Start with instructions only, install it, test it 
   If you only want to use skills that already exist, start with [Skills Overview](/skills/overview), [Installing Skills](/skills/installing), and [Managing Skills](/skills/managing). This page is for people who want to author a new skill package.
 </Note>
 
-## Create A Skill
+## Create a skill
 
 For a Pioneer-native skill, write the contract in YAML frontmatter at the top of `SKILL.md`. Do not create `_meta.json` for new native skills; that file exists for imported OpenClaw-style or registry-style packages.
 
@@ -51,7 +51,7 @@ Read the repo-review skill and explain what you will do. Do not call tools yet.
 
 After that, run the smallest real task that proves the instructions work.
 
-## Package Layout
+## Package layout
 
 ```text
 repo-review/
@@ -89,7 +89,7 @@ slug: repo-review
 description: Review code in this repository using the team's review checklist. Use when the user asks for a code review, regression risk check, or release-readiness pass.
 ---
 
-# Repo Review
+# Repo review
 
 Read `references/review-checklist.md` before reviewing application code.
 
@@ -99,7 +99,7 @@ Lead with findings ordered by severity. Include file and line references when av
 
 For native Pioneer skills, include `slug` explicitly in the YAML frontmatter. The open Agent Skills strict profile requires `name` and `description`; Pioneer-native packages should provide all three fields in `SKILL.md`.
 
-## Frontmatter Fields
+## Frontmatter fields
 
 Use YAML frontmatter between the opening and closing `---` markers. Field names are case-sensitive. Empty strings are trimmed and treated as missing. Unknown top-level fields are ignored by the parser, so do not rely on a custom top-level field unless another system reads it.
 
@@ -156,12 +156,12 @@ runtime:
           mode: summary_only
 ---
 
-# Repo Review
+# Repo review
 
 Read `references/review-checklist.md` before reviewing application code.
 ```
 
-## Frontmatter Summary
+## Frontmatter summary
 
 | Field | Status | Type | Accepted YAML | Default / precedence | Meaning |
 | --- | --- | --- | --- | --- | --- |
@@ -180,7 +180,7 @@ Read `references/review-checklist.md` before reviewing application code.
 | `disable-model-invocation` | Optional | boolean | `disable-model-invocation: false` | `false` | Whether automatic model-side invocation is disabled. |
 | `runtime` | Optional | object | `runtime: { tools: [...] }` | No runtime tools | Dynamic tool declarations. Advanced; most skills should omit it. |
 
-## Field Reference
+## Field reference
 
 Each section below describes one top-level YAML frontmatter field. The contract details are based on the current Pioneer parser behavior.
 
@@ -258,7 +258,7 @@ description: Review code in this repository using the team's checklist. Use when
 
 Accepted type: string.
 
-This is the most important discovery field. Keep both parts in the same string:
+This field controls skill discovery. Keep both parts in the same string:
 
 - what the skill does
 - when it should be used
@@ -673,7 +673,7 @@ Runtime tool kinds:
 
 Runtime tools are still subject to gateway configuration, trust policy, dependency rechecks, output policy caps, duplicate-name checks, and per-skill tool limits. A declared tool may be excluded even when the skill installs.
 
-## `_meta.json` Compatibility Sidecar
+## `_meta.json` compatibility sidecar
 
 Native Pioneer skills should use YAML frontmatter in `SKILL.md` for `name`, `slug`, `owner`, `version`, `description`, dependencies, metadata, and runtime declarations.
 
@@ -712,7 +712,7 @@ Precedence rules:
 
 Do not put native-only fields such as `description`, `dependencies`, `paths`, `allowed-tools`, `metadata`, `user-invocable`, `disable-model-invocation`, or `runtime` in `_meta.json`. Pioneer reads those from `SKILL.md` frontmatter.
 
-## Package And Install Details
+## Package and install details
 
 Archive from the parent directory:
 
@@ -724,7 +724,7 @@ The archive must contain a single top-level root, such as `repo-review/`, and th
 
 Install the package from the desktop Skills view. After upload, read validation issues, dependency diagnostics, security findings, and policy state before using the skill in important work. New installs should stay explicit-only until the skill has been tested in at least one low-risk thread.
 
-## Quality Checklist
+## Quality checklist
 
 - The skill has a short, stable `slug`.
 - The `description` says exactly when the skill should be used.
@@ -735,7 +735,7 @@ Install the package from the desktop Skills view. After upload, read validation 
 - Runtime tools are avoided unless the workflow truly needs callable tools.
 - The first install is tested on a sandbox gateway or low-risk workspace.
 
-## Related Pages
+## Related pages
 
 - [Installing Skills](/skills/installing) explains the desktop install flow.
 - [Managing Skills](/skills/managing) explains enabled and implicit policy.

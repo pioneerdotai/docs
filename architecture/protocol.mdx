@@ -7,15 +7,15 @@ description: "The JSON-RPC contract between gateways and clients."
 
 Clients should depend on the protocol, not on gateway internals. The gateway may reorganize storage, scheduling, or runtime code without changing how clients call `turn/start`, listen for `item/completed`, install MCP servers, update provider keys, or manage CLI runtime approvals.
 
-This crate is the line between "implementation" and "product API." If a field appears here, desktop, mobile, custom clients, tests, and generated schemas can start depending on it.
+This crate separates implementation from the product API. Once a field appears here, desktop, mobile, custom clients, tests, and generated schemas can depend on it.
 
-## Why This Layer Exists
+## Why this layer exists
 
 Pioneer is designed to support more than one client. The desktop app, mobile app, CLIs, automation scripts, and third-party protocol clients all need the same public API. That only works if the public API is explicit and generated from one source of truth.
 
 The protocol crate also prevents accidental coupling. A client should not import `pioneer-crud` to understand a turn. It should receive `Turn`, `TurnItem`, and notification payloads from `pioneer-protocol`.
 
-## Transport Contract
+## Transport contract
 
 Pioneer uses JSON-RPC 2.0 over WebSocket. Requests have a method name from `pioneer_protocol::constants::methods`, an id, and typed params. Responses return either a typed result or a JSON-RPC error. Notifications use method names from `pioneer_protocol::constants::events` and have no response id.
 
@@ -25,7 +25,7 @@ The gateway dispatch path lives in `crates/gateway/src/message/dispatch.rs`. It 
 
 Do not make clients depend on handler-local structs. If a request, response, notification, or error detail crosses the WebSocket boundary, it belongs in `crates/protocol` even when only one current client consumes it.
 
-## Envelope Rules
+## Envelope rules
 
 | Boundary | Rule |
 | --- | --- |
@@ -37,31 +37,31 @@ Do not make clients depend on handler-local structs. If a request, response, not
 
 Pioneer uses domain-specific unavailable/rejection DTOs heavily. Prefer returning a typed "cannot do this because X" result for normal product state. Reserve JSON-RPC errors for invalid requests, failed IO, corrupted state, auth failures, and unexpected execution failures.
 
-## Method Groups
+## Method groups
 
 | Group | Examples |
 |---|---|
 | Workspaces | `workspace/list`, `workspace/create`, `workspace/default`, `workspace/select`, `workspace/update` |
 | Threads | `thread/start`, `thread/get`, `thread/history`, `thread/tree`, `thread/timeline/page`, folder operations |
-| Turns | `turn/start`, `turn/cancel`, `turn/resume`, `turn/get`, `turn/items`, `turn/work/page`, `turn/permission/request/respond` |
+| Turns | `turn/start`, `turn/cancel`, `turn/resume`, `turn/get`, `turn/items`, `turn/work/page`, `turn/work/items/get`, `turn/permission/request/respond` |
 | Voice | `voice/status`, `voice/session/start`, `voice/session/finalize`, `voice/session/cancel`; binary `VOC1` chunk frames |
-| Providers | `provider/list`, `provider/models/list`, `provider/set_api_key`, `provider/delete_api_key` |
-| CLI runtimes | `cli_runtime/list`, `cli_runtime/refresh`, `cli_runtime/list_models`, `cli_runtime/thread_binding/get`, `cli_runtime/thread/fork`, `cli_runtime/thread/compact`, `cli_runtime/turn/steer`, `cli_runtime/review/start`, login and request-response methods |
+| Providers | `provider/list`, `provider/models/list`, `provider/embedding_models/list`, `provider/transcription_models/list`, `provider/configure`, `provider/set_api_key`, `provider/delete_api_key` |
+| CLI runtimes | `cli_runtime/list`, `cli_runtime/refresh`, `cli_runtime/list_models`, `cli_runtime/thread_binding/get`, `cli_runtime/thread/fork`, `cli_runtime/thread/compact`, `cli_runtime/turn/steer`, `cli_runtime/review/start`, proxy, login, and request-response methods |
 | Settings | `settings/get`, `settings/update` |
-| Skills | `skills/list`, `skills/install`, `skills/update`, `skills/uninstall`, `skills/health`, upload and policy methods |
+| Skills | `skills/list`, `skills/install`, `skills/update`, `skills/uninstall`, `skills/pack/install`, `skills/pack/update`, `skills/pack/uninstall`, `skills/health`, upload and policy methods |
 | Memory | `memory/search`, `memory/get`, `memory/remember`, `memory/forget`, candidate review methods |
 | MCP | `mcp/list`, `mcp/install`, `mcp/policy/set`, `mcp/server/restart`, `mcp/uninstall`, `mcp/server/details` |
 | Tasks | `task/create`, `task/get`, `task/list`, `task/tree`, `task/events`, `task/wait`, `task/cancel`, `task/reschedule`, `task/detach`, `task/pause`, `task/resume`, `task/agenda`, `task/deliveries` |
 
 `crates/protocol` also exports `TaskUpdateParams`, `TaskUpdateResponse`, and the `task/update` method constant for task update contracts used by the task service and model-facing `task_update` tool. The gateway JSON-RPC dispatcher does not currently route `task/update` as a client method.
 
-## Notification Groups
+## Notification groups
 
 The protocol includes notifications for thread changes, timeline block changes, turn lifecycle, turn work state/items, item lifecycle, turn permission approval/audit, voice chunk/session results, tool retry and recovery, context compression, CLI runtime status/account/request/app changes, remote-access status changes, memory changes, skills changes, MCP status/catalog changes, task events, delivery state, and write locks.
 
 The gateway treats durable agent events as the source for many notifications. A client can render live progress without knowing whether an event originated from the provider stream, a built-in tool, an MCP tool, a skill runtime tool, or the task scheduler.
 
-## Events Versus Read Models
+## Events versus read models
 
 Protocol notifications are not a substitute for durable storage. They are live delivery hints and UI synchronization messages. A reconnecting client should be able to call read methods such as thread history, turn items, task events, settings get, skills list, or MCP list to reconstruct state.
 
@@ -74,13 +74,13 @@ When adding a notification, define:
 - whether the event is ordered relative to other events in the same turn/task/session;
 - whether duplicate delivery should be harmless.
 
-## Method Surface Discipline
+## Method surface discipline
 
 New methods should usually match a product action or a stable query, not an internal helper. Good method names are verbs over product concepts: `turn/start`, `mcp/install`, `skills/update`, `settings/get`, `cli_runtime/turn/steer`.
 
 Avoid exposing a method just because a gateway function exists. If the function is an implementation step in a larger flow, keep it internal and expose the higher-level operation.
 
-## Domain DTOs
+## Domain dtos
 
 Protocol DTOs should be boring, serializable product facts:
 
@@ -95,11 +95,11 @@ Protocol DTOs should be boring, serializable product facts:
 
 Protocol DTOs should not include raw secrets, database connection details, local absolute paths from clients unless explicitly user-provided, provider-private HTTP response bodies, or implementation-only cache keys.
 
-## Schema Generation
+## Schema generation
 
 Protocol schemas are generated from Rust types and written under `schemas/`. The schema export helpers live in the protocol crate. When a protocol type changes, the Rust type and generated schema should be updated together.
 
-The architecture goal is simple: API review should happen at the protocol boundary. If a type is client-visible, it belongs in `crates/protocol`. If it is only used by one implementation layer, keep it in that layer.
+Review API changes at the protocol boundary. A client-visible type belongs in `crates/protocol`; a type used by one implementation layer belongs in that layer.
 
 There is a second schema layer for shared client/FFI DTOs. Protocol schemas describe gateway contract. Client schemas describe shell-facing projections produced by `pioneer-client` and `pioneer-client-ffi`. Do not confuse the two:
 
@@ -110,13 +110,13 @@ There is a second schema layer for shared client/FFI DTOs. Protocol schemas desc
 
 Changing protocol may require changing client schemas, but many client schema changes are presentation-only projections and should not become gateway protocol fields.
 
-## Versioning Discipline
+## Versioning discipline
 
 Developers should treat field names, enum variants, method constants, and notification payloads as user-facing architecture. A storage refactor should not force a protocol change unless the product behavior changes too.
 
 Compatibility is especially important for mobile because generated TypeScript contracts can lag behind Rust changes during development. If a field is optional in practice, model it explicitly as optional. If a state is impossible for one client but possible for another, keep it in the shared enum and let presentation decide how to render it.
 
-## Auth And Secrets Boundary
+## Auth and secrets boundary
 
 Protocol requests carry bearer auth at connection level, not by embedding raw gateway secrets in each method. Methods that manage secrets should accept new secret values only on write operations and should return redacted snapshots or `has_*` booleans on read operations.
 
@@ -129,7 +129,7 @@ Examples:
 
 If a protocol response would echo a raw secret, the design is wrong.
 
-## Change Guidelines
+## Change guidelines
 
 When changing protocol types, ask three questions:
 
@@ -152,7 +152,7 @@ Use this checklist before merging a protocol change:
 - turn security snapshot, sandbox/resource policy, and client security projections updated when execution semantics change;
 - protocol reference docs updated.
 
-## Related Pages
+## Related pages
 
 - [Gateway](/architecture/gateway) explains where protocol methods are dispatched.
 - [Persistence Layer](/architecture/persistence) explains how protocol-visible state maps to durable records.

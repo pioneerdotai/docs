@@ -3,7 +3,7 @@ title: "Protocol Introduction"
 description: "Pioneer's JSON-RPC 2.0 protocol: transport, authentication, envelopes, method names, notifications, ids, schemas, and conventions."
 ---
 
-Pioneer clients talk to a gateway over JSON-RPC 2.0 on a WebSocket connection. The desktop app, mobile app, shared client core, and any custom client use this contract without linking to gateway internals.
+Pioneer clients communicate with a gateway through JSON-RPC 2.0 over WebSocket. The desktop app, mobile app, shared client core, and custom clients use this contract without linking to gateway internals.
 
 The protocol reference documents the public surface from `crates/protocol`. If a method, event, or payload is not exported there, treat it as an implementation detail.
 
@@ -35,7 +35,7 @@ Tokens are validated during the WebSocket handshake. A missing or invalid bearer
 
 The superuser JWT signing material is stored in the gateway keystore. Rotate it with `pioneer secrets rotate-jwt-token superuser`; existing superuser bearer tokens become invalid and must be reissued.
 
-## Request Envelope
+## Request envelope
 
 Every request uses JSON-RPC `2.0`. Request ids are strings with exactly 21 characters.
 
@@ -132,9 +132,9 @@ Notifications are server-to-client JSON-RPC messages without an id. They are how
 }
 ```
 
-Clients should treat request responses as acceptance/lookup results, not as the whole operation. For example, `turn/start` returns after the gateway accepts the turn; the assistant response arrives through `turn/*` and `item/*` notifications.
+Clients should treat request responses as acceptance or lookup results, not as the complete operation. For example, `turn/start` returns after the gateway accepts the turn; the assistant response arrives through `turn/*` and `item/*` notifications.
 
-## Naming Conventions
+## Naming conventions
 
 Method names use slash-separated groups:
 
@@ -165,7 +165,7 @@ JSON Schemas are generated from `crates/protocol` and written to `/schemas`. The
 
 When implementing a client, use this reference for behavior and the generated schemas for exact type validation.
 
-## Reference Sections
+## Reference sections
 
 <CardGroup cols={2}>
   <Card title="Workspace & Threads" href="/protocol/workspace">

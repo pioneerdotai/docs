@@ -3,7 +3,7 @@ title: "Providers API"
 description: "Listing workspace providers, listing provider models, and managing workspace-scoped API keys through the gateway."
 ---
 
-Provider methods are deliberately small. The gateway owns API provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. Provider configuration is workspace-scoped: every provider method takes `workspace_id`, and API keys are stored under workspace-specific secret ids. A desktop app, mobile app, CLI, or custom client should not talk directly to every model provider just to build a model picker.
+Provider methods are deliberately small. The gateway owns API provider configuration, stores credentials in its keystore, discovers models, and normalizes model metadata for clients. Configuration is workspace-scoped: every provider method takes `workspace_id`, and API keys use workspace-specific secret ids. Clients do not need to contact each model provider directly to build a model picker.
 
 CLI-backed agent runtimes are not provider adapters. Use [CLI Runtime API](/protocol/cli-runtime) for runtime listing, runtime model catalogs, approvals, and `cliAgentRuntime` turn execution.
 
@@ -15,10 +15,13 @@ Use these methods when a client needs to show available providers for a workspac
 |---|---|---|---|
 | `provider/list` | `ProviderListParams` | `ProviderListResponse` | Return configured provider adapters for a workspace. |
 | `provider/models/list` | `ProviderListModelsParams` | `ProviderListModelsResponse` | Return models known for one provider in a workspace. |
+| `provider/embedding_models/list` | `ProviderListModelsParams` | `ProviderListModelsResponse` | Return embedding models supported by one provider. |
+| `provider/transcription_models/list` | `ProviderListModelsParams` | `ProviderListModelsResponse` | Return transcription models supported by one provider. |
+| `provider/configure` | `ProviderConfigureParams` | `ProviderConfigureResponse` | Update a provider API key and/or its workspace-scoped proxy. |
 | `provider/set_api_key` | `ProviderSetApiKeyParams` | `ProviderSetApiKeyResponse` | Store or replace a workspace provider API key. |
 | `provider/delete_api_key` | `ProviderDeleteApiKeyParams` | `ProviderDeleteApiKeyResponse` | Remove a workspace provider API key. |
 
-## Listing Providers
+## Listing providers
 
 `provider/list` requires the workspace id because provider configuration belongs to a workspace on the gateway.
 
@@ -46,9 +49,9 @@ Response:
 }
 ```
 
-The `name` is the stable provider identifier used in `model_provider`, `provider/models/list`, and API-key methods.
+The `name` is the stable provider identifier used in `model_provider`, `provider/models/list`, and provider configuration methods. `proxy_url`, when present, is the gateway-side network route for that provider; clients should display it as configuration state, not as a secret-bearing URL.
 
-## Listing Models
+## Listing models
 
 Use `provider/models/list` after the user selects a provider. The gateway returns normalized metadata that a client can use for filtering, badges, warnings, or default selection.
 
@@ -111,13 +114,15 @@ Response shape:
 
 Model metadata is advisory. Providers differ in how much information they expose, so clients must tolerate `null` for limits, pricing, lifecycle state, and individual capabilities.
 
-## Model Metadata
+Embedding and transcription catalogs use the same normalized model shape, but are separate methods because these models serve gateway services rather than ordinary chat selection. Use the embedding catalog for thread-context/vector-search configuration and the transcription catalog for voice input settings.
+
+## Model metadata
 
 `ProviderModelInfo` is the normalized model object.
 
 | Field | Meaning |
 |---|---|
-| `id` | Provider model id. This is the value to put into `model`. |
+| `id` | Provider model id. Send this value as `model`. |
 | `name` | Optional display name. |
 | `description` | Optional model description. |
 | `created` | Optional provider-created timestamp. |
@@ -130,9 +135,9 @@ Model metadata is advisory. Providers differ in how much information they expose
 | `family` | Optional family/group label. |
 | `lifecycle_status` | Optional provider-specific lifecycle marker. |
 
-The important client rule is simple: choose by `id`, display by `name` when present, and never require a metadata field that may be `null`.
+Clients should select by `id`, display `name` when present, and tolerate metadata fields that are `null`.
 
-## Reasoning Metadata
+## Reasoning metadata
 
 `ProviderModelCapabilities.reasoning` describes model-level reasoning controls when the provider or runtime can report them.
 
@@ -147,7 +152,7 @@ The important client rule is simple: choose by `id`, display by `name` when pres
 
 Shared client helpers normalize effort labels and order known values for model selectors. Clients should only show a reasoning effort picker when `supported` is true and `effort_options` is non-empty. If the user changes provider or model, clear the selected effort unless a resolved thread selection explicitly carries one.
 
-## Setting An API Key
+## Setting an API key
 
 API keys are stored in the gateway keystore under the workspace id and provider name. If the desktop app connects to a remote gateway, the key is stored on that remote gateway, not in the desktop process.
 
@@ -175,7 +180,13 @@ Response:
 
 After updating a key, clients usually refresh `provider/models/list` for that provider because a newly valid credential can change what the gateway can discover.
 
-## Deleting An API Key
+## Configuring a provider proxy
+
+`provider/configure` can update a workspace provider proxy without changing its API key. Pioneer validates HTTP and SOCKS proxy URLs before storing them in the gateway keystore. The proxy is applied by the gateway when it creates the provider HTTP client, so it affects model discovery and provider requests from that gateway.
+
+Send `clear_proxy: true` to remove the proxy. Do not send `proxy_url` and `clear_proxy` together. The response reports whether the proxy changed or was deleted and returns the current URL when one is configured.
+
+## Deleting an API key
 
 ```json
 {
@@ -200,7 +211,7 @@ Response:
 
 Deleting a key does not delete threads or turns that already used that provider. It only affects future provider calls and model discovery in that workspace.
 
-## Client Behavior
+## Client behavior
 
 Provider setup is workspace-local inside a gateway. A client connected to three gateways should show provider status for the selected workspace on the selected gateway, because each workspace may have different keys and each gateway may have different local runtime availability and network access.
 

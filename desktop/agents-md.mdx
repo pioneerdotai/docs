@@ -4,11 +4,11 @@ description: "Create and edit persistent agent instructions in the thread tree."
 icon: "file-lines"
 ---
 
-`AGENTS.md` is a persistent instruction file for a scope in the thread tree. Use it for rules that should apply to every new turn in a workspace area: project conventions, preferred tools, review rules, naming conventions, safety constraints, or recurring context that should not be repeated in every prompt.
+`AGENTS.md` is a persistent instruction file for a scope in the thread tree. Use it for rules that should apply to new turns in a workspace area, such as project conventions, preferred tools, review rules, naming conventions, safety constraints, or recurring context.
 
 Unlike an uploaded attachment, `AGENTS.md` is not a file you attach to one message. It is stored by the gateway as thread-tree metadata and applied automatically when Pioneer builds prompt context for a thread.
 
-## Where It Lives
+## Where it lives
 
 There can be one `AGENTS.md` at the thread tree root and one `AGENTS.md` in each folder.
 
@@ -36,7 +36,7 @@ Thread root
 
 If a folder does not have its own active file, Pioneer keeps walking up to the parent folder and then to the root. You do not need to create an empty file in a folder just to inherit the root file.
 
-## Drafts And Empty Files
+## Drafts and empty files
 
 Only non-empty saved files are active. An empty saved `AGENTS.md` is a draft.
 
@@ -50,7 +50,7 @@ The editor autosaves as you type. The status in the editor header shows whether 
 
 If another client changes the same file while you are editing, Pioneer detects the version conflict. You can reload the remote version or overwrite it with your local buffer.
 
-## What To Put In AGENTS.md
+## What to put in AGENTS.md
 
 Write instructions that should remain stable for the folder scope:
 
@@ -63,17 +63,17 @@ Write instructions that should remain stable for the folder scope:
 - When suggesting meals, account for weeknight prep time.
 ```
 
-Good `AGENTS.md` files are specific and operational. Avoid long background essays. If the rule only matters for one turn, write it in the message instead.
+Good `AGENTS.md` files are specific and operational. Avoid long background essays. Put one-off rules in the message instead.
 
 <Tip>
   Explicit instructions in your current message override `AGENTS.md`. Use the file for defaults, and use the prompt for one-off exceptions.
 </Tip>
 
-## Remote Gateways
+## Remote gateways
 
 `AGENTS.md` belongs to the gateway workspace. If your desktop is connected to a remote gateway, creating or editing the file changes the remote gateway state. Other clients connected to the same gateway see the same sidebar file and receive change notifications.
 
-## Related Pages
+## Related pages
 
 - [Conversation Timeline](/desktop/threads) explains how thread state is rendered.
 - [AGENTS.md Architecture](/architecture/agents-md) explains storage, inheritance, hooks, and prompt injection.

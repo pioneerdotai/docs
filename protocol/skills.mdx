@@ -7,6 +7,8 @@ Skills are reusable capability packs that the gateway can expose to agents. Pion
 
 The skills protocol has three jobs: move a skill archive to the gateway, install/update/uninstall the skill, and control whether agents may use it implicitly. Explicit per-turn use is represented through `turn/start.capabilities`.
 
+Every installed skill has a stable `skill_id` that is separate from its slug, display name, source path, and current pack membership. Clients should use `skill_id` for updates, uninstall, policy changes, health operations, and capability references. A pack rename, source move, or pack update can change names and membership without changing the identity of a retained skill.
+
 ## Methods
 
 | Method | Params | Result | Purpose |
@@ -18,11 +20,14 @@ The skills protocol has three jobs: move a skill archive to the gateway, install
 | `skills/install` | `SkillsInstallParams` | `SkillsInstallResponse` | Install a skill from a finished upload. |
 | `skills/update` | `SkillsUpdateParams` | `SkillsUpdateResponse` | Replace an installed skill from a finished upload. |
 | `skills/uninstall` | `SkillsUninstallParams` | `SkillsUninstallResponse` | Remove an installed skill. |
+| `skills/pack/install` | `SkillsPackInstallParams` | `SkillsPackInstallResponse` | Install a pack and its member skills as one lifecycle operation. |
+| `skills/pack/update` | `SkillsPackUpdateParams` | `SkillsPackUpdateResponse` | Update a pack while preserving retained member identities. |
+| `skills/pack/uninstall` | `SkillsPackUninstallParams` | `SkillsPackUninstallResponse` | Remove a pack and its managed members as one operation. |
 | `skills/health` | `SkillsHealthParams` | `SkillsHealthResponse` | Inspect validation, dependency, trust, and audit state. |
 | `skills/policy/list` | `SkillsPolicyListParams` | `SkillsPolicyListResponse` | List workspace policy overrides. |
 | `skills/policy/set` | `SkillsPolicySetParams` | `SkillsPolicySetResponse` | Enable/disable a skill or implicit invocation. |
 
-## Listing Skills
+## Listing skills
 
 ```json
 {
@@ -76,7 +81,7 @@ Response shape:
 
 Use `snapshot_version` as an invalidation aid. When the gateway sends `skills/changed`, refresh the list and replace the local catalog.
 
-## Policy Model
+## Policy model
 
 Skills have two separate policy switches:
 
@@ -89,7 +94,9 @@ This split matters for client UX. "Installed" is not the same as "available to a
 
 Newly installed skills default to enabled but not implicit unless policy is changed after install. Clients should make explicit use available through the composer or another `turn/start.capabilities` flow instead of flipping implicit invocation automatically.
 
-## Upload Flow
+Pack methods return the pack projection, deterministic member changes, and lifecycle audit information. Treat the operation as atomic from the UI perspective: refresh the catalog from the returned snapshot or the subsequent `skills/changed` notification rather than merging individual member updates optimistically.
+
+## Upload flow
 
 Skill installation starts with a compressed archive upload. The supported archive format is currently `tar_gz`.
 
@@ -124,7 +131,7 @@ Response:
 
 After this response, chunks are not sent as JSON-RPC requests. They are sent as binary WebSocket frames on the same authenticated connection.
 
-## Binary Chunk Frame
+## Binary chunk frame
 
 A skill upload chunk frame has this layout:
 
@@ -165,7 +172,7 @@ The gateway acknowledges chunks with a notification:
 
 Clients should use `next_offset` for resumable upload UI and retry from the acknowledged offset after reconnect.
 
-## Finishing Or Aborting Upload
+## Finishing or aborting upload
 
 ```json
 {
@@ -192,7 +199,7 @@ Response:
 
 If the user cancels before install, call `skills/upload/abort` with `workspace_id` and `upload_id`.
 
-## Installing A Skill
+## Installing a skill
 
 Installation consumes a finished upload. The only lifecycle source currently accepted by the public protocol is `uploaded_archive`.
 
@@ -235,7 +242,7 @@ Use `skills/update` for replacing an existing skill. It accepts `slug`, `source_
 
 After install, use `skills/policy/set` only when changing policy. The default explicit-only state is enough for composer selection.
 
-## Setting Policy
+## Setting policy
 
 ```json
 {

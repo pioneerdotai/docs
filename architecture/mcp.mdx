@@ -5,15 +5,15 @@ description: "MCP install parsing, runtime sessions, catalogs, policy, and dynam
 
 Pioneer implements MCP as a gateway-owned client runtime. The desktop app configures MCP servers, but the gateway host starts stdio servers, connects to HTTP servers, stores catalogs, resolves secrets, and calls MCP tools during agent turns.
 
-MCP is a bridge between Pioneer and external tool ecosystems. Pioneer does not treat MCP servers as trusted in-process plugins. It treats them as configured external runtimes with transport, policy, status, catalog, secrets, and audit state.
+MCP connects Pioneer to external tool systems. Pioneer does not load MCP servers as trusted in-process plugins. It manages them as external runtimes with transport, policy, status, catalogs, secrets, and audit state.
 
 <Warning>
-  MCP server commands and HTTP reachability are evaluated from the gateway host. This is one of the most common sources of confusion when using a remote gateway.
+  MCP server commands and HTTP reachability are evaluated from the gateway host. With a remote gateway, install commands and test network access on that host.
 </Warning>
 
-## Why This Layer Exists
+## Why this layer exists
 
-MCP servers are not just a list of tools. They have startup behavior, auth, catalogs, changing availability, stderr/errors, retry state, and secrets. That requires a runtime service rather than a static config reader.
+An MCP server has startup behavior, authentication, a changing catalog, errors, retry state, and secrets. Pioneer needs a runtime service to manage that state.
 
 `pioneer-mcp` owns protocol-facing MCP concerns such as config parsing, transports, clients, catalogs, and runtime sessions. `McpService` in the gateway owns gateway-facing concerns: database rows, live task supervision, notifications, tool materialization, and calls from the agent's tool runtime.
 
@@ -28,7 +28,7 @@ MCP servers are not just a list of tools. They have startup behavior, auth, cata
 | Gateway service | `crates/gateway/src/mcp_service.rs` | Starts/stops/restarts server tasks, tracks snapshots, stores catalogs, publishes status, materializes tools. |
 | Gateway handlers | `crates/gateway/src/message/mcp/*` | JSON-RPC methods for install, list, policy, restart, uninstall, and details. |
 
-## Install Config
+## Install config
 
 Pioneer accepts the familiar top-level shape:
 
@@ -65,15 +65,15 @@ Each server must define exactly one transport: `command` for stdio or `url` for 
 
 Common optional fields include `required`, `startup_timeout_sec`, `tool_timeout_sec`, and `timeout`. Policy flags such as enabled state and implicit invocation are stored as installation/policy state, not required in the basic config examples.
 
-## Secrets And Redaction
+## Secrets and redaction
 
 Environment variables and HTTP headers can contain secrets. The config parser materializes secret refs, stores secret values through the gateway keystore, and stores redacted transport/source data in `gateway.db`. Runtime sessions resolve secrets through `McpSecretResolver` when a server task starts.
 
-This keeps the server installation readable and auditable without copying raw secret values into catalog snapshots or normal list responses.
+The installation remains readable and auditable without copying raw secret values into catalog snapshots or list responses.
 
 When an MCP install is updated or uninstalled, the gateway deletes stale keystore refs after the database change succeeds. The CLI also exposes `pioneer secrets garbage-collection` for orphan MCP secret values that need an explicit cleanup pass.
 
-## Runtime Lifecycle
+## Runtime lifecycle
 
 `McpService::reload_workspace` loads installed workspace servers from the database and compares them with currently running tasks. Disabled servers are stopped and reported as disabled. Changed fingerprints cause a restart. Removed servers are stopped.
 
@@ -87,11 +87,13 @@ When a server becomes live, Pioneer stores a catalog snapshot: server info, serv
 
 Catalog changes publish `mcp/server/catalog_changed` and increment the gateway MCP snapshot version. The agent uses the live snapshot and stored catalog to decide which MCP tools can be materialized for a turn.
 
-## Policy And Tool Materialization
+## Policy and tool materialization
 
 MCP policy is per gateway and per workspace. A server can be installed but disabled. A server can also be installed and enabled without allowing implicit tool exposure.
 
 At turn time, the agent asks `AgentMcpToolProvider` for availability and materialized tools. The request includes implicit exposure state plus explicit composer selections from `TurnStartParams.capabilities`: selected servers and selected raw tools.
+
+MCP projection is bounded deliberately. The current defaults allow up to 512 tools, 3 MiB of combined tool schemas, and 16 concurrent MCP calls per turn. The gateway, provider configuration, and CLI bridge validate and apply the same limits so a large catalog cannot bypass the execution budget at a later layer. Invalid limits are rejected before an agent session starts.
 
 `McpService` reloads the workspace, checks installation policy, checks runtime state, loads the catalog snapshot, and builds dynamic tool descriptors. A selected server exposes that server's allowed catalog tools for the turn. A selected tool exposes only that raw tool. If a server-level selection exists, individual tool selections for the same server are treated as duplicates at the UI/state boundary and the server selection wins.
 
@@ -101,13 +103,13 @@ MCP tools are not represented by prompt text. They materialize into `ChatRequest
 
 When the model calls a materialized MCP tool, the tool runtime sends the call back to `McpService`. The service forwards it to the live server task, waits for `McpToolCallResult`, and records audit/binding data.
 
-This indirection is important. The model never calls an MCP server directly. The call passes through the Pioneer tool runtime and gateway MCP service, so output policy, diagnostics, audit records, turn bindings, and runtime errors stay under Pioneer control.
+The model never calls an MCP server directly. The call passes through the Pioneer tool runtime and gateway MCP service, so output policy, diagnostics, audit records, turn bindings, and runtime errors remain under Pioneer control.
 
-## Local Versus Remote Gateways
+## Local versus remote gateways
 
 For stdio servers, `command`, `args`, `cwd`, and `env` are evaluated on the gateway host. For HTTP servers, the gateway host must be able to reach the URL. If the gateway runs remotely, MCP connectivity must be tested from that remote machine, not from the desktop client.
 
-## Related Pages
+## Related pages
 
 - [Tools System](/architecture/tools) explains how MCP tools become model-visible dynamic tools.
 - [Gateway](/architecture/gateway) explains why MCP processes are gateway-owned.

@@ -3,13 +3,13 @@ title: "Thread Episodic Context"
 description: "Searchable conversation-history context for long threads, workspace recall, prompt snippets, and artifact refs."
 ---
 
-Thread episodic context is Pioneer's searchable memory of conversation history. It is the answer to a different problem than durable agent memory.
+Thread episodic context is Pioneer's searchable conversation history. It solves a different problem from durable agent memory.
 
 Durable memory stores selected long-lived facts: user preferences, names, project decisions, recurring instructions, and other stable facts. Thread episodic context stores searchable fragments of conversation history so the assistant can recover useful prior discussion when a later turn asks for it.
 
 The product goal is simple: Pioneer should be able to answer questions like "what did we decide earlier?", "what did you say in yesterday's research?", or "why did you identify the car that way?" without putting the full thread transcript and every old file into every provider request.
 
-## What It Is For
+## What it is for
 
 Thread episodic context is useful when the user refers to prior discussion instead of a durable fact:
 
@@ -21,7 +21,7 @@ Thread episodic context is useful when the user refers to prior discussion inste
 
 Those are not necessarily things Pioneer should permanently remember as profile facts. They are conversation episodes. They matter because they happened in a thread, at a time, with surrounding messages, tool results, and sometimes artifacts.
 
-## What It Is Not
+## What it is not
 
 Thread episodic context is not a raw transcript dump. It is also not a replacement for durable memory.
 
@@ -33,9 +33,9 @@ Thread episodic context is not a raw transcript dump. It is also not a replaceme
 | "Always answer me in Russian." | Durable memory or explicit current instruction. |
 | "Read the PDF I uploaded in that old message." | Thread episodic recall may recover the message; `artifact_read` loads the file only if needed. |
 
-This split keeps memory cleaner. A thread can contain thousands of temporary thoughts, failed attempts, and one-off details. Most of that should stay searchable history, not become permanent agent memory.
+This split keeps memory focused. A thread can contain thousands of temporary thoughts, failed attempts, and one-off details. Most of that should remain searchable history rather than permanent agent memory.
 
-## Storage Model
+## Storage model
 
 Thread episodic context uses a database control plane plus memvid searchable capsules.
 
@@ -72,7 +72,7 @@ The database stores the authoritative metadata:
 
 Memvid stores the searchable payload. A memvid hit is not enough by itself. The gateway still checks the database row, scope, status, and prompt budget before showing a snippet to the model.
 
-## Why Chunks Exist
+## Why chunks exist
 
 Some messages are short. A single user message might be one sentence, and the whole message can be indexed as one chunk.
 
@@ -88,13 +88,13 @@ thread A / turn 41 / assistant item 1 / chunk 2
 
 The chunk id does not replace the original message. It lets recall say, "this part of that old assistant answer is relevant," and then include a compact snippet instead of the whole answer.
 
-## What Gets Indexed
+## What gets indexed
 
 Thread episodic context indexes visible conversation material that can help future turns. The normal sources are user messages and assistant messages. Tool and task output are not dumped wholesale into the index; when they become useful, they should be summarized or projected into a human-meaningful text surface first.
 
 This matters because raw tool output can be huge, noisy, or sensitive. The thread context layer is for recallable conversation context, not for storing every byte that passed through a tool.
 
-## Recall Flow
+## Recall flow
 
 Thread episodic recall is usually planned before the main model answer:
 
@@ -117,7 +117,7 @@ sequenceDiagram
 
 The preflight planner does not read memvid directly. It returns a structured plan. Rust validates that plan and runs the search through the gateway service. If the plan is invalid, unsupported, too broad, or too ambiguous, the gateway can skip episodic recall safely.
 
-## Current Thread And Workspace Recall
+## Current thread and workspace recall
 
 There are two useful recall shapes:
 
@@ -126,9 +126,9 @@ There are two useful recall shapes:
 | Current-thread recall | Search earlier indexed context from the same thread. Useful for long threads and local follow-ups. |
 | Workspace-thread recall | Search indexed context across threads in the same workspace. Useful for "what did we discuss yesterday?" or "find the prior research thread." |
 
-Both must stay bounded. Workspace-wide recall is powerful, but it should not become a prompt firehose. The service uses query plans, filters, candidate limits, ranking, and prompt budgets before context reaches the model.
+Both must stay bounded. Workspace-wide recall can return a lot of context, so the service applies query plans, filters, candidate limits, ranking, and prompt budgets before anything reaches the model.
 
-## Artifact References
+## Artifact references
 
 Conversation history often includes files: photos, screenshots, PDFs, CSVs, logs, and generated reports. Thread episodic context does not inline those file bytes into indexed chunks.
 
@@ -175,13 +175,13 @@ near_capacity_percent = 90.0
 
 The desktop app exposes the high-level thread-context switch in **Settings > Memory**. Other values are operator/developer tuning knobs and are available through app config or gateway settings APIs where exposed.
 
-## Operational Notes
+## Operational notes
 
 Indexing is asynchronous and retryable. A message may be visible in the timeline before its thread-context chunk is searchable. That is expected. Recent conversation history still goes into the provider request directly, so the assistant does not need episodic recall for the last few messages.
 
 Recall is best-effort. If the query is too vague, the indexed text is not ready, or the prompt budget is too small, no snippet may be injected. The assistant should still answer from the current prompt and available tools rather than assuming recall is perfect.
 
-## Developer Rules
+## Developer rules
 
 - Keep thread episodic storage separate from durable memory storage.
 - Do not turn every thread chunk into an active durable memory record.
@@ -191,7 +191,7 @@ Recall is best-effort. If the query is too vague, the indexed text is not ready,
 - Do not send artifact bytes unless the model explicitly reads a specific artifact through `artifact_read`.
 - Keep search bounded by workspace/thread filters, candidate limits, and prompt budgets.
 
-## Related Pages
+## Related pages
 
 - [Memory Architecture](/architecture/memory) explains durable memory and active recall.
 - [Prompt And Context](/architecture/prompt) explains how recalled snippets enter the model prompt.

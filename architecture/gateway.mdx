@@ -5,15 +5,15 @@ description: "The persistent runtime that owns state, execution, sessions, tools
 
 The gateway is the central runtime of Pioneer. It is a long-running Tokio service started by `pioneer_gateway::run_gateway_until_shutdown()`. Desktop, mobile, and custom clients can connect to it over WebSocket JSON-RPC, but the gateway is the only process that owns durable Pioneer state.
 
-The easiest way to reason about the gateway is to treat it as an operating environment for assistant work. It stores the state, owns the execution, supervises background jobs, and decides which events clients are allowed to see. The desktop app can ask for things to happen, but the gateway is where they happen.
+Think of the gateway as the execution environment for assistant work. It stores state, owns execution, supervises background jobs, and decides which events clients see. The desktop app sends commands; the gateway performs the work.
 
 <Tip>
   If you are trying to follow the main user-message path, read this page together with [Agent Loop](/architecture/agent-loop), [Prompt And Context](/architecture/prompt), and [Persistence Layer](/architecture/persistence).
 </Tip>
 
-## Why This Layer Exists
+## Why this layer exists
 
-Pioneer cannot put important execution inside the desktop app because many operations outlive a single UI view: task schedules, recovery attempts, MCP server processes, long-running shell sessions, and provider streams. The gateway gives those operations a stable owner.
+Pioneer cannot keep important execution inside the desktop app because task schedules, recovery attempts, MCP server processes, long-running shell sessions, and provider streams can outlive a UI view. The gateway gives them a stable owner.
 
 It also keeps multi-client behavior sane. If two clients connect to the same gateway and workspace, they should see the same thread history, provider settings, tasks, and MCP server state. That is only possible if clients are observers and command senders, not independent runtimes.
 
@@ -36,7 +36,7 @@ The gateway owns:
 - SQLite persistence through `pioneer-crud`
 - resilience workers for timeouts, recovery jobs, stuck task repair, and cleanup
 
-## Main Types
+## Main types
 
 `MessageProcessor` in `crates/gateway/src/message/mod.rs` is the high-level request processor. It holds the runtime graph: `ThreadManager`, `AgentManager`, `ProviderRegistry`, `SessionManager`, `WorkspaceManager`, `CrudStore`, `GatewaySecrets`, context budgets, `McpService`, CLI runtime manager, remote access supervisor, task runtime, task agent executor, timeout supervisor, and recovery coordinator.
 
@@ -56,7 +56,7 @@ The gateway owns:
 
 These types are deliberately not hidden behind a single abstract "app service." Pioneer has several runtimes with different lifecycles: WebSocket sessions are connection-scoped, agent loops are thread-scoped, MCP tasks are installation-scoped, task runs are scheduler-scoped, and settings are gateway-scoped. `MessageProcessor` wires them together without pretending they are the same kind of state.
 
-## Runtime Home
+## Runtime home
 
 At startup, the gateway resolves runtime home from `home_directory` and creates the directory if needed. The default is `~/.pioneer`.
 
@@ -67,7 +67,7 @@ The gateway also ensures two editable identity files exist at the root of runtim
 
 Missing files are created with the current seed content. Existing files are never overwritten during startup. Prompt compilation later reads these files from runtime home, so changes made by the user or by the model can affect future turns without a code change.
 
-## Request Dispatch
+## Request dispatch
 
 Incoming WebSocket messages are JSON-RPC requests or notifications. Dispatch is method-name based. Method constants live in `pioneer-protocol`, while the gateway handler code is split by feature:
 
@@ -100,7 +100,7 @@ sequenceDiagram
   Gateway-->>Client: JSON-RPC notifications
 ```
 
-## Turn Start Lifecycle
+## Turn start lifecycle
 
 `turn/start` is the most important gateway flow:
 
@@ -125,33 +125,33 @@ sequenceDiagram
   </Step>
 </Steps>
 
-The important detail is that persistence happens before agent execution. The gateway first records that the turn exists, then dispatches it. That makes a partially failed turn visible and recoverable instead of disappearing because execution failed before the UI heard about it.
+Persistence happens before agent execution. The gateway records the turn first, then dispatches it. A turn that fails before producing UI output therefore remains visible and recoverable.
 
 After the agent starts, the gateway mostly becomes an event bridge and durability layer for that turn. Durable agent events arrive from `AgentManager`, the gateway persists them through `CrudStore`, and only then are committed notifications published to clients. Native tool permission requests are bridged through `message/permission_handlers.rs`, which publishes `turn/permission/request/opened`, accepts `turn/permission/request/respond`, and publishes `turn/permission/request/resolved`.
 
-## Voice Session Lifecycle
+## Voice session lifecycle
 
 Voice sessions are gateway-owned. `message/voice_handlers.rs` handles `voice/status`, `voice/session/start`, `voice/session/finalize`, and `voice/session/cancel`. The session store tracks the session state, and the session buffer stores validated `VOC1` microphone chunks until finalize.
 
 On finalize, the gateway transcribes the buffered audio. If transcription succeeds, it converts the frozen `VoiceTurnContext` into normal `TurnStartParams` by inserting the transcript as the first `UserInput::Text`, then starts the ordinary turn path. If the session is cancelled or contains no speech, no turn and no timeline user message are created.
 
-## Notification Model
+## Notification model
 
 The gateway sends JSON-RPC responses for direct requests and JSON-RPC notifications for state changes. A successful `turn/start` response only means the gateway accepted the turn. The actual assistant work is observed through notifications: item started, item deltas, item completed, permission approval requests, permission audit events, retries, recovery, task events, and terminal turn state.
 
 This split matters for client authors. A client should not wait for a long `turn/start` response containing the final assistant message. It should subscribe to the thread timeline and render notifications as they arrive.
 
-## Background Workers
+## Background workers
 
 When resilience workers start, the gateway binds the task bridge, repairs deterministic read-model violations, starts task scheduling, subscribes to task events, starts CLI runtime and remote-access supervision where configured, and runs a periodic loop. The loop clears stale skill uploads, polls timeout supervision, runs ready recovery jobs, and processes due task deliveries.
 
-This means not all gateway work is request-driven. Some state changes are produced by schedulers, recovery workers, MCP runtime tasks, or task delivery processing, then published back through the same notification layer.
+Not all gateway work is request-driven. Schedulers, recovery workers, MCP runtime tasks, and task delivery processing can produce state changes, which the gateway publishes through the same notification layer.
 
-## Local And Remote Deployment
+## Local and remote deployment
 
 The gateway can run on the same machine as the desktop app or on a remote server. This does not change the architecture: tools, MCP servers, skill dependency checks, provider calls, CLI runtime binaries, keystore access, storage, and task execution happen on the gateway host. If a desktop or mobile app connects to a remote gateway, installing a command or file only on the client machine does not make it available to tools running on the remote gateway.
 
-## Related Pages
+## Related pages
 
 - [Protocol Layer](/architecture/protocol) describes the request and notification contract exposed by the gateway.
 - [Agent Loop](/architecture/agent-loop) explains what happens after the gateway dispatches a turn.

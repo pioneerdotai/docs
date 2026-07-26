@@ -5,6 +5,8 @@ description: "Voice status, session control, binary audio chunks, and gateway-ow
 
 The Voice API lets clients stream microphone audio to the gateway and let the gateway create a normal turn after transcription.
 
+The gateway can transcribe with a configured provider or with a local transcription model. Local model installation and loading are gateway-owned state, exposed through voice status and the client's voice settings; microphone capture still happens in the client.
+
 Voice is not a second conversation model. A successful voice session becomes an ordinary `turn/start` flow owned by the gateway:
 
 1. The client starts a voice session with minimal routing context.
@@ -13,6 +15,8 @@ Voice is not a second conversation model. A successful voice session becomes an 
 4. The gateway transcribes audio.
 5. The gateway prepends the transcript as `UserInput::Text` and starts the normal turn.
 6. Clients render the result from existing turn and timeline notifications.
+
+The resulting turn follows the execution mode of its thread. Voice in a regular collaborative thread runs asynchronously and does not lock the Composer. A voice follow-up made inside a task conversation stays in that task rather than creating a nested detached task.
 
 Cancelled and no-speech sessions create no turn and no timeline user message.
 
@@ -70,7 +74,7 @@ Response:
 | `transcribing` | A finalized session is being transcribed. |
 | `error` | Voice is in an error state; inspect `error`. |
 
-## Starting A Session
+## Starting a session
 
 `voice/session/start` uses a minimal `VoiceSessionStartContext` so capture can begin without waiting for all non-audio composer preparation:
 
@@ -103,7 +107,7 @@ Response:
 
 The gateway validates that `workspace_id`, `thread_id`, and `turn_id` are present and that the audio format matches the streaming target.
 
-## Audio Format
+## Audio format
 
 The initial streaming contract is microphone PCM only:
 
@@ -119,7 +123,7 @@ The initial streaming contract is microphone PCM only:
 
 `pcm_f32le` is reserved in the enum for future adapters. The current streaming gateway contract accepts only `pcm_s16le`.
 
-## Binary Audio Chunks
+## Binary audio chunks
 
 Audio chunks are sent as WebSocket binary frames, not JSON-RPC requests. Each frame uses the `VOC1` envelope:
 
@@ -257,7 +261,7 @@ Voice has two permission layers:
 
 Do not map microphone permission prompts to `turn/permission/request/respond`. Agent permission prompts still use the normal turn permission API after the voice-created turn starts.
 
-## Generated Schemas
+## Generated schemas
 
 - `/schemas/voice_status.json`
 - `/schemas/voice_status_params.json`
@@ -286,7 +290,7 @@ Do not map microphone permission prompts to `turn/permission/request/respond`. A
 - `/schemas/client/voice_finalize_ui_action.json`
 - `/schemas/client/voice_session_result_reduction.json`
 
-## Related Pages
+## Related pages
 
 - [Turns API](/protocol/turns) explains normal turn creation and permission profiles.
 - [Client Architecture](/architecture/clients) explains the shared Rust client core and mobile shell boundary.

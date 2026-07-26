@@ -4,7 +4,7 @@ description: "Configure the Pioneer gateway with user config files and environme
 icon: "gear"
 ---
 
-Most users can start with the desktop or mobile app and provider settings. Use config files when you need to change gateway behavior, bind addresses, tool limits, database settings, CLI runtime defaults, remote-access relay settings, or development paths.
+Most users can start with the desktop or mobile app and provider settings. Use config files for gateway behavior, bind addresses, tool limits, database settings, CLI runtime defaults, remote-access relay settings, or development paths.
 
 ## How configuration is loaded
 
@@ -93,7 +93,7 @@ On startup, the gateway creates missing `SOUL.md` and `IDENTITY.md` files in run
 
 Provider keys are stored in the gateway keystore and scoped to a workspace.
 
-This means:
+As a result:
 
 - each workspace has its own provider credentials
 - remote gateways need their own provider setup
@@ -193,7 +193,7 @@ Runtime settings such as memory switches, thread-context switches, CLI runtime i
   View important config keys and examples.
 </Card>
 
-## Go Deeper
+## Further reading
 
 - [Gateway Architecture](/architecture/gateway) explains which systems read gateway settings at runtime.
 - [Persistence](/architecture/persistence) explains `gateway.db`, runtime home, and migration behavior.

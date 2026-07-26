@@ -3,7 +3,7 @@ title: "Turns API"
 description: "Submitting turns, cancelling turns, reading turn items, composing timelines, and handling streaming turn notifications."
 ---
 
-A turn is one unit of assistant execution inside a thread. The client creates a turn with `turn/start`, then observes progress through notifications. In `Chat` mode a turn is usually a provider call. In `Agent` mode a turn can include prompt compilation, tool calls, MCP calls, skills, task tools, subagents, retries, recovery, or execution through a CLI-backed agent runtime.
+A turn is one unit of assistant execution inside a thread. The client creates it with `turn/start` and observes progress through notifications. In `Chat` mode it is usually a provider call. In `Agent` mode it can include prompt compilation, tool calls, MCP calls, skills, task tools, subagents, retries, recovery, or a CLI-backed agent runtime.
 
 ## Methods
 
@@ -15,9 +15,10 @@ A turn is one unit of assistant execution inside a thread. The client creates a 
 | `turn/get` | `TurnGetParams` | `TurnGetResponse` | Load one turn model. |
 | `turn/items` | `TurnItemsParams` | `TurnItemsResponse` | Load persisted item events for one turn. |
 | `turn/work/page` | `TurnWorkPageParams` | `TurnWorkPageResponse` | Load paginated work items inside one semantic turn work block. |
+| `turn/work/items/get` | `TurnWorkItemsGetParams` | `TurnWorkItemsGetResponse` | Fetch changed or removed work items by id without reloading the whole page. |
 | `turn/permission/request/respond` | `TurnPermissionRequestRespondParams` | `TurnPermissionRequestRespondResponse` | Resolve an open native tool permission request. |
 
-## Starting A Turn
+## Starting a turn
 
 ```json
 {
@@ -109,9 +110,9 @@ Response:
 }
 ```
 
-The response only means the gateway accepted the turn. Render progress from notifications.
+The response confirms that the gateway accepted the turn. Render progress from notifications.
 
-## Execution Backends
+## Execution backends
 
 By default, a turn uses the thread's provider/model selection or the `model_provider` and `model` fields from `turn/start`. Clients can make the execution backend explicit:
 
@@ -149,7 +150,7 @@ For CLI-backed turns, use `cliAgentRuntime`:
 
 When a CLI runtime turn is active, the runtime can open pending requests for command approvals, file-change approvals, or user input. Clients resolve those through `cli_runtime/request/respond`, not `turn/start`.
 
-## Permission Profiles And Approval Requests
+## Permission profiles and approval requests
 
 Pioneer tool permissions are represented by `permission_profile` on `turn/start` and by the materialized `permission_profile` on every `Turn`.
 
@@ -252,7 +253,7 @@ Generated permission schemas:
 - `/schemas/turn_permission_request_respond_response.json`
 - `/schemas/turn_permission_audit_event.json`
 
-## User Input
+## User input
 
 `UserInput` is a tagged union. Common variants:
 
@@ -269,7 +270,7 @@ Generated permission schemas:
 
 Attachments are resolved by the gateway/provider pipeline. Local paths are evaluated on the gateway host, not on the client machine unless the gateway is local.
 
-## Files, Artifacts, And Remote Gateways
+## Files, artifacts, and remote gateways
 
 `localFile` and `localImage` mean "a path visible to the gateway." They are convenient for local developer flows, but they are not a portable client contract. If a desktop or mobile client is connected to a remote gateway, a path like `/Users/alexander/Desktop/photo.jpg` exists on the client machine, not on the gateway machine.
 
@@ -283,7 +284,7 @@ The current turn can then receive the artifact as provider input when supported.
 
 This is why clients should treat artifacts as the durable file identity and local paths as a gateway-local convenience.
 
-## Turn Capabilities
+## Turn capabilities
 
 Skills and MCP selections are sent separately from `input`:
 
@@ -326,7 +327,7 @@ The gateway normalizes duplicate and invalid capability input before resolution.
 
 Composer-selected skills become compact skill prompt entries and optional skill dynamic tools. Composer-selected MCP servers and tools become dynamic provider tools; they do not add MCP prompt text.
 
-## Cancelling A Turn
+## Cancelling a turn
 
 ```json
 {
@@ -341,7 +342,7 @@ Composer-selected skills become compact skill prompt entries and optional skill 
 
 The response contains the updated `Turn`. A cancelled turn is represented as an interrupted/failed terminal state depending on where cancellation lands in the runtime.
 
-## Resuming A Blocked Turn
+## Resuming a blocked turn
 
 When a turn is blocked by recovery policy or an exhausted execution window, clients can resume it with `turn/resume`:
 
@@ -360,7 +361,7 @@ When a turn is blocked by recovery policy or an exhausted execution window, clie
 
 Clients should expect a blocked turn to publish `turn/blocked` before user-visible recovery actions become available.
 
-## Reading Items
+## Reading items
 
 `turn/items` returns persisted `TurnItemEvent` rows for one turn.
 
@@ -386,7 +387,7 @@ Result:
 }
 ```
 
-## Semantic Timeline And Turn Work
+## Semantic timeline and turn work
 
 The current semantic timeline API is split by level:
 
@@ -394,11 +395,12 @@ The current semantic timeline API is split by level:
 | --- | --- |
 | `thread/timeline/page` | Top-level paginated conversation blocks for a thread. |
 | `turn/work/page` | Paginated work items inside one `turn_work` block. |
+| `turn/work/items/get` | Targeted refresh for changed work item ids after a live notification or reconnect. |
 | `turn/items` | Raw persisted event replay for one turn. |
 
 Use [Threads API](/protocol/threads) `thread/timeline/page` when rendering a scrollable conversation. Use `turn/work/page` when the user expands or paginates the detailed work for a single turn.
 
-## Turn Work Page
+## Turn work page
 
 `turn/work/page` loads the paginated work items inside one semantic turn work block. It is the detail API paired with [Threads API](/protocol/threads) `thread/timeline/page`.
 
@@ -414,13 +416,32 @@ Use [Threads API](/protocol/threads) `thread/timeline/page` when rendering a scr
 }
 ```
 
-The response includes `workspaceId`, `threadId`, `turnId`, `projectionVersion`, `work`, `items`, and `page`.
+The response includes `workspaceId`, `threadId`, `turnId`, `projectionVersion`, `sourceHighWatermark`, `projectionUpdatedAtUnixMicros`, `work`, `items`, and `page`.
 
 | Field | Meaning |
 | --- | --- |
 | `work` | `TurnWorkBlock` summary: presentation, state, counts, cursors, and elapsed time. |
 | `items` | `TurnWorkItem` rows containing the underlying `TurnItem`, status, item type, order key, timestamps, and optional metadata. |
 | `page` | Cursor and `hasMoreBefore` / `hasMoreAfter` pagination state. |
+
+`sourceHighWatermark` and `projectionUpdatedAtUnixMicros` let clients reject an older response that arrives after a newer projection. Work items also carry source sequence and source-update timestamps. Use these values to prevent a late reconnect response from changing a completed, failed, or cancelled item back to an older state.
+
+### Fetching changed work items
+
+`turn/work/items/get` is the narrow refresh path for semantic timeline reducers. Send the work item ids named by a change notification:
+
+```json
+{
+  "method": "turn/work/items/get",
+  "params": {
+    "threadId": "thr_000000000000000001",
+    "turnId": "trn_000000000000000001",
+    "workItemIds": ["work_000000000000000001"]
+  }
+}
+```
+
+The response returns the current items plus `removedWorkItemIds`, along with the projection freshness fields. A client can merge this response into the existing timeline without discarding unrelated loaded pages.
 
 Use `turn/work/page` when expanding or paginating the work under a turn. Use `turn/items` for raw persisted event replay.
 
@@ -433,7 +454,7 @@ Generated turn-work schemas:
 - `/schemas/turn_work_items_changed_notification.json`
 - `/schemas/turn_work_state_changed_notification.json`
 
-## Turn Items
+## Turn items
 
 `TurnItem` is the timeline object that clients render. Main variants:
 
@@ -453,7 +474,7 @@ Generated turn-work schemas:
 
 Tool items include `status`, `arguments`, `output_policy`, display/storage payloads, optional recovery policy, optional recovery view, and normalized outcome fields.
 
-## Streaming Notifications
+## Streaming notifications
 
 Turn execution is observed through notifications:
 
@@ -479,7 +500,7 @@ Turn execution is observed through notifications:
 
 Delta notifications include `stream`: `agent_message`, `stdout`, `stderr`, `tool_progress`, `file_change`, or `generic`.
 
-## Execution Windows
+## Execution windows
 
 Long agent turns are divided into execution windows. A window bounds agent rounds, tool calls, wall-clock time, and provider-token accounting. When a window is exhausted, the gateway can checkpoint the turn and continue in a new window, or block the turn if the total turn budget has been reached.
 
@@ -508,7 +529,7 @@ Execution-window notifications are:
 
 The per-window limits come from `[gateway.tools.execution_windows]`; total turn limits come from `[gateway.tools.execution_windows.total]`.
 
-## Recovery And Retry Notifications
+## Recovery and retry notifications
 
 The gateway also publishes detailed recovery events:
 
@@ -531,13 +552,13 @@ The gateway also publishes detailed recovery events:
 
 Clients can render these as timeline diagnostics or use them to trigger a timeline refresh.
 
-## Voice-Created Turns
+## Voice-created turns
 
 Voice input is controlled by the [Voice API](/protocol/voice), but successful voice sessions become normal turns. The gateway owns transcription and starts the final turn with the transcript as the first `UserInput::Text` item. Clients should render the resulting user message, assistant work, permission prompts, and terminal state from the normal turn and timeline notifications.
 
 Cancelled and no-speech voice sessions do not create a turn or a timeline user message. Voice platform microphone permission is client-side capture state; it is separate from Pioneer agent `permission_profile` and turn sandbox/resource policy.
 
-## Prompt Manifest
+## Prompt manifest
 
 When the prompt compiler runs, the `Turn` can receive a `prompt_manifest`:
 
